@@ -541,7 +541,11 @@ app.post('/api/profile/test-email', async (req, res) => {
 // Profile routes will be registered after database initialization
 
 // Initialize database
-const dbPath = join(__dirname, 'hairmanager.db');
+// Use data directory in production (Docker), or current directory in development
+const dataDir = process.env.NODE_ENV === 'production' 
+  ? join(__dirname, 'data') 
+  : __dirname;
+const dbPath = join(dataDir, 'hairmanager.db');
 
 // Initialize database first, then migrate, then start server
 initDatabase(dbPath)
@@ -597,6 +601,17 @@ initDatabase(dbPath)
     app.get('/api/health', (req, res) => {
       console.log('[Health Check] Route handler called');
       res.json({ status: 'ok' });
+    });
+
+    // Serve static files from the dist directory (built frontend)
+    const distPath = join(__dirname, 'dist');
+    app.use(express.static(distPath));
+
+    // Serve index.html for all non-API routes (SPA routing)
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(join(distPath, 'index.html'));
+      }
     });
 
     app.listen(PORT, () => {
