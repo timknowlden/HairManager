@@ -139,7 +139,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     if (!invoiceRef.current || !invoiceData || !profileSettings) return;
 
     const element = invoiceRef.current;
-    const businessName = profileSettings.business_name || profileSettings.name || 'Kates_Cuts';
+    const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
     const locationName = locationDetails.name || 'Location';
     const filename = `Invoice_${invoiceData.invoiceNumber}_${businessName.replace(/\s+/g, '_')}_${locationName.replace(/\s+/g, '_')}.pdf`;
 
@@ -211,17 +211,28 @@ function Invoice({ appointments: propsAppointments, onBack }) {
       return;
     }
 
-    // Create mailto link with all emails
-    const mailtoLink = `mailto:${emails.join(',')}`;
+    if (!invoiceData || !profileSettings) {
+      alert('Invoice data not ready');
+      return;
+    }
+
+    // Build subject same as email invoice function
+    const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
+    const subject = `Invoice ${invoiceData.invoiceNumber} from ${businessName}`;
+
+    // Create mailto link with subject only (no body - user will compose their own message)
+    const encodedSubject = encodeURIComponent(subject);
+    const mailtoLink = `mailto:${emails.join(',')}?subject=${encodedSubject}`;
     window.location.href = mailtoLink;
   };
 
   const handleEmailInvoice = async () => {
-    const emailToUse = locationDetails.emails.length > 0 
-      ? locationDetails.emails[0] 
-      : locationDetails.email;
+    // Get all emails for this location
+    const allEmails = locationDetails.emails.length > 0 
+      ? locationDetails.emails 
+      : (locationDetails.email ? [locationDetails.email] : []);
     
-    if (!emailToUse) {
+    if (allEmails.length === 0) {
       alert('No email address found for this location');
       return;
     }
@@ -234,7 +245,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     try {
       // Generate PDF first
       const element = invoiceRef.current;
-      const businessName = profileSettings.business_name || profileSettings.name || 'Kates_Cuts';
+      const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
       const locationName = locationDetails.name || 'Location';
       const filename = `Invoice_${invoiceData.invoiceNumber}_${businessName.replace(/\s+/g, '_')}_${locationName.replace(/\s+/g, '_')}.pdf`;
 
@@ -299,45 +310,104 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         // Build email body with default content and signature
         let emailBody = profileSettings.default_email_content || `Please find attached invoice ${invoiceData.invoiceNumber} for services provided.`;
         
-        // Replace {invoiceNumber} placeholder if present (works for both HTML and plain text)
+        // DEBUG: Log the original email body to see what Tiptap stored
+        console.log('=== EMAIL BODY REPLACEMENT DEBUG ===');
+        console.log('Original emailBody (first 1000 chars):', emailBody.substring(0, 1000));
+        console.log('EmailBody includes {invoiceNumber}:', emailBody.includes('{invoiceNumber}'));
+        console.log('EmailBody includes {InvoiceNumber}:', emailBody.includes('{InvoiceNumber}'));
+        console.log('EmailBody includes HTML entities:', emailBody.includes('&#123;') || emailBody.includes('&#125;'));
+        
+        // Replace {invoiceNumber} and {InvoiceNumber} placeholders if present (works for both HTML and plain text)
         // Tiptap stores content as HTML, so handle various encodings and HTML tag structures
         const invoiceNum = String(invoiceData.invoiceNumber || '');
         
         if (!invoiceNum) {
           console.error('Invoice number is missing!', invoiceData);
           alert('Warning: Invoice number is missing. The {invoiceNumber} placeholder will not be replaced.');
-        }
-        
-        // Store original for debugging
-        const originalEmailBody = emailBody;
-        
-        // Try multiple replacement patterns to handle different encodings
-        // 1. Plain text version (most common) - use global flag to replace all instances
-        emailBody = emailBody.replace(/{invoiceNumber}/g, invoiceNum);
-        
-        // 2. HTML entity encoded braces: { = &#123; and } = &#125;
-        emailBody = emailBody.replace(/&#123;invoiceNumber&#125;/g, invoiceNum);
-        
-        // 3. Double-encoded HTML entities
-        emailBody = emailBody.replace(/&amp;#123;invoiceNumber&amp;#125;/g, invoiceNum);
-        
-        // 4. Escaped regex version (just in case)
-        emailBody = emailBody.replace(/\{invoiceNumber\}/g, invoiceNum);
-        
-        // 5. Handle case where placeholder might be split or in different HTML structures
-        // Replace even if it's inside HTML tags like <p>{invoiceNumber}</p> or <strong>{invoiceNumber}</strong>
-        emailBody = emailBody.replace(/(<[^>]*>)?\{invoiceNumber\}(<\/[^>]*>)?/gi, (match, openTag, closeTag) => {
-          return (openTag || '') + invoiceNum + (closeTag || '');
-        });
-        
-        // Debug: Log if replacement didn't work
-        if (emailBody.includes('{invoiceNumber}')) {
-          console.error('Invoice number replacement failed!');
-          console.error('Invoice number value:', invoiceNum);
-          console.error('Original email content:', originalEmailBody);
-          console.error('Email body after replacement:', emailBody);
-          // Try one more time with a more aggressive approach - replace any occurrence
-          emailBody = emailBody.split('{invoiceNumber}').join(invoiceNum);
+        } else {
+          console.log('Replacing with invoice number:', invoiceNum);
+          
+          // Store original for debugging
+          const originalEmailBody = emailBody;
+          
+          // Strategy: First decode any HTML entities, then replace, then re-encode if needed
+          // But actually, let's try a simpler approach: replace in the raw HTML string
+          
+          // Pattern 1: Most common - plain text within HTML tags: <p>Hello {invoiceNumber}</p>
+          emailBody = emailBody.replace(/\{invoiceNumber\}/gi, invoiceNum);
+          emailBody = emailBody.replace(/\{InvoiceNumber\}/gi, invoiceNum);
+          
+          // Pattern 2: HTML entity encoded braces: { = &#123; and } = &#125;
+          emailBody = emailBody.replace(/&#123;invoiceNumber&#125;/gi, invoiceNum);
+          emailBody = emailBody.replace(/&#123;InvoiceNumber&#125;/gi, invoiceNum);
+          
+          // Pattern 3: Double-encoded HTML entities
+          emailBody = emailBody.replace(/&amp;#123;invoiceNumber&amp;#125;/gi, invoiceNum);
+          emailBody = emailBody.replace(/&amp;#123;InvoiceNumber&amp;#125;/gi, invoiceNum);
+          
+          // Pattern 4: Handle spans wrapping the placeholder: <span>{invoiceNumber}</span>
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{invoiceNumber\}\s*<\/span>/gi, invoiceNum);
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{InvoiceNumber\}\s*<\/span>/gi, invoiceNum);
+          
+          // Pattern 4b: Handle braces OUTSIDE span with placeholder text INSIDE: {<span>invoiceNumber</span>}
+          // This is the actual pattern Tiptap creates: {<span style="color: ...">invoiceNumber</span>}
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*invoiceNumber\s*<\/span>\}/gi, invoiceNum);
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*InvoiceNumber\s*<\/span>\}/gi, invoiceNum);
+          
+          // Pattern 5: Handle case where placeholder might be split across HTML tags
+          emailBody = emailBody.replace(/(<[^>]*>)?\{invoiceNumber\}(<\/[^>]*>)?/gi, (match, openTag, closeTag) => {
+            return (openTag || '') + invoiceNum + (closeTag || '');
+          });
+          emailBody = emailBody.replace(/(<[^>]*>)?\{InvoiceNumber\}(<\/[^>]*>)?/gi, (match, openTag, closeTag) => {
+            return (openTag || '') + invoiceNum + (closeTag || '');
+          });
+          
+          // Pattern 6: Handle nested spans with color styling (Tiptap often does this)
+          emailBody = emailBody.replace(/<span[^>]*color[^>]*>\s*\{invoiceNumber\}\s*<\/span>/gi, invoiceNum);
+          emailBody = emailBody.replace(/<span[^>]*color[^>]*>\s*\{InvoiceNumber\}\s*<\/span>/gi, invoiceNum);
+          
+          // Pattern 7: Handle if Tiptap wrapped each character in spans (unlikely but possible)
+          // This would be like: <span>{</span><span>i</span><span>n</span>... etc
+          // We'll handle this by removing all spans around the placeholder first
+          emailBody = emailBody.replace(/<span[^>]*>\{<\/span><span[^>]*>invoiceNumber<\/span><span[^>]*>\}<\/span>/gi, invoiceNum);
+          emailBody = emailBody.replace(/<span[^>]*>\{<\/span><span[^>]*>InvoiceNumber<\/span><span[^>]*>\}<\/span>/gi, invoiceNum);
+          
+          // Final aggressive fallback - replace any remaining occurrences using split/join
+          // Check for various patterns including the split span pattern
+          const hasPlaceholder = emailBody.includes('{invoiceNumber}') || 
+                                 emailBody.includes('{InvoiceNumber}') ||
+                                 emailBody.includes('{<span') && emailBody.includes('invoiceNumber</span>}') ||
+                                 emailBody.includes('{<span') && emailBody.includes('InvoiceNumber</span>}');
+          
+          if (hasPlaceholder) {
+            console.warn('Invoice number replacement may have failed, trying aggressive replacement');
+            console.log('Email body before final replacement (first 500 chars):', emailBody.substring(0, 500));
+            
+            // Use split/join as final fallback - this should catch everything
+            emailBody = emailBody.split('{invoiceNumber}').join(invoiceNum);
+            emailBody = emailBody.split('{InvoiceNumber}').join(invoiceNum);
+            emailBody = emailBody.split('&#123;invoiceNumber&#125;').join(invoiceNum);
+            emailBody = emailBody.split('&#123;InvoiceNumber&#125;').join(invoiceNum);
+            emailBody = emailBody.split('&amp;#123;invoiceNumber&amp;#125;').join(invoiceNum);
+            emailBody = emailBody.split('&amp;#123;InvoiceNumber&amp;#125;').join(invoiceNum);
+            
+            // Handle the split span pattern: {<span...>invoiceNumber</span>}
+            // Use a more aggressive regex replacement for this pattern
+            emailBody = emailBody.replace(/\{<span[^>]*>invoiceNumber<\/span>\}/gi, invoiceNum);
+            emailBody = emailBody.replace(/\{<span[^>]*>InvoiceNumber<\/span>\}/gi, invoiceNum);
+          }
+          
+          // Verify replacement worked
+          console.log('Email body after replacement (first 500 chars):', emailBody.substring(0, 500));
+          if (emailBody.includes('{invoiceNumber}') || emailBody.includes('{InvoiceNumber}')) {
+            console.error('❌ Invoice number replacement STILL FAILED after all attempts!');
+            console.error('Original email content:', originalEmailBody);
+            console.error('Email body after replacement:', emailBody);
+            console.error('This is a critical error - the placeholder was not replaced!');
+          } else {
+            console.log('✅ Invoice number replacement successful:', invoiceNum);
+          }
+          console.log('=== END EMAIL BODY REPLACEMENT DEBUG ===');
         }
         
         // Append signature if configured
@@ -352,12 +422,12 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           }
         }
 
-        // Send to backend
+        // Send to backend - send to all emails
         const response = await fetch(`${API_BASE}/invoice/send-email`, {
           method: 'POST',
           headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: emailToUse,
+            to: allEmails, // Send array of all emails
             subject: `Invoice ${invoiceData.invoiceNumber} from ${businessName}`,
             body: emailBody,
             pdfData: base64data,
@@ -396,7 +466,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
   }
 
   const total = calculateTotal();
-  const businessName = profileSettings.business_name || profileSettings.name || 'Kates Cuts';
+  const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
 
   return (
     <div className="invoice-container">
@@ -409,13 +479,15 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         )}
         {(locationDetails.email || locationDetails.emails.length > 0) && (
           <>
-            <button 
-              onClick={handleEmailInvoice}
-              className="invoice-email-btn"
-            >
-              <span>📧</span>
-              <span>Email Invoice</span>
-            </button>
+            {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
+              <button 
+                onClick={handleEmailInvoice}
+                className="invoice-email-btn"
+              >
+                <span>📧</span>
+                <span>Email Invoice</span>
+              </button>
+            )}
             <button 
               onClick={handleOpenEmailApp}
               className="invoice-email-app-btn"
@@ -507,7 +579,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
             <div>Make all checks payable to {businessName}</div>
             <div>Payment is due within 30 days.</div>
             <div className="bacs-details">
-              BACS: {profileSettings.bank_account_name || 'Katescuts'} - Mettle – 
+              BACS: {profileSettings.bank_account_name || 'HairManager'} – 
               account number: {profileSettings.account_number || ''} – 
               sort code: {formatSortCode(profileSettings.sort_code || '')}
             </div>

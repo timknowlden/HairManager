@@ -541,7 +541,7 @@ app.post('/api/profile/test-email', async (req, res) => {
 // Profile routes will be registered after database initialization
 
 // Initialize database
-const dbPath = join(__dirname, 'katescuts.db');
+const dbPath = join(__dirname, 'hairmanager.db');
 
 // Initialize database first, then migrate, then start server
 initDatabase(dbPath)

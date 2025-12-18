@@ -4,7 +4,7 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const dbPath = join(__dirname, '..', 'katescuts.db');
+const dbPath = join(__dirname, '..', 'hairmanager.db');
 
 console.log('Fixing IDs to start from 1...');
 

@@ -83,6 +83,7 @@ function AdminManager({ onSettingsSaved }) {
     email_relay_api_key: '',
     email_relay_from_email: '',
     email_relay_from_name: '',
+    email_relay_bcc_enabled: false,
     email_signature: '',
     default_email_content: ''
   });
@@ -140,6 +141,7 @@ function AdminManager({ onSettingsSaved }) {
         email_relay_service: data.email_relay_service || 'sendgrid',
         email_relay_api_key: data.email_relay_api_key || '',
         email_relay_from_email: data.email_relay_from_email || '',
+        email_relay_bcc_enabled: data.email_relay_bcc_enabled || false,
         email_relay_from_name: data.email_relay_from_name || '',
         email_signature: data.email_signature || '',
         default_email_content: data.default_email_content || ''
@@ -386,7 +388,7 @@ function AdminManager({ onSettingsSaved }) {
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `katescuts-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `hairmanager-export-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(blobUrl);
@@ -678,40 +680,40 @@ function AdminManager({ onSettingsSaved }) {
             </div>
             <div className="form-group">
               <label htmlFor="confirmPassword">Confirm New Password</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                minLength={6}
-              />
-            </div>
-            <div className="form-group" style={{ flex: '0 0 auto', width: 'auto' }}>
-              <label style={{ visibility: 'hidden' }}>Update</label>
-              <button
-                type="button"
-                onClick={handleUpdatePassword}
-                disabled={updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
-                style={{
-                  padding: '0 15px',
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: (updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6) ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  height: '100%',
-                  minHeight: '38px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '50px'
-                }}
-                title="Update password"
-              >
-                {updatingPassword ? '...' : <FaSave />}
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  minLength={6}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={handleUpdatePassword}
+                  disabled={updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
+                  style={{
+                    padding: '0 15px',
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: (updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6) ? 'not-allowed' : 'pointer',
+                    fontSize: '16px',
+                    height: '100%',
+                    alignSelf: 'stretch',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '50px'
+                  }}
+                  title="Update password"
+                >
+                  {updatingPassword ? '...' : <FaSave />}
+                </button>
+              </div>
             </div>
           </div>
           {newPassword && confirmPassword && newPassword !== confirmPassword && (
@@ -728,7 +730,7 @@ function AdminManager({ onSettingsSaved }) {
                 name="business_name"
                 value={formData.business_name}
                 onChange={handleInputChange}
-                placeholder="e.g., Kate's Cuts"
+                placeholder="e.g., HairManager"
               />
               <p className="field-help">This will appear in the page title at the top of the page</p>
             </div>
@@ -751,7 +753,7 @@ function AdminManager({ onSettingsSaved }) {
           <h3>Bank Account Details</h3>
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="bank_account_name">Account Name</label>
+              <label htmlFor="bank_account_name">Bank Account Name</label>
               <input
                 type="text"
                 id="bank_account_name"
@@ -955,9 +957,31 @@ function AdminManager({ onSettingsSaved }) {
                     name="email_relay_from_name"
                     value={formData.email_relay_from_name}
                     onChange={handleInputChange}
-                    placeholder="e.g., Kate's Cuts"
+                    placeholder="e.g., HairManager"
                   />
                   <p className="field-help">Name that will appear as the sender</p>
+                </div>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="email_relay_bcc_enabled" style={{ display: 'block', marginBottom: '8px' }}>
+                    Include sender email in BCC/CC for all invoice emails
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="email_relay_bcc_enabled"
+                      name="email_relay_bcc_enabled"
+                      checked={formData.email_relay_bcc_enabled || false}
+                      onChange={(e) => handleInputChange({ target: { name: 'email_relay_bcc_enabled', value: e.target.checked } })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', margin: '0' }}
+                    />
+                    <span style={{ fontSize: '14px', color: '#333' }}>Enable this option</span>
+                  </div>
+                  <p className="field-help">
+                    When enabled, a copy of every invoice email will be sent to your "From Email Address" above
+                  </p>
                 </div>
               </div>
               
@@ -1136,7 +1160,7 @@ function AdminManager({ onSettingsSaved }) {
 
         <div className="form-actions" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>Data Management</h3>
+            <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>Data Management</h3>
             <button
               type="button"
               onClick={handleExportData}

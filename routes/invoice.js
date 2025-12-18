@@ -11,7 +11,10 @@ router.post('/send-email', async (req, res) => {
   try {
     const { to, subject, body, pdfData, pdfFilename } = req.body;
 
-    if (!to || !subject || !pdfData) {
+    // Handle both single email string and array of emails
+    const toEmails = Array.isArray(to) ? to : (to ? [to] : []);
+    
+    if (toEmails.length === 0 || !subject || !pdfData) {
       return res.status(400).json({ error: 'Missing required fields: to, subject, pdfData' });
     }
 
@@ -36,7 +39,7 @@ router.post('/send-email', async (req, res) => {
       const apiKey = profile.email_relay_api_key;
       const fromEmail = profile.email_relay_from_email || profile.email;
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
-      const bccEmail = profile.email; // Your email address for BCC
+      const ccEnabled = profile.email_relay_bcc_enabled === 1 || profile.email_relay_bcc_enabled === true; // Checkbox enables CC
 
       if (!apiKey) {
         return res.status(400).json({ 
@@ -90,15 +93,39 @@ router.post('/send-email', async (req, res) => {
           textBody = body || 'Please find the invoice attached.';
         }
 
+        // Build personalizations array for SendGrid v3 API
+        // Convert all recipient emails to SendGrid format
+        const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
+        
+        const personalizations = [{
+          to: toRecipients
+        }];
+
+        // Add BCC with from email if enabled
+        if (ccEnabled && fromEmail && fromEmail.trim()) {
+          personalizations[0].bcc = [{ email: fromEmail.trim() }];
+          console.log('BCC enabled, adding to BCC:', fromEmail.trim());
+        } else {
+          console.log('BCC disabled or fromEmail missing. ccEnabled:', ccEnabled, 'fromEmail:', fromEmail);
+        }
+
         const msg = {
-          to: to,
+          personalizations: personalizations,
           from: {
             email: fromEmail,
             name: fromName
           },
           subject: subject,
-          text: textBody,
-          html: htmlBody,
+          content: [
+            {
+              type: 'text/plain',
+              value: textBody
+            },
+            {
+              type: 'text/html',
+              value: htmlBody
+            }
+          ],
           attachments: [
             {
               content: pdfBuffer.toString('base64'),
@@ -108,11 +135,6 @@ router.post('/send-email', async (req, res) => {
             }
           ]
         };
-
-        // Add BCC if your email is configured and different from the from email
-        if (bccEmail && bccEmail.trim() && bccEmail !== fromEmail) {
-          msg.bcc = bccEmail.trim();
-        }
 
         await sgMail.send(msg);
         console.log('Email sent via SendGrid');
@@ -160,11 +182,11 @@ router.post('/send-email', async (req, res) => {
         )) {
           errorMessage = 'Email delivery failed: SendGrid IP address is on recipient\'s blocklist';
           suggestions = [
-            'This is a SendGrid infrastructure issue, not a problem with your email content',
-            'Set up Domain Authentication (SPF, DKIM, DMARC) in SendGrid to improve deliverability',
-            'Go to SendGrid → Settings → Sender Authentication → Authenticate Your Domain',
-            'Contact SendGrid support if the issue persists',
-            'The email may still be delivered to other recipients - this is specific to certain email providers'
+            'This is a SendGrid infrastructure issue, not a problem with your email content or configuration',
+            'Even with Domain Authentication (SPF, DKIM, DMARC), some email providers may still block SendGrid\'s shared IP addresses',
+            'The email may still be delivered to other recipients - this is specific to certain email providers (often Outlook/Microsoft)',
+            'SendGrid monitors IP reputation and works to resolve blocklist issues automatically',
+            'If this persists, consider SendGrid\'s Dedicated IP option for better deliverability control, or contact SendGrid support'
           ];
         }
         

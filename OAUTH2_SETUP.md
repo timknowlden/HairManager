@@ -37,7 +37,7 @@ If you have a **Microsoft 365 Business** account, you can use Graph API:
 2. Navigate to **Azure Active Directory** → **App registrations**
 3. Click **New registration**
 4. Fill in:
-   - **Name**: "Kate's Cuts Email App" (or any name)
+   - **Name**: "HairManager Email App" (or any name)
    - **Supported account types**: "Accounts in this organizational directory only"
    - **Redirect URI**: Leave blank for now
 5. Click **Register**

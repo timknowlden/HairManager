@@ -342,6 +342,7 @@ function LocationsManager() {
     try {
       const payload = {
         ...formData,
+        post_code: formData.post_code ? formData.post_code.trim().toUpperCase().replace(/\s+/g, '') : '',
         distance: formData.distance ? parseFloat(formData.distance) : null
       };
 
@@ -462,7 +463,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
         location_name: parts[0]?.trim() || '',
         address: parts[1]?.trim() || '',
         city_town: parts[2]?.trim() || '',
-        post_code: parts[3]?.trim() || '',
+        post_code: parts[3]?.trim() ? parts[3].trim().toUpperCase().replace(/\s+/g, '') : '',
         distance: distance,
         contact_name: parts[5]?.trim() || '',
         email_address: parts[6]?.trim() || ''

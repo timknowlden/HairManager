@@ -14,7 +14,7 @@
 2. Go to **Settings** → **API Keys** (or visit: https://app.sendgrid.com/settings/api_keys)
 3. Click **Create API Key**
 4. Choose **Full Access** (or at minimum, **Mail Send** permission)
-5. Give it a name like "Kate's Cuts Invoice Emails"
+5. Give it a name like "HairManager Invoice Emails"
 6. **IMPORTANT**: Copy the API key immediately - you won't see it again!
    - It will look like: `SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
 
@@ -29,8 +29,8 @@ SendGrid requires sender verification for security and deliverability. You have 
 1. Go to **Settings** → **Sender Authentication** (or visit: https://app.sendgrid.com/settings/sender_auth/senders)
 2. Click **Create a Sender**
 3. Fill in the form:
-   - **From Email**: The email address you want to send from (e.g., `kate@knowlden.org` or `invoices@knowlden.org`)
-   - **From Name**: Your business name (e.g., "Kate's Cuts")
+   - **From Email**: The email address you want to send from (e.g., `your-email@example.com` or `invoices@example.com`)
+   - **From Name**: Your business name (e.g., "HairManager")
    - **Reply To**: Same as From Email (or a different one if you want replies to go elsewhere)
    - **Company Address**: Your business address
    - **City, State, Zip, Country**: Your location
@@ -60,7 +60,7 @@ If you own a domain (like `knowlden.org`), you can verify the entire domain:
    - **Relay Service**: SendGrid (already selected)
    - **API Key**: Paste your SendGrid API key
    - **From Email Address**: The email you verified (or any email if using domain auth)
-   - **From Name**: Your business name (e.g., "Kate's Cuts")
+   - **From Name**: Your business name (e.g., "HairManager")
 5. Click **Save Settings**
 
 ### Step 5: Test

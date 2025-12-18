@@ -5,7 +5,7 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = join(__dirname, '..', 'katescuts.db');
+const dbPath = join(__dirname, '..', 'hairmanager.db');
 
 const runAsync = (db, sql, params = []) => {
   return new Promise((resolve, reject) => {
@@ -212,6 +212,9 @@ function migrateDatabase() {
             }
             if (!adminColumnNames.includes('email_relay_from_name')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_from_name TEXT'));
+            }
+            if (!adminColumnNames.includes('email_relay_bcc_enabled')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_bcc_enabled INTEGER DEFAULT 0'));
             }
             // Add email relay service fields
             if (!adminColumnNames.includes('use_email_relay')) {

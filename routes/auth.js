@@ -553,7 +553,7 @@ router.get('/export-data', authenticateToken, async (req, res) => {
     };
 
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="katescuts-export-${new Date().toISOString().split('T')[0]}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="hairmanager-export-${new Date().toISOString().split('T')[0]}.json"`);
     res.json(exportData);
   } catch (error) {
     console.error('Error exporting data:', error);

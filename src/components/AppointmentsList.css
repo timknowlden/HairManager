@@ -474,8 +474,7 @@ tbody tr.new-appointment {
 }
 
 .id-cell.new-id {
-  background: #9C27B0 !important;
-  color: white;
+  /* Purple background removed - green stripe on left is enough to indicate new */
   font-weight: bold;
   text-align: left;
   padding: 12px;

@@ -18,7 +18,7 @@ function App() {
       const [activeTab, setActiveTab] = useState('list');
       const [refreshTrigger, setRefreshTrigger] = useState(0);
       const [newAppointmentIds, setNewAppointmentIds] = useState(null);
-      const [pageTitle, setPageTitle] = useState("Kate's Cuts - Appointment Management");
+      const [pageTitle, setPageTitle] = useState("HairManager - Appointment Management");
       const [invoiceAppointments, setInvoiceAppointments] = useState(null);
 
       useEffect(() => {

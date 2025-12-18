@@ -1,4 +1,4 @@
-# Kate's Cuts - Appointment Management System
+# HairManager - Appointment Management System
 
 A web-based appointment management system built with React and SQLite, designed to replace the Google Sheets workflow for managing hair and nail appointments.
 
@@ -155,8 +155,8 @@ The system will:
 
 ## Development
 
-The database file (`katescuts.db`) is created automatically on first run. To reset the database, delete the `.db` file and restart the server.
+The database file (`hairmanager.db`) is created automatically on first run. To reset the database, delete the `.db` file and restart the server.
 
 ## License
 
-Private project for Kate's Cuts
+Private project - HairManager application for appointment and financial management

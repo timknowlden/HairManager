@@ -235,7 +235,7 @@ function Financial() {
       </div>
 
       <div className="financial-year-section">
-        <h3>Financial Year Summary</h3>
+        <h3>Financial Year</h3>
         <div className="financial-table-wrapper">
           <table className="financial-table financial-year-table">
             <thead>
@@ -307,7 +307,7 @@ function Financial() {
       {/* Calendar Year Summary */}
       {financialData.calendarYear && financialData.calendarYear.length > 0 && (
         <div className="calendar-year-section">
-          <h3>Calendar Year Summary</h3>
+          <h3>Calendar Year</h3>
           <div className="financial-table-wrapper">
             <table className="financial-table">
               <thead>

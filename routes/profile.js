@@ -165,7 +165,12 @@ router.put('/', (req, res) => {
     home_postcode,
     currency,
     google_maps_api_key,
-    email_password
+    email_password,
+    email_relay_service,
+    email_relay_api_key,
+    email_relay_from_email,
+    email_relay_from_name,
+    email_relay_bcc_enabled
   } = req.body;
 
       const userId = req.userId;
@@ -209,10 +214,10 @@ router.put('/', (req, res) => {
               postcodeResyncNeeded
             });
 
-            // Get current password if new one is not provided
-            db.get('SELECT email_password FROM admin_settings WHERE id = ?', [existing.id], (pwdErr, pwdRow) => {
+            // Get current password and API key if new ones are not provided
+            db.get('SELECT email_password, email_relay_api_key FROM admin_settings WHERE id = ?', [existing.id], (pwdErr, pwdRow) => {
               if (pwdErr) {
-                console.error('Error fetching current password:', pwdErr);
+                console.error('Error fetching current password/API key:', pwdErr);
                 res.status(500).json({ error: pwdErr.message });
                 return;
               }
@@ -221,18 +226,29 @@ router.put('/', (req, res) => {
               const finalEmailPassword = email_password && email_password.trim() !== '' 
                 ? email_password 
                 : (pwdRow?.email_password || '');
+              
+              // Only update API key if a new value is provided (not empty)
+              const finalEmailRelayApiKey = email_relay_api_key && email_relay_api_key.trim() !== '' 
+                ? email_relay_api_key 
+                : (pwdRow?.email_relay_api_key || '');
 
-              console.log('[Profile Route] Password update:', {
-                provided: email_password ? 'yes' : 'no',
-                hasValue: email_password && email_password.trim() !== '',
-                finalPassword: finalEmailPassword ? '***' : '(empty)'
+              console.log('[Profile Route] Password/API key update:', {
+                passwordProvided: email_password ? 'yes' : 'no',
+                apiKeyProvided: email_relay_api_key ? 'yes' : 'no',
+                finalPassword: finalEmailPassword ? '***' : '(empty)',
+                finalApiKey: finalEmailRelayApiKey ? '***' : '(empty)'
               });
+
+              // Convert boolean checkbox value to integer (0 or 1) for SQLite
+              const bccEnabled = email_relay_bcc_enabled === true || email_relay_bcc_enabled === 1 || email_relay_bcc_enabled === '1' ? 1 : 0;
 
               db.run(
                 `UPDATE admin_settings SET 
                  name = ?, phone = ?, email = ?, business_name = ?, bank_account_name = ?, 
                  sort_code = ?, account_number = ?, home_address = ?, 
-                 home_postcode = ?, currency = ?, google_maps_api_key = ?, email_password = ?, postcode_resync_needed = ?, updated_at = ?
+                 home_postcode = ?, currency = ?, google_maps_api_key = ?, email_password = ?, 
+                 email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
+                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, postcode_resync_needed = ?, updated_at = ?
                  WHERE id = ? AND user_id = ?`,
                 [
                   name || '',
@@ -247,6 +263,11 @@ router.put('/', (req, res) => {
                   currency || 'GBP',
                   google_maps_api_key || '',
                   finalEmailPassword,
+                  email_relay_service || 'sendgrid',
+                  finalEmailRelayApiKey,
+                  email_relay_from_email || '',
+                  email_relay_from_name || '',
+                  bccEnabled,
                   postcodeResyncNeeded,
                   now,
                   existing.id,
@@ -273,11 +294,16 @@ router.put('/', (req, res) => {
         return;
       } else {
         // Create new settings with user_id
+        // Convert boolean checkbox value to integer (0 or 1) for SQLite
+        const bccEnabled = email_relay_bcc_enabled === true || email_relay_bcc_enabled === 1 || email_relay_bcc_enabled === '1' ? 1 : 0;
+        
         db.run(
           `INSERT INTO admin_settings 
            (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
-            home_address, home_postcode, currency, google_maps_api_key, email_password, postcode_resync_needed, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            home_address, home_postcode, currency, google_maps_api_key, email_password, 
+            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
+            email_relay_bcc_enabled, postcode_resync_needed, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userId,
             name || '',
@@ -292,6 +318,11 @@ router.put('/', (req, res) => {
             currency || 'GBP',
             google_maps_api_key || '',
             email_password || '',
+            email_relay_service || 'sendgrid',
+            email_relay_api_key || '',
+            email_relay_from_email || '',
+            email_relay_from_name || '',
+            bccEnabled,
             0, // postcode_resync_needed defaults to 0 for new records
             now,
             now

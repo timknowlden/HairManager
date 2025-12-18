@@ -4,7 +4,7 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const dbPath = join(__dirname, '..', 'katescuts.db');
+const dbPath = join(__dirname, '..', 'hairmanager.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
