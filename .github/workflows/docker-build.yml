@@ -61,18 +61,45 @@ jobs:
       - name: Push to Docker Hub (if configured)
         continue-on-error: true
         run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "Docker Hub secrets not configured, skipping Docker Hub push"
+          echo "Checking for Docker Hub secrets..."
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "❌ DOCKERHUB_USERNAME secret is not set"
             exit 0
           fi
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "❌ DOCKERHUB_TOKEN secret is not set"
+            exit 0
+          fi
+          
+          echo "✅ Docker Hub secrets found!"
+          echo "Username: ${{ secrets.DOCKERHUB_USERNAME }}"
           
           echo "Logging in to Docker Hub..."
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           
+          if [ $? -ne 0 ]; then
+            echo "❌ Docker Hub login failed"
+            exit 1
+          fi
+          
+          echo "✅ Logged in successfully!"
           echo "Tagging and pushing to Docker Hub..."
-          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | tr -d '\n')
           DOCKERHUB_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
+          echo "Source image: ${IMAGE_TAG}"
+          echo "Target image: ${DOCKERHUB_IMAGE}"
+          
           docker tag ${IMAGE_TAG} ${DOCKERHUB_IMAGE}
+          if [ $? -ne 0 ]; then
+            echo "❌ Docker tag failed"
+            exit 1
+          fi
+          
           docker push ${DOCKERHUB_IMAGE}
-          echo "Successfully pushed to Docker Hub!"
+          if [ $? -ne 0 ]; then
+            echo "❌ Docker push failed"
+            exit 1
+          fi
+          
+          echo "✅ Successfully pushed to Docker Hub: ${DOCKERHUB_IMAGE}"
 
