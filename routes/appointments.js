@@ -1,15 +1,20 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all appointments
+// All routes require authentication
+router.use(authenticateToken);
+
+// Get all appointments for the logged-in user
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   db.all(
-    'SELECT * FROM appointments ORDER BY date DESC, id DESC',
-    [],
+    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id DESC',
+    [userId],
     (err, rows) => {
       if (err) {
         console.error('Error fetching appointments:', err);
@@ -21,14 +26,128 @@ router.get('/', (req, res) => {
   );
 });
 
+// Test route to verify PUT is working
+router.put('/test', (req, res) => {
+  res.json({ message: 'PUT route is working' });
+});
+
+// Update appointment (for admin editing) - MUST come before GET /:id to avoid route conflicts
+router.put('/:id', (req, res) => {
+  console.log('PUT route matched for /api/appointments/:id');
+  const db = req.app.locals.db;
+  const { id } = req.params;
+  const { client_name, service, type, date, location, price, distance } = req.body;
+  
+  console.log('PUT /api/appointments/:id called with id:', id, 'type:', typeof id);
+  console.log('Request body:', req.body);
+  
+  // Convert id to integer to ensure type matching
+  const appointmentId = parseInt(id, 10);
+  if (isNaN(appointmentId)) {
+    console.error('Invalid appointment ID:', id);
+    res.status(400).json({ error: 'Invalid appointment ID' });
+    return;
+  }
+
+  // Build update query dynamically based on provided fields
+  const updates = [];
+  const values = [];
+
+  if (client_name !== undefined) {
+    updates.push('client_name = ?');
+    values.push(client_name);
+  }
+  if (service !== undefined) {
+    updates.push('service = ?');
+    values.push(service);
+  }
+  if (type !== undefined) {
+    updates.push('type = ?');
+    values.push(type);
+  }
+  if (date !== undefined) {
+    updates.push('date = ?');
+    values.push(date);
+  }
+  if (location !== undefined) {
+    updates.push('location = ?');
+    values.push(location);
+  }
+  if (price !== undefined) {
+    updates.push('price = ?');
+    values.push(price);
+  }
+  if (distance !== undefined) {
+    updates.push('distance = ?');
+    values.push(distance === null ? null : distance);
+  }
+
+  if (updates.length === 0) {
+    res.status(400).json({ error: 'No fields to update' });
+    return;
+  }
+
+  values.push(appointmentId);
+  
+  console.log('SQL UPDATE query:', `UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`);
+  console.log('Values:', values);
+
+  const userId = req.userId;
+  values.push(userId);
+  
+  db.run(
+    `UPDATE appointments SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`,
+    values,
+    function(err) {
+      if (err) {
+        console.error('Error updating appointment:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      console.log('Update result - changes:', this.changes, 'lastID:', this.lastID);
+      if (this.changes === 0) {
+        console.log('No rows updated - appointment ID', appointmentId, 'may not exist');
+        // Check if appointment exists and belongs to user
+        db.get('SELECT id FROM appointments WHERE id = ? AND user_id = ?', [appointmentId, userId], (checkErr, row) => {
+          if (checkErr) {
+            console.error('Error checking appointment:', checkErr);
+            res.status(500).json({ error: checkErr.message });
+            return;
+          }
+          if (!row) {
+            res.status(404).json({ error: `Appointment with ID ${appointmentId} not found` });
+          } else {
+            res.status(400).json({ error: 'No fields were updated (values may be unchanged)' });
+          }
+        });
+        return;
+      }
+
+      // Return updated appointment
+      db.get(
+        'SELECT * FROM appointments WHERE id = ? AND user_id = ?',
+        [id, userId],
+        (getErr, row) => {
+          if (getErr) {
+            res.status(500).json({ error: getErr.message });
+            return;
+          }
+          res.json(row);
+        }
+      );
+    }
+  );
+});
+
 // Get appointment by ID
 router.get('/:id', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
   
   db.get(
-    'SELECT * FROM appointments WHERE id = ?',
-    [id],
+    'SELECT * FROM appointments WHERE id = ? AND user_id = ?',
+    [id, userId],
     (err, row) => {
       if (err) {
         console.error('Error fetching appointment:', err);
@@ -47,6 +166,7 @@ router.get('/:id', (req, res) => {
 // Create multiple appointments (batch entry)
 router.post('/batch', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   const { location, date, appointments } = req.body;
 
   if (!location || !date || !appointments || !Array.isArray(appointments)) {
@@ -54,10 +174,10 @@ router.post('/batch', (req, res) => {
     return;
   }
 
-  // Get distance for this location (only needed for first appointment)
+  // Get distance for this location (only needed for first appointment) - must belong to user
   db.get(
-    'SELECT distance FROM address_data WHERE location_name = ?',
-    [location],
+    'SELECT distance FROM address_data WHERE location_name = ? AND user_id = ?',
+    [location, userId],
     (err, locationRow) => {
       if (err) {
         console.error('Error fetching location:', err);
@@ -73,10 +193,10 @@ router.post('/batch', (req, res) => {
       appointments.forEach((apt, index) => {
         const { client_name, service } = apt;
 
-        // Lookup service details
+        // Lookup service details - must belong to user
         db.get(
-          'SELECT type, price FROM services WHERE service_name = ?',
-          [service],
+          'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
+          [service, userId],
           (serviceErr, serviceRow) => {
             if (hasError) return;
 
@@ -100,12 +220,13 @@ router.post('/batch', (req, res) => {
             // Only add distance to the first appointment
             const appointmentDistance = index === 0 ? distance : null;
 
-            // Insert appointment
+            // Insert appointment with user_id
             db.run(
               `INSERT INTO appointments 
-               (client_name, service, type, date, location, price, paid, distance, payment_date)
-               VALUES (?, ?, ?, ?, ?, ?, 0, ?, NULL)`,
+               (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)`,
               [
+                userId,
                 client_name,
                 service,
                 serviceRow.type,
@@ -159,10 +280,11 @@ router.post('/batch', (req, res) => {
 router.patch('/:id/pay', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
 
   db.run(
-    'UPDATE appointments SET paid = 1, payment_date = CURRENT_TIMESTAMP WHERE id = ?',
-    [id],
+    'UPDATE appointments SET paid = 1, payment_date = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+    [id, userId],
     function(err) {
       if (err) {
         console.error('Error updating appointment:', err);
@@ -176,8 +298,8 @@ router.patch('/:id/pay', (req, res) => {
 
       // Return updated appointment
       db.get(
-        'SELECT * FROM appointments WHERE id = ?',
-        [id],
+        'SELECT * FROM appointments WHERE id = ? AND user_id = ?',
+        [id, userId],
         (getErr, row) => {
           if (getErr) {
             res.status(500).json({ error: getErr.message });
@@ -194,10 +316,11 @@ router.patch('/:id/pay', (req, res) => {
 router.patch('/:id/unpay', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
 
   db.run(
-    'UPDATE appointments SET paid = 0, payment_date = NULL WHERE id = ?',
-    [id],
+    'UPDATE appointments SET paid = 0, payment_date = NULL WHERE id = ? AND user_id = ?',
+    [id, userId],
     function(err) {
       if (err) {
         console.error('Error updating appointment:', err);
@@ -211,8 +334,8 @@ router.patch('/:id/unpay', (req, res) => {
 
       // Return updated appointment
       db.get(
-        'SELECT * FROM appointments WHERE id = ?',
-        [id],
+        'SELECT * FROM appointments WHERE id = ? AND user_id = ?',
+        [id, userId],
         (getErr, row) => {
           if (getErr) {
             res.status(500).json({ error: getErr.message });
@@ -229,10 +352,11 @@ router.patch('/:id/unpay', (req, res) => {
 router.delete('/:id', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
 
   db.run(
-    'DELETE FROM appointments WHERE id = ?',
-    [id],
+    'DELETE FROM appointments WHERE id = ? AND user_id = ?',
+    [id, userId],
     function(err) {
       if (err) {
         console.error('Error deleting appointment:', err);

@@ -1,0 +1,411 @@
+.invoice-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.invoice-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  justify-content: center;
+  width: 100%;
+  max-width: 210mm;
+}
+
+.invoice-back-btn,
+.invoice-email-btn,
+.invoice-email-app-btn,
+.invoice-print-btn,
+.invoice-pdf-btn {
+  padding: 10px 20px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.invoice-back-btn span,
+.invoice-email-btn span,
+.invoice-email-app-btn span,
+.invoice-print-btn span,
+.invoice-pdf-btn span {
+  display: inline-block;
+}
+
+.invoice-back-btn:hover {
+  background: #45a049;
+}
+
+.invoice-email-btn {
+  background: #2196F3;
+}
+
+.invoice-email-btn:hover {
+  background: #1976D2;
+}
+
+.invoice-email-app-btn {
+  background: #00BCD4;
+}
+
+.invoice-email-app-btn:hover {
+  background: #0097A7;
+}
+
+.invoice-print-btn {
+  background: #9C27B0;
+}
+
+.invoice-print-btn:hover {
+  background: #7B1FA2;
+}
+
+.invoice-pdf-btn {
+  background: #FF9800;
+}
+
+.invoice-pdf-btn:hover {
+  background: #F57C00;
+}
+
+.invoice-page {
+  width: 210mm;
+  min-height: 297mm;
+  background: white;
+  padding: 20mm;
+  box-sizing: border-box;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.invoice-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-company-info {
+  flex: 1;
+}
+
+.company-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.company-service {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.company-address {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.company-phone {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.company-contact {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.invoice-details {
+  text-align: right;
+  flex: 1;
+}
+
+.invoice-title {
+  font-size: 36px;
+  font-weight: bold;
+  color: #74c9cb;
+  margin-bottom: 20px;
+}
+
+.invoice-number-row,
+.invoice-date-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.invoice-label {
+  font-weight: 600;
+  color: #74c9cb;
+  margin-right: 20px;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.invoice-value {
+  color: #333;
+}
+
+.invoice-client-section {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 40px;
+}
+
+.invoice-to-section,
+.invoice-for-section {
+  flex: 1;
+}
+
+.section-label {
+  font-weight: 600;
+  font-size: 12px;
+  color: #74c9cb;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.client-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.client-address {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.service-type {
+  font-size: 14px;
+  color: #333;
+}
+
+.invoice-services-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+.invoice-services-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-services-table th {
+  padding: 12px 8px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.service-description-col {
+  width: 60%;
+}
+
+.service-date-col {
+  width: 20%;
+  text-align: center;
+}
+
+.service-amount-col {
+  width: 20%;
+  text-align: right;
+}
+
+.invoice-services-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.invoice-services-table td {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: #333;
+}
+
+.invoice-services-table tbody tr:last-child:not(.invoice-total-row) {
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-total-row {
+  margin-top: 10px;
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-total-row td {
+  color: #333 !important;
+  font-weight: 600;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-total-row .total-label {
+  text-align: right;
+  font-weight: 600;
+  font-size: 14px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  color: #333;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-total-row .total-amount {
+  text-align: right;
+  font-weight: bold;
+  font-size: 14px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  color: #333;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.invoice-footer {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.payment-instructions {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.payment-instructions > div {
+  margin-bottom: 8px;
+}
+
+.bacs-details {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.contact-info {
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.thank-you {
+  color: #74c9cb;
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 16px;
+}
+
+.invoice-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 18px;
+  color: #666;
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .invoice-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    height: 297mm;
+    margin: 0;
+    padding: 0;
+    background: white;
+    visibility: visible;
+  }
+
+  .invoice-actions {
+    display: none !important;
+  }
+
+  .invoice-page {
+    position: relative;
+    box-shadow: none;
+    margin: 0;
+    padding: 20mm;
+    width: 210mm;
+    height: 257mm;
+    max-height: 257mm;
+    background: white;
+    overflow: hidden;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    visibility: visible;
+  }
+
+  .invoice-page * {
+    visibility: visible;
+  }
+
+  .invoice-header {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+  }
+
+  .invoice-client-section {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+  }
+
+  .invoice-services-table {
+    margin-bottom: 15px;
+  }
+
+  .invoice-footer {
+    margin-top: 15px;
+    padding-top: 10px;
+  }
+
+  .invoice-loading {
+    display: none !important;
+  }
+}
+

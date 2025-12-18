@@ -1,10 +1,10 @@
-.locations-manager {
+.services-manager {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
 }
 
-.locations-header {
+.services-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -49,7 +49,8 @@
   border-bottom: 1px solid #ddd;
 }
 
-.filter-input {
+.filter-input,
+.filter-select {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #ddd;
@@ -58,7 +59,8 @@
   box-sizing: border-box;
 }
 
-.filter-input:focus {
+.filter-input:focus,
+.filter-select:focus {
   outline: none;
   border-color: #4CAF50;
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
@@ -103,7 +105,7 @@ th.resizable:hover .resize-handle {
   opacity: 0.3;
 }
 
-.locations-header h2 {
+.services-header h2 {
   margin: 0;
   color: #333;
 }
@@ -115,18 +117,12 @@ th.resizable:hover .resize-handle {
 
 .import-btn,
 .add-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  line-height: 1.4;
-  box-sizing: border-box;
 }
 
 .import-btn {
@@ -147,7 +143,7 @@ th.resizable:hover .resize-handle {
   background: #45a049;
 }
 
-.location-form-container {
+.service-form-container {
   background: white;
   padding: 20px;
   border-radius: 8px;
@@ -155,12 +151,12 @@ th.resizable:hover .resize-handle {
   margin-bottom: 20px;
 }
 
-.location-form-container h3 {
+.service-form-container h3 {
   margin-top: 0;
   color: #333;
 }
 
-.location-form {
+.service-form {
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -185,7 +181,7 @@ th.resizable:hover .resize-handle {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group select {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -194,7 +190,7 @@ th.resizable:hover .resize-handle {
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group select:focus {
   outline: none;
   border-color: #4CAF50;
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
@@ -202,24 +198,18 @@ th.resizable:hover .resize-handle {
 
 .form-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 20px;
-  justify-content: flex-end;
-  align-items: center;
-  padding-top: 15px;
-  border-top: 1px solid #e0e0e0;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .submit-btn,
 .cancel-btn {
-  padding: 12px 24px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  min-width: 120px;
-  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .submit-btn {
@@ -240,7 +230,7 @@ th.resizable:hover .resize-handle {
   background: #bbb;
 }
 
-.locations-table-container {
+.services-table-container {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -342,165 +332,5 @@ tbody tr:hover {
   border-radius: 4px;
   margin-bottom: 15px;
   border-left: 4px solid #2e7d32;
-}
-
-.import-dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.import-dialog {
-  background: white;
-  border-radius: 8px;
-  padding: 30px;
-  max-width: 800px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-.import-dialog h3 {
-  margin-top: 0;
-  color: #333;
-}
-
-.import-instructions {
-  color: #666;
-  margin-bottom: 15px;
-  font-size: 14px;
-}
-
-.import-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  resize: vertical;
-  min-height: 300px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
-}
-
-.import-textarea:focus {
-  outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
-}
-
-.import-dialog-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.import-confirm-btn {
-  padding: 10px 20px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.import-confirm-btn:hover {
-  background: #45a049;
-}
-
-.postcode-lookup-group {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.postcode-lookup-group input {
-  flex: 1;
-}
-
-.lookup-btn {
-  padding: 8px 16px;
-  background: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: background 0.2s;
-}
-
-.lookup-btn:hover {
-  background: #1976D2;
-}
-
-.lookup-btn:active {
-  background: #1565C0;
-}
-
-.lookup-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.address-select-container {
-  margin-top: 10px;
-}
-
-.address-select-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #555;
-  font-size: 14px;
-}
-
-.address-select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: inherit;
-  background: white;
-  cursor: pointer;
-}
-
-.address-select:focus {
-  outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
-}
-
-.address-note {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #666;
-  font-style: italic;
-}
-
-.email-link,
-.phone-link {
-  color: #2196F3;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.email-link:hover,
-.phone-link:hover {
-  color: #1976D2;
-  text-decoration: underline;
 }
 

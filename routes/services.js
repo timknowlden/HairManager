@@ -1,15 +1,20 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all services
+// All routes require authentication
+router.use(authenticateToken);
+
+// Get all services for the logged-in user
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   db.all(
-    'SELECT * FROM services ORDER BY type, service_name',
-    [],
+    'SELECT * FROM services WHERE user_id = ? ORDER BY type, service_name',
+    [userId],
     (err, rows) => {
       if (err) {
         console.error('Error fetching services:', err);
@@ -25,10 +30,11 @@ router.get('/', (req, res) => {
 router.get('/:name', (req, res) => {
   const db = req.app.locals.db;
   const { name } = req.params;
+  const userId = req.userId;
   
   db.get(
-    'SELECT * FROM services WHERE service_name = ?',
-    [name],
+    'SELECT * FROM services WHERE service_name = ? AND user_id = ?',
+    [name, userId],
     (err, row) => {
       if (err) {
         console.error('Error fetching service:', err);
@@ -47,6 +53,7 @@ router.get('/:name', (req, res) => {
 // Create new service
 router.post('/', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   const { service_name, type, price } = req.body;
 
   if (!service_name || !type || price === undefined) {
@@ -55,8 +62,8 @@ router.post('/', (req, res) => {
   }
 
   db.run(
-    'INSERT INTO services (service_name, type, price) VALUES (?, ?, ?)',
-    [service_name, type, price],
+    'INSERT INTO services (user_id, service_name, type, price) VALUES (?, ?, ?, ?)',
+    [userId, service_name, type, price],
     function(err) {
       if (err) {
         console.error('Error creating service:', err);
@@ -77,11 +84,12 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
   const { service_name, type, price } = req.body;
 
   db.run(
-    'UPDATE services SET service_name = ?, type = ?, price = ? WHERE id = ?',
-    [service_name, type, price, id],
+    'UPDATE services SET service_name = ?, type = ?, price = ? WHERE id = ? AND user_id = ?',
+    [service_name, type, price, id, userId],
     function(err) {
       if (err) {
         console.error('Error updating service:', err);
@@ -101,10 +109,11 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
+  const userId = req.userId;
 
   db.run(
-    'DELETE FROM services WHERE id = ?',
-    [id],
+    'DELETE FROM services WHERE id = ? AND user_id = ?',
+    [id, userId],
     function(err) {
       if (err) {
         console.error('Error deleting service:', err);

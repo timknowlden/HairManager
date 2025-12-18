@@ -1,0 +1,410 @@
+.financial-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.financial-header {
+  margin-bottom: 25px;
+  text-align: center;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.financial-header h2 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 2.2em;
+  font-weight: 600;
+}
+
+.financial-subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 1.1em;
+}
+
+.financial-filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 25px;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 1em;
+  color: #333;
+  user-select: none;
+}
+
+.filter-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #74c9cb;
+}
+
+.filter-checkbox span {
+  font-weight: 500;
+}
+
+.financial-table-wrapper {
+  margin-bottom: 40px;
+  overflow-x: auto;
+}
+
+.financial-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Financial Year Section - Teal/Green */
+.financial-table thead {
+  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%);
+  color: white;
+}
+
+/* Calendar Year Section - Blue */
+.calendar-year-section .financial-table thead {
+  background: linear-gradient(135deg, #6b9bd1 0%, #5a8bc4 100%);
+}
+
+.calendar-year-section .financial-year-row {
+  background: linear-gradient(135deg, #e8f0f6 0%, #d4e4f0 100%) !important;
+}
+
+.calendar-year-section .financial-year-row:hover {
+  background: linear-gradient(135deg, #d4e4f0 0%, #c0d8e8 100%) !important;
+}
+
+.calendar-year-section .expand-button {
+  background-color: #6b9bd1;
+}
+
+.calendar-year-section .expand-button:hover {
+  background-color: #5a8bc4;
+}
+
+.calendar-year-section .month-total-row {
+  border-top: 2px solid #6b9bd1;
+}
+
+.calendar-year-section .grand-total-row,
+.calendar-year-grand-total {
+  background: linear-gradient(135deg, #6b9bd1 0%, #5a8bc4 100%) !important;
+  color: white !important;
+}
+
+/* Location Section - Purple */
+.location-section {
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.location-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #9b7bb8;
+}
+
+.location-table thead {
+  background: linear-gradient(135deg, #9b7bb8 0%, #8a6aa7 100%);
+}
+
+.location-table tbody tr:hover {
+  background-color: #f5f0f9 !important;
+}
+
+.location-table .financial-year-row {
+  background: linear-gradient(135deg, #f0e8f5 0%, #e8d8f0 100%) !important;
+}
+
+.location-table .financial-year-row:hover {
+  background: linear-gradient(135deg, #e8d8f0 0%, #e0c8eb 100%) !important;
+}
+
+.location-table .expand-button {
+  background-color: #9b7bb8;
+}
+
+.location-table .expand-button:hover {
+  background-color: #8a6aa7;
+}
+
+.location-table .month-total-row {
+  border-top: 2px solid #9b7bb8;
+}
+
+.location-table .grand-total-row,
+.location-grand-total {
+  background: linear-gradient(135deg, #9b7bb8 0%, #8a6aa7 100%) !important;
+}
+
+/* Service Type Section - Orange */
+.service-type-section {
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.service-type-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e89f5e;
+}
+
+.service-type-table thead {
+  background: linear-gradient(135deg, #e89f5e 0%, #d78f4e 100%);
+}
+
+.service-type-table tbody tr:hover {
+  background-color: #fef5ed !important;
+}
+
+.service-type-table .financial-year-row {
+  background: linear-gradient(135deg, #fef0e0 0%, #fce8d0 100%) !important;
+}
+
+.service-type-table .financial-year-row:hover {
+  background: linear-gradient(135deg, #fce8d0 0%, #fae0c0 100%) !important;
+}
+
+.service-type-table .expand-button {
+  background-color: #e89f5e;
+}
+
+.service-type-table .expand-button:hover {
+  background-color: #d78f4e;
+}
+
+.service-type-table .month-total-row {
+  border-top: 2px solid #e89f5e;
+}
+
+.service-type-table .grand-total-row,
+.service-type-grand-total {
+  background: linear-gradient(135deg, #e89f5e 0%, #d78f4e 100%) !important;
+}
+
+/* Service Name Section - Pink */
+.service-name-section {
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.service-name-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e67a9e;
+}
+
+.service-name-table thead {
+  background: linear-gradient(135deg, #e67a9e 0%, #d56a8e 100%);
+}
+
+.service-name-table tbody tr:hover {
+  background-color: #fef0f5 !important;
+}
+
+.service-name-table .financial-year-row {
+  background: linear-gradient(135deg, #fce8ed 0%, #f8d8e3 100%) !important;
+}
+
+.service-name-table .financial-year-row:hover {
+  background: linear-gradient(135deg, #f8d8e3 0%, #f4c8d9 100%) !important;
+}
+
+.service-name-table .expand-button {
+  background-color: #e67a9e;
+}
+
+.service-name-table .expand-button:hover {
+  background-color: #d56a8e;
+}
+
+.service-name-table .month-total-row {
+  border-top: 2px solid #e67a9e;
+}
+
+.service-name-table .grand-total-row,
+.service-name-grand-total {
+  background: linear-gradient(135deg, #e67a9e 0%, #d56a8e 100%) !important;
+}
+
+.financial-table th {
+  padding: 14px 18px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+}
+
+.financial-table th:last-child {
+  text-align: right;
+}
+
+.financial-table td {
+  padding: 12px 18px;
+  border-bottom: 1px solid #e8e8e8;
+  color: #333;
+}
+
+.financial-table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+
+.financial-table tbody tr:hover {
+  background-color: #f5f5f5;
+  transition: background-color 0.2s ease;
+}
+
+.financial-year-row {
+  background: linear-gradient(135deg, #e8f5f6 0%, #d4eef0 100%) !important;
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+.financial-year-row:hover {
+  background: linear-gradient(135deg, #d4eef0 0%, #c0e5e8 100%) !important;
+}
+
+.month-row {
+  background-color: white !important;
+}
+
+.month-row:hover {
+  background-color: #f9f9f9 !important;
+}
+
+.month-row td:first-child {
+  padding-left: 50px;
+  color: #555;
+}
+
+.month-total-row {
+  background-color: #f0f7f8 !important;
+  font-weight: 600;
+  border-top: 2px solid #74c9cb;
+}
+
+.month-total-row td:first-child {
+  padding-left: 50px;
+}
+
+.grand-total-row {
+  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%) !important;
+  color: white !important;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+/* Override grand total colors for each section */
+.financial-year-table .grand-total-row {
+  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%) !important;
+}
+
+.amount-cell {
+  text-align: right;
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.grand-total-row .amount-cell {
+  color: white !important;
+  font-weight: bold;
+}
+
+.expand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: #74c9cb;
+  border-radius: 4px;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.expand-button:hover {
+  background-color: #5ab5b7;
+  transform: scale(1.1);
+}
+
+/* Financial Year Section */
+.financial-year-section {
+  margin-bottom: 50px;
+}
+
+.financial-year-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.calendar-year-section {
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.calendar-year-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.6em;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #74c9cb;
+}
+
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #ef9a9a;
+  text-align: center;
+  font-weight: 500;
+}
+
