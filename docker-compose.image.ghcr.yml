@@ -1,0 +1,47 @@
+name: hairmanager
+services:
+  app:
+    cpu_shares: 1024
+    container_name: hairmanager
+    deploy:
+      resources:
+        limits:
+          memory: 1073741824
+        reservations:
+          devices: []
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    image: ghcr.io/timknowlden/hairmanager:latest
+    labels:
+      icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+    ports:
+      - "3001:3001"
+    devices: []
+    cap_add: []
+    network_mode: bridge
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+x-casaos:
+  author: self
+  category: self
+  hostname: ""
+  icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
+  index: /
+  is_uncontrolled: false
+  port_map: "3001"
+  scheme: http
+  store_app_id: hairmanager
+  title:
+    custom: HairManager
+    en_us: HairManager
+
