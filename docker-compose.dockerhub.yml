@@ -12,7 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-    image: timknowlden/hairmanager:latest
+    image: YOUR_DOCKERHUB_USERNAME/hairmanager:latest
     labels:
       icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
     restart: unless-stopped
