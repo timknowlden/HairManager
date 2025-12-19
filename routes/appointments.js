@@ -372,5 +372,66 @@ router.delete('/:id', (req, res) => {
   );
 });
 
+// Export appointments as CSV
+router.get('/export/csv', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  
+  db.all(
+    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id DESC',
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Error fetching appointments:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // CSV header
+      const headers = ['date', 'client_name', 'service', 'type', 'location', 'price', 'paid', 'distance', 'payment_date'];
+      let csv = headers.join(',') + '\n';
+      
+      // CSV rows
+      rows.forEach(row => {
+        const values = [
+          row.date || '',
+          `"${(row.client_name || '').replace(/"/g, '""')}"`,
+          `"${(row.service || '').replace(/"/g, '""')}"`,
+          `"${(row.type || '').replace(/"/g, '""')}"`,
+          `"${(row.location || '').replace(/"/g, '""')}"`,
+          row.price || 0,
+          row.paid || 0,
+          row.distance || '',
+          row.payment_date || ''
+        ];
+        csv += values.join(',') + '\n';
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="appointments-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    }
+  );
+});
+
+// Bulk delete all appointments
+router.delete('/bulk/all', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.run(
+    'DELETE FROM appointments WHERE user_id = ?',
+    [userId],
+    function(err) {
+      if (err) {
+        console.error('Error deleting appointments:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ message: `Successfully deleted ${this.changes} appointments` });
+    }
+  );
+});
+
 export default router;
 

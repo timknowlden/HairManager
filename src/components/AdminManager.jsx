@@ -26,6 +26,12 @@ function AdminManager({ onSettingsSaved }) {
   const [importingServices, setImportingServices] = useState(false);
   const [csvImportMessage, setCsvImportMessage] = useState(null);
   const [dataManagementExpanded, setDataManagementExpanded] = useState(false);
+  const [exportingAppointments, setExportingAppointments] = useState(false);
+  const [exportingLocations, setExportingLocations] = useState(false);
+  const [exportingServices, setExportingServices] = useState(false);
+  const [deletingAppointments, setDeletingAppointments] = useState(false);
+  const [deletingLocations, setDeletingLocations] = useState(false);
+  const [deletingServices, setDeletingServices] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -612,6 +618,89 @@ function AdminManager({ onSettingsSaved }) {
       setImportingLocations(false);
       setImportingServices(false);
       e.target.value = '';
+    }
+  };
+
+  const handleExportCsv = async (type) => {
+    setError(null);
+    try {
+      if (type === 'appointments') {
+        setExportingAppointments(true);
+      } else if (type === 'locations') {
+        setExportingLocations(true);
+      } else if (type === 'services') {
+        setExportingServices(true);
+      }
+
+      const response = await fetch(`${API_BASE}/${type}/export/csv`, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `Failed to export ${type}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type}-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setCsvImportMessage(`Successfully exported ${type} to CSV`);
+    } catch (err) {
+      setError(err.message || `Failed to export ${type}`);
+    } finally {
+      setExportingAppointments(false);
+      setExportingLocations(false);
+      setExportingServices(false);
+    }
+  };
+
+  const handleBulkDelete = async (type) => {
+    const typeName = type === 'appointments' ? 'appointments' : type === 'locations' ? 'locations' : 'services';
+    const confirmMessage = `Are you sure you want to delete ALL ${typeName}? This action cannot be undone!`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setError(null);
+    try {
+      if (type === 'appointments') {
+        setDeletingAppointments(true);
+      } else if (type === 'locations') {
+        setDeletingLocations(true);
+      } else if (type === 'services') {
+        setDeletingServices(true);
+      }
+
+      const response = await fetch(`${API_BASE}/${type}/bulk/all`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to delete ${type}`);
+      }
+
+      setCsvImportMessage(data.message || `Successfully deleted all ${typeName}`);
+      // Refresh the page to reflect changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      setError(err.message || `Failed to delete ${type}`);
+    } finally {
+      setDeletingAppointments(false);
+      setDeletingLocations(false);
+      setDeletingServices(false);
     }
   };
 
@@ -1346,89 +1435,218 @@ function AdminManager({ onSettingsSaved }) {
           
           {dataManagementExpanded && (
             <>
-              {/* CSV Import Section */}
+              {/* CSV Import/Export/Delete Section */}
               <div style={{ marginBottom: '30px', marginTop: '20px' }}>
-                <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#555', fontWeight: '500' }}>CSV Import</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                    <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Appointments:</span>
-                    <label
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#FF9800',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: importingAppointments ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'inline-block'
-                      }}
-                    >
-                      {importingAppointments ? 'Importing...' : 'Import CSV'}
-                      <input
-                        type="file"
-                        accept=".csv"
-                        onChange={(e) => handleCsvImport('appointments', e)}
-                        disabled={importingAppointments}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                    <span style={{ fontSize: '12px', color: '#999' }}>Format: date, client_name, service, location</span>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#555', fontWeight: '500' }}>Data Management</h4>
+                <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px', fontStyle: 'italic' }}>
+                  Note: CSV files can include headers (automatically detected and skipped). User IDs and row IDs are automatically assigned.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Appointments */}
+                  <div style={{ 
+                    border: '1px solid #e0e0e0', 
+                    borderRadius: '4px', 
+                    padding: '12px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <div style={{ marginBottom: '8px', fontWeight: '500', color: '#333' }}>Appointments</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <label
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#FF9800',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: importingAppointments ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {importingAppointments ? 'Importing...' : 'Import CSV'}
+                        <input
+                          type="file"
+                          accept=".csv"
+                          onChange={(e) => handleCsvImport('appointments', e)}
+                          disabled={importingAppointments}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleExportCsv('appointments')}
+                        disabled={exportingAppointments}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: exportingAppointments ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {exportingAppointments ? 'Exporting...' : 'Export CSV'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkDelete('appointments')}
+                        disabled={deletingAppointments}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: deletingAppointments ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {deletingAppointments ? 'Deleting...' : 'Delete All'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: date, client_name, service, location</span>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                    <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Locations:</span>
-                    <label
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#FF9800',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: importingLocations ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'inline-block'
-                      }}
-                    >
-                      {importingLocations ? 'Importing...' : 'Import CSV'}
-                      <input
-                        type="file"
-                        accept=".csv"
-                        onChange={(e) => handleCsvImport('locations', e)}
-                        disabled={importingLocations}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                    <span style={{ fontSize: '12px', color: '#999' }}>Format: location_name, address, city_town, post_code, distance, contact_name, email_address</span>
+                  {/* Locations */}
+                  <div style={{ 
+                    border: '1px solid #e0e0e0', 
+                    borderRadius: '4px', 
+                    padding: '12px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <div style={{ marginBottom: '8px', fontWeight: '500', color: '#333' }}>Locations</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <label
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#FF9800',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: importingLocations ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {importingLocations ? 'Importing...' : 'Import CSV'}
+                        <input
+                          type="file"
+                          accept=".csv"
+                          onChange={(e) => handleCsvImport('locations', e)}
+                          disabled={importingLocations}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleExportCsv('locations')}
+                        disabled={exportingLocations}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: exportingLocations ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {exportingLocations ? 'Exporting...' : 'Export CSV'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkDelete('locations')}
+                        disabled={deletingLocations}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: deletingLocations ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {deletingLocations ? 'Deleting...' : 'Delete All'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: location_name, address, city_town, post_code, distance, contact_name, email_address</span>
                   </div>
                   
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-                    <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Services:</span>
-                    <label
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#FF9800',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: importingServices ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'inline-block'
-                      }}
-                    >
-                      {importingServices ? 'Importing...' : 'Import CSV'}
-                      <input
-                        type="file"
-                        accept=".csv"
-                        onChange={(e) => handleCsvImport('services', e)}
-                        disabled={importingServices}
-                        style={{ display: 'none' }}
-                      />
-                    </label>
-                    <span style={{ fontSize: '12px', color: '#999' }}>Format: service_name, type, price</span>
+                  {/* Services */}
+                  <div style={{ 
+                    border: '1px solid #e0e0e0', 
+                    borderRadius: '4px', 
+                    padding: '12px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <div style={{ marginBottom: '8px', fontWeight: '500', color: '#333' }}>Services</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <label
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#FF9800',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: importingServices ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {importingServices ? 'Importing...' : 'Import CSV'}
+                        <input
+                          type="file"
+                          accept=".csv"
+                          onChange={(e) => handleCsvImport('services', e)}
+                          disabled={importingServices}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleExportCsv('services')}
+                        disabled={exportingServices}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: exportingServices ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {exportingServices ? 'Exporting...' : 'Export CSV'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkDelete('services')}
+                        disabled={deletingServices}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: deletingServices ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {deletingServices ? 'Deleting...' : 'Delete All'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: service_name, type, price</span>
                   </div>
                 </div>
                 {csvImportMessage && (
