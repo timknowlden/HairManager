@@ -608,9 +608,12 @@ initDatabase(dbPath)
     app.use(express.static(distPath));
 
     // Serve index.html for all non-API routes (SPA routing)
-    app.get('*', (req, res) => {
-      if (!req.path.startsWith('/api')) {
+    // Express 5: Use app.use with a catch-all middleware instead of app.get('*')
+    app.use((req, res, next) => {
+      if (!req.path.startsWith('/api') && req.method === 'GET') {
         res.sendFile(join(distPath, 'index.html'));
+      } else {
+        next();
       }
     });
 
