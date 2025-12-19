@@ -234,19 +234,21 @@ function Financial() {
         </label>
       </div>
 
-      <div className="financial-year-section">
-        <h3>Financial Year</h3>
-        <div className="financial-table-wrapper">
-          <table className="financial-table financial-year-table">
-            <thead>
-              <tr>
-                <th>Financial Year / Date - Month</th>
-                <th>SUM of Price</th>
-              </tr>
-            </thead>
-          <tbody>
-            {/* Financial Year Breakdowns */}
-            {financialData.financialYear.map((fy) => {
+      {/* Financial Year Summary */}
+      {financialData.financialYear && financialData.financialYear.length > 0 && (
+        <div className="financial-year-section">
+          <h3>Financial Year</h3>
+          <div className="financial-table-wrapper">
+            <table className="financial-table financial-year-table">
+              <thead>
+                <tr>
+                  <th>Financial Year / Date - Month</th>
+                  <th>SUM of Price</th>
+                </tr>
+              </thead>
+            <tbody>
+              {/* Financial Year Breakdowns */}
+              {financialData.financialYear.map((fy) => {
               const isExpanded = expandedFinancialYears.has(fy.key);
               const monthEntries = Object.entries(fy.months).sort((a, b) => {
                 const aIndex = monthOrder.indexOf(a[0]);
@@ -303,6 +305,7 @@ function Financial() {
         </table>
         </div>
       </div>
+      )}
 
       {/* Calendar Year Summary */}
       {financialData.calendarYear && financialData.calendarYear.length > 0 && (
