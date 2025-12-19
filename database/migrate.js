@@ -5,7 +5,12 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = join(__dirname, '..', 'hairmanager.db');
+// Use data directory in production (Docker), or current directory in development
+// This matches the logic in server.js
+const dataDir = process.env.NODE_ENV === 'production' 
+  ? join(__dirname, '..', 'data') 
+  : join(__dirname, '..');
+const dbPath = join(dataDir, 'hairmanager.db');
 
 const runAsync = (db, sql, params = []) => {
   return new Promise((resolve, reject) => {
@@ -16,9 +21,10 @@ const runAsync = (db, sql, params = []) => {
   });
 };
 
-function migrateDatabase() {
+function migrateDatabase(customDbPath = null) {
   return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(dbPath, (err) => {
+    const pathToUse = customDbPath || dbPath;
+    const db = new sqlite3.Database(pathToUse, (err) => {
       if (err) {
         console.error('Error opening database:', err);
         reject(err);

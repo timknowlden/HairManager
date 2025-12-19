@@ -549,7 +549,7 @@ const dbPath = join(dataDir, 'hairmanager.db');
 
 // Initialize database first, then migrate, then start server
 initDatabase(dbPath)
-  .then(() => migrateDatabase())
+  .then(() => migrateDatabase(dbPath))
   .then(() => {
     // Create database connection after initialization
     const db = new sqlite3.Database(dbPath, (err) => {
