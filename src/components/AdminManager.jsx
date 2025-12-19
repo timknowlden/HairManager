@@ -692,6 +692,7 @@ function AdminManager({ onSettingsSaved }) {
         setCsvImportMessage(`Successfully imported ${imported} services`);
       }
     } catch (err) {
+      console.error(`CSV import error for ${type}:`, err);
       setError(err.message || `Failed to import ${type}`);
     } finally {
       setImportingAppointments(false);
