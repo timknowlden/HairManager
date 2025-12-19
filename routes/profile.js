@@ -395,7 +395,7 @@ router.get('/export/json', (req, res) => {
         return;
       }
       
-      // Remove sensitive fields or user_id from export (optional - you may want to keep them)
+      // Export all fields except sensitive password
       const exportData = {
         name: row.name || '',
         phone: row.phone || '',
@@ -409,10 +409,13 @@ router.get('/export/json', (req, res) => {
         currency: row.currency || 'GBP',
         google_maps_api_key: row.google_maps_api_key || '',
         email_relay_service: row.email_relay_service || 'sendgrid',
+        email_relay_api_key: row.email_relay_api_key || '',
         email_relay_from_email: row.email_relay_from_email || '',
         email_relay_from_name: row.email_relay_from_name || '',
         email_relay_bcc_enabled: row.email_relay_bcc_enabled === 1 || row.email_relay_bcc_enabled === '1',
-        // Note: email_password and email_relay_api_key are intentionally excluded for security
+        email_signature: row.email_signature || '',
+        default_email_content: row.default_email_content || '',
+        // Note: email_password is intentionally excluded for security
       };
       
       res.setHeader('Content-Type', 'application/json');
@@ -461,13 +464,19 @@ router.post('/import/json', (req, res) => {
             return;
           }
 
+          // Only update API key if a new value is provided (not empty)
+          const finalEmailRelayApiKey = importData.email_relay_api_key && importData.email_relay_api_key.trim() !== '' 
+            ? importData.email_relay_api_key 
+            : (pwdRow?.email_relay_api_key || '');
+
           db.run(
             `UPDATE admin_settings SET 
              name = ?, phone = ?, email = ?, business_name = ?, bank_account_name = ?, 
              sort_code = ?, account_number = ?, home_address = ?, 
              home_postcode = ?, currency = ?, google_maps_api_key = ?, 
-             email_relay_service = ?, email_relay_from_email = ?, 
-             email_relay_from_name = ?, email_relay_bcc_enabled = ?, updated_at = ?
+             email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
+             email_relay_from_name = ?, email_relay_bcc_enabled = ?, 
+             email_signature = ?, default_email_content = ?, updated_at = ?
              WHERE id = ? AND user_id = ?`,
             [
               importData.name || '',
@@ -482,9 +491,12 @@ router.post('/import/json', (req, res) => {
               importData.currency || 'GBP',
               importData.google_maps_api_key || '',
               importData.email_relay_service || 'sendgrid',
+              finalEmailRelayApiKey,
               importData.email_relay_from_email || '',
               importData.email_relay_from_name || '',
               bccEnabled,
+              importData.email_signature || '',
+              importData.default_email_content || '',
               now,
               existing.id,
               userId
@@ -505,9 +517,10 @@ router.post('/import/json', (req, res) => {
           `INSERT INTO admin_settings 
            (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
             home_address, home_postcode, currency, google_maps_api_key, 
-            email_relay_service, email_relay_from_email, email_relay_from_name, 
-            email_relay_bcc_enabled, postcode_resync_needed, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
+            email_relay_bcc_enabled, email_signature, default_email_content, 
+            postcode_resync_needed, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userId,
             importData.name || '',
@@ -522,9 +535,12 @@ router.post('/import/json', (req, res) => {
             importData.currency || 'GBP',
             importData.google_maps_api_key || '',
             importData.email_relay_service || 'sendgrid',
+            importData.email_relay_api_key || '',
             importData.email_relay_from_email || '',
             importData.email_relay_from_name || '',
             bccEnabled,
+            importData.email_signature || '',
+            importData.default_email_content || '',
             0, // postcode_resync_needed defaults to 0
             now,
             now
