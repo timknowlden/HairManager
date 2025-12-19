@@ -1,4 +1,6 @@
 name: hairmanager
+volumes:
+  hairmanager_data:
 services:
   app:
     cpu_shares: 1024
@@ -17,8 +19,8 @@ services:
       icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
     restart: unless-stopped
     volumes:
-      - type: bind
-        source: ./data
+      - type: volume
+        source: hairmanager_data
         target: /app/data
     ports:
       - "3001:3001"
