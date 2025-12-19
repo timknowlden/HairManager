@@ -492,7 +492,7 @@ function AdminManager({ onSettingsSaved }) {
         let typeIdx = -1, priceIdx = -1, paidIdx = -1, distanceIdx = -1, paymentDateIdx = -1;
         
         if (hasHeader) {
-          const headerParts = lines[0].toLowerCase().split(line.includes('\t') ? '\t' : ',').map(p => p.trim().replace(/^"|"$/g, ''));
+          const headerParts = lines[0].toLowerCase().split(lines[0].includes('\t') ? '\t' : ',').map(p => p.trim().replace(/^"|"$/g, ''));
           dateIdx = headerParts.findIndex(h => h.includes('date') && !h.includes('payment'));
           clientIdx = headerParts.findIndex(h => h.includes('client') || h.includes('name'));
           serviceIdx = headerParts.findIndex(h => h.includes('service'));
