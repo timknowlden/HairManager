@@ -478,7 +478,56 @@ router.delete('/bulk/all', (req, res) => {
         res.status(500).json({ error: err.message });
         return;
       }
-      res.json({ message: `Successfully deleted ${this.changes} appointments` });
+      
+      // Reset the sequence to 0 so new appointments start at ID 1
+      db.run("DELETE FROM sqlite_sequence WHERE name = 'appointments'", (seqErr) => {
+        if (seqErr) {
+          console.error('Error resetting sequence:', seqErr);
+          // Don't fail the request if sequence reset fails
+        }
+        res.json({ 
+          message: `Successfully deleted ${this.changes} appointments`,
+          sequenceReset: !seqErr
+        });
+      });
+    }
+  );
+});
+
+// Reset appointments ID sequence
+router.post('/reset-sequence', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  // Check if there are any appointments
+  db.get(
+    'SELECT COUNT(*) as count FROM appointments WHERE user_id = ?',
+    [userId],
+    (err, row) => {
+      if (err) {
+        console.error('Error checking appointments:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      if (row.count > 0) {
+        res.status(400).json({ 
+          error: 'Cannot reset sequence while appointments exist. Delete all appointments first.' 
+        });
+        return;
+      }
+
+      // Reset the sequence to 0
+      db.run("DELETE FROM sqlite_sequence WHERE name = 'appointments'", (seqErr) => {
+        if (seqErr) {
+          console.error('Error resetting sequence:', seqErr);
+          res.status(500).json({ error: seqErr.message });
+          return;
+        }
+        res.json({ 
+          message: 'Appointments ID sequence reset successfully. New appointments will start at ID 1.'
+        });
+      });
     }
   );
 });

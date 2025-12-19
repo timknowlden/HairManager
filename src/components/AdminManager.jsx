@@ -32,6 +32,7 @@ function AdminManager({ onSettingsSaved }) {
   const [deletingAppointments, setDeletingAppointments] = useState(false);
   const [deletingLocations, setDeletingLocations] = useState(false);
   const [deletingServices, setDeletingServices] = useState(false);
+  const [resettingAppointmentSequence, setResettingAppointmentSequence] = useState(false);
   const [exportingProfile, setExportingProfile] = useState(false);
   const [importingProfile, setImportingProfile] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -750,7 +751,7 @@ function AdminManager({ onSettingsSaved }) {
         throw new Error(data.error || `Failed to delete ${type}`);
       }
 
-      setCsvImportMessage(data.message || `Successfully deleted all ${typeName}`);
+      setCsvImportMessage(data.message || `Successfully deleted all ${typeName}${data.sequenceReset ? ' (ID sequence reset)' : ''}`);
       // Refresh the page to reflect changes
       setTimeout(() => {
         window.location.reload();
@@ -761,6 +762,34 @@ function AdminManager({ onSettingsSaved }) {
       setDeletingAppointments(false);
       setDeletingLocations(false);
       setDeletingServices(false);
+    }
+  };
+
+  const handleResetAppointmentSequence = async () => {
+    if (!window.confirm('Reset appointment ID sequence? This will make new appointments start at ID 1. Only works if there are no appointments. Continue?')) {
+      return;
+    }
+
+    setError(null);
+    setResettingAppointmentSequence(true);
+    setCsvImportMessage(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/appointments/reset-sequence`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reset appointment sequence');
+      }
+
+      setCsvImportMessage(data.message || 'Appointment ID sequence reset successfully');
+    } catch (err) {
+      setError(err.message || 'Failed to reset appointment sequence');
+    } finally {
+      setResettingAppointmentSequence(false);
     }
   };
 
