@@ -186,39 +186,54 @@ router.post('/batch', (req, res) => {
       }
 
       const distance = locationRow ? locationRow.distance : null;
-      const insertedAppointments = [];
-      let completed = 0;
-      let hasError = false;
+      
+      // Check if there are already appointments for this location/date combination
+      // Only the first appointment for a location/date should have distance
+      db.get(
+        'SELECT COUNT(*) as count FROM appointments WHERE location = ? AND date = ? AND user_id = ? AND distance IS NOT NULL',
+        [location, date, userId],
+        (checkErr, existingRow) => {
+          if (checkErr) {
+            console.error('Error checking existing appointments:', checkErr);
+            res.status(500).json({ error: checkErr.message });
+            return;
+          }
 
-      appointments.forEach((apt, index) => {
-        const { client_name, service } = apt;
+          // If there's already an appointment with distance for this location/date, don't assign distance to any new ones
+          const hasExistingDistance = existingRow && existingRow.count > 0;
+          const insertedAppointments = [];
+          let completed = 0;
+          let hasError = false;
 
-        // Lookup service details - must belong to user
-        db.get(
-          'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
-          [service, userId],
-          (serviceErr, serviceRow) => {
-            if (hasError) return;
+          appointments.forEach((apt, index) => {
+            const { client_name, service } = apt;
 
-            if (serviceErr) {
-              console.error('Error fetching service:', serviceErr);
-              if (!hasError) {
-                hasError = true;
-                res.status(500).json({ error: serviceErr.message });
-              }
-              return;
-            }
+            // Lookup service details - must belong to user
+            db.get(
+              'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
+              [service, userId],
+              (serviceErr, serviceRow) => {
+                if (hasError) return;
 
-            if (!serviceRow) {
-              if (!hasError) {
-                hasError = true;
-                res.status(400).json({ error: `Service "${service}" not found` });
-              }
-              return;
-            }
+                if (serviceErr) {
+                  console.error('Error fetching service:', serviceErr);
+                  if (!hasError) {
+                    hasError = true;
+                    res.status(500).json({ error: serviceErr.message });
+                  }
+                  return;
+                }
 
-            // Only add distance to the first appointment
-            const appointmentDistance = index === 0 ? distance : null;
+                if (!serviceRow) {
+                  if (!hasError) {
+                    hasError = true;
+                    res.status(400).json({ error: `Service "${service}" not found` });
+                  }
+                  return;
+                }
+
+                // Only add distance to the first appointment if no existing appointment has distance for this location/date
+                const appointmentDistance = (!hasExistingDistance && index === 0) ? distance : null;
 
             // Insert appointment with user_id
             db.run(
@@ -272,6 +287,8 @@ router.post('/batch', (req, res) => {
           }
         );
       });
+        }
+      );
     }
   );
 });
