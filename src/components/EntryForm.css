@@ -378,12 +378,15 @@
   box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
 }
 
-.submit-btn {
+.entry-form .submit-btn,
+.entry-form button.submit-btn,
+form .submit-btn,
+form button.submit-btn {
   width: 100%;
   padding: 14px;
   background: #4CAF50 !important;
-  color: white;
-  border: none;
+  color: white !important;
+  border: none !important;
   border-radius: 8px;
   cursor: pointer;
   font-size: 16px;
@@ -393,7 +396,10 @@
   box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
 }
 
-.submit-btn:hover:not(:disabled) {
+.entry-form .submit-btn:hover:not(:disabled),
+.entry-form button.submit-btn:hover:not(:disabled),
+form .submit-btn:hover:not(:disabled),
+form button.submit-btn:hover:not(:disabled) {
   background: #4CAF50 !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
