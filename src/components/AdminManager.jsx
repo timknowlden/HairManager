@@ -35,6 +35,7 @@ function AdminManager({ onSettingsSaved }) {
   const [resettingAppointmentSequence, setResettingAppointmentSequence] = useState(false);
   const [exportingProfile, setExportingProfile] = useState(false);
   const [importingProfile, setImportingProfile] = useState(false);
+  const [appVersion, setAppVersion] = useState(null);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -2024,6 +2025,21 @@ function AdminManager({ onSettingsSaved }) {
           )}
         </div>
       </form>
+      {/* Version Footer */}
+      <div style={{
+        marginTop: '30px',
+        paddingTop: '20px',
+        borderTop: '1px solid #e0e0e0',
+        textAlign: 'center',
+        fontSize: '12px',
+        color: '#999'
+      }}>
+        {appVersion ? (
+          <span>Version {appVersion}</span>
+        ) : (
+          <span>Loading version...</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,13 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import nodemailer from 'nodemailer';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { authenticateToken } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
@@ -557,6 +563,18 @@ router.post('/import/json', (req, res) => {
       }
     }
   );
+});
+
+// Get application version
+router.get('/version', (req, res) => {
+  try {
+    const packagePath = join(__dirname, '..', 'package.json');
+    const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+    res.json({ version: packageJson.version });
+  } catch (err) {
+    console.error('Error reading version:', err);
+    res.json({ version: 'unknown' });
+  }
 });
 
 export default router;
