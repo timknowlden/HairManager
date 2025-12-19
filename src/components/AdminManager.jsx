@@ -109,7 +109,22 @@ function AdminManager({ onSettingsSaved }) {
 
   useEffect(() => {
     fetchAdminSettings();
+    fetchVersion();
   }, []);
+
+  const fetchVersion = async () => {
+    try {
+      const response = await fetch(`${PROFILE_API}/version`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAppVersion(data.version);
+      }
+    } catch (err) {
+      console.error('Error fetching version:', err);
+    }
+  };
 
   const formatSortCode = (value) => {
     // Remove all non-numeric characters
