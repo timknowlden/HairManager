@@ -48,7 +48,6 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push to GitHub Container Registry
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -59,47 +58,41 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Log in to Docker Hub (if configured)
-        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+      - name: Check Docker Hub secrets
+        id: check-dockerhub
+        run: |
+          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Docker Hub secrets not configured, skipping Docker Hub push"
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.check-dockerhub.outputs.configured == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push to Docker Hub (if configured)
-        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+      - name: Copy image to Docker Hub
+        if: steps.check-dockerhub.outputs.configured == 'true'
         continue-on-error: true
         run: |
-          echo "✅ Docker Hub secrets found!"
-          echo "Username: ${{ secrets.DOCKERHUB_USERNAME }}"
-          
-          # Construct the GHCR image tag (latest)
+          echo "✅ Copying image from GHCR to Docker Hub..."
           GHCR_IMAGE="ghcr.io/${{ github.repository }}:latest"
           DOCKERHUB_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
           
-          echo "Pulling image from GHCR: ${GHCR_IMAGE}"
-          docker pull ${GHCR_IMAGE}
+          echo "Source: ${GHCR_IMAGE}"
+          echo "Target: ${DOCKERHUB_IMAGE}"
+          
+          # Use buildx imagetools to copy the image (no rebuild needed)
+          docker buildx imagetools create --tag ${DOCKERHUB_IMAGE} ${GHCR_IMAGE}
           
           if [ $? -ne 0 ]; then
-            echo "❌ Failed to pull image from GHCR"
+            echo "❌ Failed to copy image to Docker Hub"
             exit 1
           fi
           
-          echo "Tagging image for Docker Hub..."
-          docker tag ${GHCR_IMAGE} ${DOCKERHUB_IMAGE}
-          
-          if [ $? -ne 0 ]; then
-            echo "❌ Docker tag failed"
-            exit 1
-          fi
-          
-          echo "Pushing to Docker Hub..."
-          docker push ${DOCKERHUB_IMAGE}
-          
-          if [ $? -ne 0 ]; then
-            echo "❌ Docker push failed"
-            exit 1
-          fi
-          
-          echo "✅ Successfully pushed to Docker Hub: ${DOCKERHUB_IMAGE}"
+          echo "✅ Successfully copied image to Docker Hub: ${DOCKERHUB_IMAGE}"
 
