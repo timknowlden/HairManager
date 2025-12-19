@@ -466,6 +466,53 @@ function AdminManager({ onSettingsSaved }) {
     }
   };
 
+  // Helper function to parse date from various formats (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD) to YYYY-MM-DD
+  const parseDate = (dateStr) => {
+    if (!dateStr || !dateStr.trim()) return null;
+    
+    const trimmed = dateStr.trim();
+    
+    // Already in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    
+    // Try DD/MM/YYYY format (most common in UK/European CSVs)
+    const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ddmmyyyy) {
+      const day = ddmmyyyy[1].padStart(2, '0');
+      const month = ddmmyyyy[2].padStart(2, '0');
+      const year = ddmmyyyy[3];
+      // Validate: day <= 31, month <= 12
+      if (parseInt(day) <= 31 && parseInt(month) <= 12) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    
+    // Try MM/DD/YYYY format (US format)
+    const mmddyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyy) {
+      const month = mmddyyyy[1].padStart(2, '0');
+      const day = mmddyyyy[2].padStart(2, '0');
+      const year = mmddyyyy[3];
+      // Validate: month <= 12, day <= 31
+      if (parseInt(month) <= 12 && parseInt(day) <= 31) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    
+    // Try JavaScript Date parsing as fallback
+    const date = new Date(trimmed);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return null; // Invalid date
+  };
+
   const handleCsvImport = async (type, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -537,8 +584,16 @@ function AdminManager({ onSettingsSaved }) {
           const maxRequiredIdx = Math.max(dateIdx, clientIdx, serviceIdx, locationIdx);
           if (parts.length > maxRequiredIdx && 
               parts[dateIdx] && parts[clientIdx] && parts[serviceIdx] && parts[locationIdx]) {
+            
+            // Parse and convert date to YYYY-MM-DD format
+            const parsedDate = parseDate(parts[dateIdx]);
+            if (!parsedDate) {
+              console.warn(`Invalid date format: ${parts[dateIdx]}, skipping row`);
+              continue; // Skip rows with invalid dates
+            }
+            
             const appointment = {
-              date: parts[dateIdx],
+              date: parsedDate,
               client_name: parts[clientIdx],
               service: parts[serviceIdx],
               location: parts[locationIdx]
@@ -559,7 +614,10 @@ function AdminManager({ onSettingsSaved }) {
               appointment.distance = parseFloat(distStr) || null;
             }
             if (paymentDateIdx >= 0 && parts[paymentDateIdx] && parts[paymentDateIdx] !== '-') {
-              appointment.payment_date = parts[paymentDateIdx];
+              const parsedPaymentDate = parseDate(parts[paymentDateIdx]);
+              if (parsedPaymentDate) {
+                appointment.payment_date = parsedPaymentDate;
+              }
             }
             
             appointments.push(appointment);
@@ -570,12 +628,13 @@ function AdminManager({ onSettingsSaved }) {
           throw new Error('No valid appointments found in CSV');
         }
 
-        // Group by date and location for batch import, preserving optional fields
-        const grouped = {};
-        appointments.forEach(apt => {
+        // Import appointments one by one in order to preserve CSV order
+        // Group by date and location for batch import, but process groups in order
+        const grouped = new Map(); // Use Map to preserve insertion order
+        appointments.forEach((apt, index) => {
           const key = `${apt.date}|${apt.location}`;
-          if (!grouped[key]) {
-            grouped[key] = { date: apt.date, location: apt.location, appointments: [] };
+          if (!grouped.has(key)) {
+            grouped.set(key, { date: apt.date, location: apt.location, appointments: [] });
           }
           // Include optional fields if present
           const appointmentData = { 
@@ -587,11 +646,12 @@ function AdminManager({ onSettingsSaved }) {
           if (apt.paid !== null && apt.paid !== undefined) appointmentData.paid = apt.paid;
           if (apt.distance !== null && apt.distance !== undefined) appointmentData.distance = apt.distance;
           if (apt.payment_date) appointmentData.payment_date = apt.payment_date;
-          grouped[key].appointments.push(appointmentData);
+          grouped.get(key).appointments.push(appointmentData);
         });
 
+        // Import groups sequentially to preserve order
         let imported = 0;
-        for (const group of Object.values(grouped)) {
+        for (const group of grouped.values()) {
           const response = await fetch(`${API_BASE}/appointments/batch`, {
             method: 'POST',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -605,6 +665,9 @@ function AdminManager({ onSettingsSaved }) {
           if (response.ok) {
             const data = await response.json();
             imported += data.appointments?.length || group.appointments.length;
+          } else {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Failed to import batch:', errorData);
           }
         }
 

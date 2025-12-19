@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
   const userId = req.userId;
   
   db.all(
-    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id DESC',
+    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC',
     [userId],
     (err, rows) => {
       if (err) {
