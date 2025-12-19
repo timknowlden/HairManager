@@ -487,16 +487,28 @@ function AdminManager({ onSettingsSaved }) {
         // Optional: type, price, paid, distance, payment_date
         // Supports both comma and tab separators
         const appointments = [];
+        
+        if (lines.length === 0) {
+          throw new Error('CSV file is empty');
+        }
+        
         const header = lines[0].toLowerCase();
         const hasHeader = header.includes('date') || header.includes('client') || header.includes('service');
         const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        if (dataLines.length === 0) {
+          throw new Error('No data rows found in CSV file');
+        }
 
         // Detect column order from header if present
         let dateIdx = 0, clientIdx = 1, serviceIdx = 2, locationIdx = 3;
         let typeIdx = -1, priceIdx = -1, paidIdx = -1, distanceIdx = -1, paymentDateIdx = -1;
         
         if (hasHeader) {
-          const headerParts = lines[0].toLowerCase().split(lines[0].includes('\t') ? '\t' : ',').map(p => p.trim().replace(/^"|"$/g, ''));
+          const headerLine = lines[0];
+          const separator = headerLine.includes('\t') ? '\t' : ',';
+          const headerParts = headerLine.toLowerCase().split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
+          
           dateIdx = headerParts.findIndex(h => h.includes('date') && !h.includes('payment'));
           clientIdx = headerParts.findIndex(h => h.includes('client') || h.includes('name'));
           serviceIdx = headerParts.findIndex(h => h.includes('service'));
@@ -515,12 +527,15 @@ function AdminManager({ onSettingsSaved }) {
         }
 
         for (const line of dataLines) {
+          if (!line || !line.trim()) continue; // Skip empty lines
+          
           // Try tab first (common from Excel/Google Sheets), then comma
           const separator = line.includes('\t') ? '\t' : ',';
           const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
           
           // Require at least date, client_name, service, location
-          if (parts.length > Math.max(dateIdx, clientIdx, serviceIdx, locationIdx) && 
+          const maxRequiredIdx = Math.max(dateIdx, clientIdx, serviceIdx, locationIdx);
+          if (parts.length > maxRequiredIdx && 
               parts[dateIdx] && parts[clientIdx] && parts[serviceIdx] && parts[locationIdx]) {
             const appointment = {
               date: parts[dateIdx],
