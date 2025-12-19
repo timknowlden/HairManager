@@ -3,6 +3,7 @@ import cors from 'cors';
 import sqlite3 from 'sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 import { initDatabase } from './database/init.js';
 import { migrateDatabase } from './database/migrate.js';
 import appointmentsRoutes from './routes/appointments.js';
@@ -616,6 +617,16 @@ initDatabase(dbPath)
         next();
       }
     });
+
+    // Read and log version
+    try {
+      const packageJson = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8'));
+      console.log(`\n╔════════════════════════════════════════╗`);
+      console.log(`║  HairManager v${packageJson.version}                    ║`);
+      console.log(`╚════════════════════════════════════════╝`);
+    } catch (err) {
+      console.log('\n[Warning] Could not read version from package.json');
+    }
 
     app.listen(PORT, () => {
       console.log(`\nServer running on http://localhost:${PORT}`);
