@@ -1667,8 +1667,25 @@ function AdminManager({ onSettingsSaved }) {
                       >
                         {deletingAppointments ? 'Deleting...' : 'Delete All'}
                       </button>
+                      <button
+                        type="button"
+                        onClick={handleResetAppointmentSequence}
+                        disabled={resettingAppointmentSequence}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#9C27B0',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: resettingAppointmentSequence ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {resettingAppointmentSequence ? 'Resetting...' : 'Reset IDs'}
+                      </button>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: date, client_name, service, location (required). Optional: type, price, paid, distance, payment_date. Headers auto-detected.</span>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: date, client_name, service, location (required). Optional: type, price, paid, distance, payment_date. Headers auto-detected. Use "Reset IDs" to make new appointments start at ID 1 (only works when no appointments exist).</span>
                   </div>
                   
                   {/* Locations */}
