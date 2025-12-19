@@ -32,6 +32,8 @@ function AdminManager({ onSettingsSaved }) {
   const [deletingAppointments, setDeletingAppointments] = useState(false);
   const [deletingLocations, setDeletingLocations] = useState(false);
   const [deletingServices, setDeletingServices] = useState(false);
+  const [exportingProfile, setExportingProfile] = useState(false);
+  const [importingProfile, setImportingProfile] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -701,6 +703,77 @@ function AdminManager({ onSettingsSaved }) {
       setDeletingAppointments(false);
       setDeletingLocations(false);
       setDeletingServices(false);
+    }
+  };
+
+  const handleExportProfile = async () => {
+    setError(null);
+    setExportingProfile(true);
+    try {
+      const response = await fetch(`${PROFILE_API}/export/json`, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to export profile settings');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `profile-settings-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setCsvImportMessage('Successfully exported profile settings to JSON');
+    } catch (err) {
+      setError(err.message || 'Failed to export profile settings');
+    } finally {
+      setExportingProfile(false);
+    }
+  };
+
+  const handleImportProfile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportingProfile(true);
+    setError(null);
+    setCsvImportMessage(null);
+
+    try {
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      const response = await fetch(`${PROFILE_API}/import/json`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(importData)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import profile settings');
+      }
+
+      setCsvImportMessage(data.message || 'Successfully imported profile settings');
+      // Refresh profile settings
+      setTimeout(() => {
+        fetchAdminSettings();
+      }, 500);
+    } catch (err) {
+      setError(err.message || 'Failed to import profile settings');
+    } finally {
+      setImportingProfile(false);
+      e.target.value = '';
     }
   };
 
@@ -1647,6 +1720,58 @@ function AdminManager({ onSettingsSaved }) {
                       </button>
                     </div>
                     <span style={{ fontSize: '11px', color: '#999' }}>Import format: service_name, type, price</span>
+                  </div>
+                  
+                  {/* Profile Settings */}
+                  <div style={{ 
+                    border: '1px solid #e0e0e0', 
+                    borderRadius: '4px', 
+                    padding: '12px',
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <div style={{ marginBottom: '8px', fontWeight: '500', color: '#333' }}>Profile Settings</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <label
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#FF9800',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: importingProfile ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {importingProfile ? 'Importing...' : 'Import JSON'}
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleImportProfile}
+                          disabled={importingProfile}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleExportProfile}
+                        disabled={exportingProfile}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: exportingProfile ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {exportingProfile ? 'Exporting...' : 'Export JSON'}
+                      </button>
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Export/Import profile settings (name, email, business info, etc.). Passwords and API keys are not included for security.</span>
                   </div>
                 </div>
                 {csvImportMessage && (
