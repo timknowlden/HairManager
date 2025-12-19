@@ -92,9 +92,14 @@ jobs:
         continue-on-error: true
         run: |
           echo "✅ Copying image from GHCR to Docker Hub..."
-          # Use lowercase repository name and version tag
+          # Use the first tag from metadata (which will be the branch name like 'main')
+          # Extract the first tag from the metadata output
+          GHCR_TAGS="${{ steps.meta.outputs.tags }}"
+          FIRST_TAG=$(echo "${GHCR_TAGS}" | head -n1 | tr -d ' ')
           VERSION="${{ steps.package-version.outputs.version }}"
-          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/hairmanager:v${VERSION}"
+          
+          # Use the first tag as source (e.g., ghcr.io/owner/hairmanager:main)
+          GHCR_IMAGE="${FIRST_TAG}"
           DOCKERHUB_IMAGE_LATEST="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
           DOCKERHUB_IMAGE_VERSION="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:v${VERSION}"
           
