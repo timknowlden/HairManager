@@ -45,7 +45,9 @@ function AdminManager({ onSettingsSaved }) {
   // Tiptap editor for default email content
   const defaultContentEditor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false, // Exclude Link from StarterKit to avoid duplicate
+      }),
       Link.configure({
         openOnClick: false,
       }),
@@ -63,7 +65,9 @@ function AdminManager({ onSettingsSaved }) {
   // Tiptap editor for email signature
   const signatureEditor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false, // Exclude Link from StarterKit to avoid duplicate
+      }),
       Link.configure({
         openOnClick: false,
       }),
