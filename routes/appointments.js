@@ -188,19 +188,35 @@ router.post('/batch', (req, res) => {
       const distance = locationRow ? locationRow.distance : null;
       
       // Check if there are already appointments for this location/date combination
-      // Only the first appointment for a location/date should have distance
-      db.get(
-        'SELECT COUNT(*) as count FROM appointments WHERE location = ? AND date = ? AND user_id = ? AND distance IS NOT NULL',
+      // Only the first appointment (by ID) for a location/date should have distance
+      db.all(
+        'SELECT id, distance FROM appointments WHERE location = ? AND date = ? AND user_id = ? ORDER BY id ASC',
         [location, date, userId],
-        (checkErr, existingRow) => {
+        (checkErr, existingAppointments) => {
           if (checkErr) {
             console.error('Error checking existing appointments:', checkErr);
             res.status(500).json({ error: checkErr.message });
             return;
           }
 
-          // If there's already an appointment with distance for this location/date, don't assign distance to any new ones
-          const hasExistingDistance = existingRow && existingRow.count > 0;
+          // Find if any existing appointment has distance
+          const hasExistingDistance = existingAppointments && existingAppointments.some(apt => apt.distance !== null && apt.distance !== undefined);
+          
+          // If there are existing appointments but none have distance, update the first one
+          if (existingAppointments && existingAppointments.length > 0 && !hasExistingDistance && distance !== null) {
+            const firstAppointmentId = existingAppointments[0].id;
+            db.run(
+              'UPDATE appointments SET distance = ? WHERE id = ? AND user_id = ?',
+              [distance, firstAppointmentId, userId],
+              (updateErr) => {
+                if (updateErr) {
+                  console.error('Error updating existing appointment distance:', updateErr);
+                  // Continue anyway, don't fail the request
+                }
+              }
+            );
+          }
+
           const insertedAppointments = [];
           let completed = 0;
           let hasError = false;
@@ -233,7 +249,8 @@ router.post('/batch', (req, res) => {
                 }
 
                 // Only add distance to the first appointment if no existing appointment has distance for this location/date
-                const appointmentDistance = (!hasExistingDistance && index === 0) ? distance : null;
+                // AND this is the first appointment in the batch
+                const appointmentDistance = (!hasExistingDistance && existingAppointments.length === 0 && index === 0) ? distance : null;
 
             // Insert appointment with user_id
             db.run(
