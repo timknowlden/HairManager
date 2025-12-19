@@ -628,15 +628,13 @@ function AdminManager({ onSettingsSaved }) {
           throw new Error('No valid appointments found in CSV');
         }
 
-        // Import appointments one by one in order to preserve CSV order
-        // Group by date and location for batch import, but process groups in order
-        const grouped = new Map(); // Use Map to preserve insertion order
-        appointments.forEach((apt, index) => {
-          const key = `${apt.date}|${apt.location}`;
-          if (!grouped.has(key)) {
-            grouped.set(key, { date: apt.date, location: apt.location, appointments: [] });
-          }
-          // Include optional fields if present
+        // Import appointments one by one in CSV order to preserve row order and ensure IDs match row numbers
+        // This ensures IDs are assigned sequentially matching the CSV row order
+        let imported = 0;
+        let failed = 0;
+        
+        for (const apt of appointments) {
+          // Prepare appointment data for batch endpoint (single appointment per call to preserve order)
           const appointmentData = { 
             client_name: apt.client_name, 
             service: apt.service 
@@ -646,32 +644,31 @@ function AdminManager({ onSettingsSaved }) {
           if (apt.paid !== null && apt.paid !== undefined) appointmentData.paid = apt.paid;
           if (apt.distance !== null && apt.distance !== undefined) appointmentData.distance = apt.distance;
           if (apt.payment_date) appointmentData.payment_date = apt.payment_date;
-          grouped.get(key).appointments.push(appointmentData);
-        });
-
-        // Import groups sequentially to preserve order
-        let imported = 0;
-        for (const group of grouped.values()) {
+          
           const response = await fetch(`${API_BASE}/appointments/batch`, {
             method: 'POST',
             headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              date: group.date,
-              location: group.location,
-              appointments: group.appointments
+              date: apt.date,
+              location: apt.location,
+              appointments: [appointmentData] // Single appointment to preserve order
             })
           });
 
           if (response.ok) {
-            const data = await response.json();
-            imported += data.appointments?.length || group.appointments.length;
+            imported++;
           } else {
+            failed++;
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-            console.error('Failed to import batch:', errorData);
+            console.error(`Failed to import appointment for ${apt.client_name}:`, errorData);
           }
         }
 
-        setCsvImportMessage(`Successfully imported ${imported} appointments`);
+        if (imported > 0) {
+          setCsvImportMessage(`Successfully imported ${imported} appointment${imported !== 1 ? 's' : ''}${failed > 0 ? ` (${failed} failed)` : ''}`);
+        } else {
+          throw new Error(`Failed to import appointments${failed > 0 ? `: ${failed} failed` : ''}`);
+        }
       } else if (type === 'locations') {
         setImportingLocations(true);
         // Parse CSV: location_name, address, city_town, post_code, distance, contact_name, email_address (supports both comma and tab separators)
