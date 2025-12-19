@@ -14,11 +14,27 @@ Every time you push code to the `main` branch on GitHub, the GitHub Actions work
 
 ## How to Update on ZimaOS
 
-### Option 1: Using ZimaOS Web Interface (Recommended)
+### ⚠️ Important: ZimaOS Update Behavior
+
+**Known Issue:** The "Check then update" feature in ZimaOS may not always detect new versions correctly. If it says "up to date" but you know there's a new version:
+
+1. **Use Settings → Save method** (see Option 1b below)
+2. Or manually pull via SSH (Option 2)
+
+### Option 1a: Using "Check then update" Button
 1. Open ZimaOS web interface
 2. Navigate to your HairManager app
-3. Look for an "Update" or "Refresh" button
-4. Click it to pull the latest image and restart the container
+3. Click the three-dot menu (⋮)
+4. Click "Check then update"
+5. **Note:** This may not always detect updates - if it says "up to date" but you know there's a new version, use Option 1b
+
+### Option 1b: Using Settings → Save (Reliable Method)
+1. Open ZimaOS web interface
+2. Navigate to your HairManager app
+3. Click the three-dot menu (⋮)
+4. Click "Settings"
+5. Click "Save" (even without making changes)
+6. This will trigger a pull and restart, ensuring you get the latest version
 
 ### Option 2: Using SSH (If web interface doesn't have update button)
 1. SSH into your ZimaOS server
