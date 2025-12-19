@@ -135,16 +135,16 @@ function App() {
             <FaCut /> Services
           </button>
           <button
-            className={activeTab === 'admin' ? 'active' : ''}
-            onClick={() => setActiveTab('admin')}
-          >
-            <FaUser /> Profile
-          </button>
-          <button
             className={activeTab === 'financial' ? 'active' : ''}
             onClick={() => setActiveTab('financial')}
           >
             <FaChartLine /> Financial
+          </button>
+          <button
+            className={activeTab === 'admin' ? 'active' : ''}
+            onClick={() => setActiveTab('admin')}
+          >
+            <FaUser /> Profile
           </button>
         </nav>
       </header>
