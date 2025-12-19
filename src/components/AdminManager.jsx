@@ -21,6 +21,10 @@ function AdminManager({ onSettingsSaved }) {
   const [importMessage, setImportMessage] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState(null);
+  const [importingAppointments, setImportingAppointments] = useState(false);
+  const [importingLocations, setImportingLocations] = useState(false);
+  const [importingServices, setImportingServices] = useState(false);
+  const [csvImportMessage, setCsvImportMessage] = useState(null);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -444,6 +448,168 @@ function AdminManager({ onSettingsSaved }) {
     } finally {
       setImporting(false);
       // Reset file input
+      e.target.value = '';
+    }
+  };
+
+  const handleCsvImport = async (type, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setCsvImportMessage(null);
+    setError(null);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        throw new Error('CSV file is empty');
+      }
+
+      if (type === 'appointments') {
+        setImportingAppointments(true);
+        // Parse CSV: date, client_name, service, location (supports both comma and tab separators)
+        const appointments = [];
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('date') || header.includes('client') || header.includes('service');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        for (const line of dataLines) {
+          // Try tab first (common from Excel/Google Sheets), then comma
+          const separator = line.includes('\t') ? '\t' : ',';
+          const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
+          if (parts.length >= 4 && parts[0] && parts[1] && parts[2] && parts[3]) {
+            appointments.push({
+              date: parts[0],
+              client_name: parts[1],
+              service: parts[2],
+              location: parts[3]
+            });
+          }
+        }
+
+        if (appointments.length === 0) {
+          throw new Error('No valid appointments found in CSV');
+        }
+
+        // Group by date and location for batch import
+        const grouped = {};
+        appointments.forEach(apt => {
+          const key = `${apt.date}|${apt.location}`;
+          if (!grouped[key]) {
+            grouped[key] = { date: apt.date, location: apt.location, appointments: [] };
+          }
+          grouped[key].appointments.push({ client_name: apt.client_name, service: apt.service });
+        });
+
+        let imported = 0;
+        for (const group of Object.values(grouped)) {
+          const response = await fetch(`${API_BASE}/appointments/batch`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date: group.date,
+              location: group.location,
+              appointments: group.appointments
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            imported += data.appointments?.length || group.appointments.length;
+          }
+        }
+
+        setCsvImportMessage(`Successfully imported ${imported} appointments`);
+      } else if (type === 'locations') {
+        setImportingLocations(true);
+        // Parse CSV: location_name, address, city_town, post_code, distance, contact_name, email_address (supports both comma and tab separators)
+        const locations = [];
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('location') || header.includes('place');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        for (const line of dataLines) {
+          // Try tab first (common from Excel/Google Sheets), then comma
+          const separator = line.includes('\t') ? '\t' : ',';
+          const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
+          if (parts.length >= 1 && parts[0]) {
+            locations.push({
+              location_name: parts[0] || '',
+              address: parts[1] || '',
+              city_town: parts[2] || '',
+              post_code: parts[3] || '',
+              distance: parts[4] ? parseFloat(parts[4].replace(/ mi/gi, '')) : null,
+              contact_name: parts[5] || '',
+              email_address: parts[6] || ''
+            });
+          }
+        }
+
+        if (locations.length === 0) {
+          throw new Error('No valid locations found in CSV');
+        }
+
+        const response = await fetch(`${API_BASE}/locations/bulk-import`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ locations })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          setCsvImportMessage(`Successfully imported ${data.count} locations`);
+        } else {
+          throw new Error(data.error || 'Failed to import locations');
+        }
+      } else if (type === 'services') {
+        setImportingServices(true);
+        // Parse CSV: service_name, type, price (supports both comma and tab separators)
+        const services = [];
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('service') || header.includes('type');
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+
+        for (const line of dataLines) {
+          // Try tab first (common from Excel/Google Sheets), then comma
+          const separator = line.includes('\t') ? '\t' : ',';
+          const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
+          if (parts.length >= 2 && parts[0]) {
+            const priceStr = parts[2]?.replace(/£/g, '').replace(/,/g, '') || '0';
+            services.push({
+              service_name: parts[0],
+              type: parts[1] || 'Hair',
+              price: parseFloat(priceStr) || 0
+            });
+          }
+        }
+
+        if (services.length === 0) {
+          throw new Error('No valid services found in CSV');
+        }
+
+        let imported = 0;
+        for (const service of services) {
+          const response = await fetch(`${API_BASE}/services`, {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(service)
+          });
+
+          if (response.ok) {
+            imported++;
+          }
+        }
+
+        setCsvImportMessage(`Successfully imported ${imported} services`);
+      }
+    } catch (err) {
+      setError(err.message || `Failed to import ${type}`);
+    } finally {
+      setImportingAppointments(false);
+      setImportingLocations(false);
+      setImportingServices(false);
       e.target.value = '';
     }
   };
@@ -1159,58 +1325,155 @@ function AdminManager({ onSettingsSaved }) {
         </div>
 
         <div className="form-actions" style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, fontSize: '15px', color: '#333' }}>Data Management</h3>
-            <button
-              type="button"
-              onClick={handleExportData}
-              disabled={exporting}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: exporting ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
-            >
-              {exporting ? 'Exporting...' : 'Export Data'}
-            </button>
-            <label
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: importing ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'inline-block'
-              }}
-            >
-              {importing ? 'Importing...' : 'Import Data'}
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportData}
-                disabled={importing}
-                style={{ display: 'none' }}
-              />
-            </label>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', color: '#333', fontWeight: '600' }}>Data Management</h3>
+          
+          {/* CSV Import Section */}
+          <div style={{ marginBottom: '30px' }}>
+            <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#555', fontWeight: '500' }}>CSV Import</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Appointments:</span>
+                <label
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: importingAppointments ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'inline-block'
+                  }}
+                >
+                  {importingAppointments ? 'Importing...' : 'Import CSV'}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => handleCsvImport('appointments', e)}
+                    disabled={importingAppointments}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <span style={{ fontSize: '12px', color: '#999' }}>Format: date, client_name, service, location</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Locations:</span>
+                <label
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: importingLocations ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'inline-block'
+                  }}
+                >
+                  {importingLocations ? 'Importing...' : 'Import CSV'}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => handleCsvImport('locations', e)}
+                    disabled={importingLocations}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <span style={{ fontSize: '12px', color: '#999' }}>Format: location_name, address, city_town, post_code, distance, contact_name, email_address</span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                <span style={{ minWidth: '120px', fontSize: '14px', color: '#666' }}>Services:</span>
+                <label
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#FF9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: importingServices ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'inline-block'
+                  }}
+                >
+                  {importingServices ? 'Importing...' : 'Import CSV'}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => handleCsvImport('services', e)}
+                    disabled={importingServices}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <span style={{ fontSize: '12px', color: '#999' }}>Format: service_name, type, price</span>
+              </div>
+            </div>
+            {csvImportMessage && (
+              <div className="success-message" style={{ marginTop: '10px' }}>
+                {csvImportMessage}
+              </div>
+            )}
           </div>
-          {exportMessage && (
-            <div className="success-message" style={{ marginTop: '10px' }}>
-              {exportMessage}
+
+          {/* Backup and Restore Section */}
+          <div style={{ borderTop: '1px solid #eee', paddingTop: '20px' }}>
+            <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', color: '#555', fontWeight: '500' }}>Backup & Restore</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleExportData}
+                disabled={exporting}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: exporting ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                {exporting ? 'Exporting...' : 'Backup All Data'}
+              </button>
+              <label
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: importing ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  display: 'inline-block'
+                }}
+              >
+                {importing ? 'Importing...' : 'Restore All Data'}
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportData}
+                  disabled={importing}
+                  style={{ display: 'none' }}
+                />
+              </label>
             </div>
-          )}
-          {importMessage && (
-            <div className="success-message" style={{ marginTop: '10px' }}>
-              {importMessage}
-            </div>
-          )}
+            {exportMessage && (
+              <div className="success-message" style={{ marginTop: '10px' }}>
+                {exportMessage}
+              </div>
+            )}
+            {importMessage && (
+              <div className="success-message" style={{ marginTop: '10px' }}>
+                {importMessage}
+              </div>
+            )}
+          </div>
         </div>
       </form>
     </div>

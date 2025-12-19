@@ -345,9 +345,6 @@ Hair wash 	Hair	£5.00`;
             </button>
           )}
           <div className="header-buttons">
-            <button onClick={handleBulkImport} className="import-btn">
-              Import from Google Sheet
-            </button>
             <button 
               onClick={() => { setShowAddForm(true); setEditingId(null); resetForm(); }} 
               className="add-btn"

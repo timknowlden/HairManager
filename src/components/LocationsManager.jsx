@@ -728,9 +728,6 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
             </button>
           )}
           <div className="header-buttons">
-            <button onClick={handleImportClick} className="import-btn">
-              Import from Google Sheet
-            </button>
             <button 
               onClick={() => { setShowAddForm(true); setEditingId(null); resetForm(); }} 
               className="add-btn"
