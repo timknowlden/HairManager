@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
 
 function Login() {
   const [isLogin, setIsLogin] = useState(true);

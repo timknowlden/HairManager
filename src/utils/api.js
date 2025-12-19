@@ -1,4 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
+import { API_BASE } from '../config.js';
 
 // Helper function to make authenticated API calls
 export const useApi = () => {
@@ -10,7 +11,7 @@ export const useApi = () => {
       ...options.headers
     };
 
-    const response = await fetch(`http://localhost:3001/api${endpoint}`, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers
     });
@@ -32,7 +33,7 @@ export const makeApiCall = async (endpoint, options = {}, token) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`http://localhost:3001/api${endpoint}`, {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers
   });

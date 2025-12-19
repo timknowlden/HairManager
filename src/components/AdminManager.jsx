@@ -8,7 +8,7 @@ import { FaSave } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './AdminManager.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
 const PROFILE_API = `${API_BASE}/profile`;
 
 function AdminManager({ onSettingsSaved }) {

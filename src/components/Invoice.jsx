@@ -3,7 +3,7 @@ import html2pdf from 'html2pdf.js';
 import { useAuth } from '../contexts/AuthContext';
 import './Invoice.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
 
 function Invoice({ appointments: propsAppointments, onBack }) {
   const { getAuthHeaders } = useAuth();

@@ -10,8 +10,7 @@ import Invoice from './components/Invoice';
 import Financial from './components/Financial';
 import Login from './components/Login';
 import './App.css';
-
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from './config.js';
 
 function App() {
       const { isAuthenticated, loading, user, logout, getAuthHeaders } = useAuth();

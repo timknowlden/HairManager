@@ -4,7 +4,7 @@ import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
 
 function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }) {
   const { getAuthHeaders } = useAuth();
