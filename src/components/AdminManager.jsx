@@ -478,23 +478,71 @@ function AdminManager({ onSettingsSaved }) {
 
       if (type === 'appointments') {
         setImportingAppointments(true);
-        // Parse CSV: date, client_name, service, location (supports both comma and tab separators)
+        // Parse CSV: date, client_name, service, location (required)
+        // Optional: type, price, paid, distance, payment_date
+        // Supports both comma and tab separators
         const appointments = [];
         const header = lines[0].toLowerCase();
         const hasHeader = header.includes('date') || header.includes('client') || header.includes('service');
         const dataLines = hasHeader ? lines.slice(1) : lines;
 
+        // Detect column order from header if present
+        let dateIdx = 0, clientIdx = 1, serviceIdx = 2, locationIdx = 3;
+        let typeIdx = -1, priceIdx = -1, paidIdx = -1, distanceIdx = -1, paymentDateIdx = -1;
+        
+        if (hasHeader) {
+          const headerParts = lines[0].toLowerCase().split(line.includes('\t') ? '\t' : ',').map(p => p.trim().replace(/^"|"$/g, ''));
+          dateIdx = headerParts.findIndex(h => h.includes('date') && !h.includes('payment'));
+          clientIdx = headerParts.findIndex(h => h.includes('client') || h.includes('name'));
+          serviceIdx = headerParts.findIndex(h => h.includes('service'));
+          locationIdx = headerParts.findIndex(h => h.includes('location'));
+          typeIdx = headerParts.findIndex(h => h.includes('type'));
+          priceIdx = headerParts.findIndex(h => h.includes('price'));
+          paidIdx = headerParts.findIndex(h => h.includes('paid'));
+          distanceIdx = headerParts.findIndex(h => h.includes('distance'));
+          paymentDateIdx = headerParts.findIndex(h => h.includes('payment') && h.includes('date'));
+          
+          // Fallback to positional if not found
+          if (dateIdx === -1) dateIdx = 0;
+          if (clientIdx === -1) clientIdx = 1;
+          if (serviceIdx === -1) serviceIdx = 2;
+          if (locationIdx === -1) locationIdx = 3;
+        }
+
         for (const line of dataLines) {
           // Try tab first (common from Excel/Google Sheets), then comma
           const separator = line.includes('\t') ? '\t' : ',';
           const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
-          if (parts.length >= 4 && parts[0] && parts[1] && parts[2] && parts[3]) {
-            appointments.push({
-              date: parts[0],
-              client_name: parts[1],
-              service: parts[2],
-              location: parts[3]
-            });
+          
+          // Require at least date, client_name, service, location
+          if (parts.length > Math.max(dateIdx, clientIdx, serviceIdx, locationIdx) && 
+              parts[dateIdx] && parts[clientIdx] && parts[serviceIdx] && parts[locationIdx]) {
+            const appointment = {
+              date: parts[dateIdx],
+              client_name: parts[clientIdx],
+              service: parts[serviceIdx],
+              location: parts[locationIdx]
+            };
+            
+            // Add optional fields if present
+            if (typeIdx >= 0 && parts[typeIdx]) appointment.type = parts[typeIdx];
+            if (priceIdx >= 0 && parts[priceIdx]) {
+              const priceStr = parts[priceIdx].replace(/£/g, '').replace(/,/g, '');
+              appointment.price = parseFloat(priceStr) || null;
+            }
+            if (paidIdx >= 0 && parts[paidIdx]) {
+              const paidVal = parts[paidIdx].toLowerCase();
+              appointment.paid = (paidVal === 'paid' || paidVal === '1' || paidVal === 'true' || paidVal === 'yes') ? 1 : 0;
+            }
+            if (distanceIdx >= 0 && parts[distanceIdx]) {
+              const distStr = parts[distanceIdx].replace(/ mi/gi, '').trim();
+              appointment.distance = parseFloat(distStr) || null;
+            }
+            if (paymentDateIdx >= 0 && parts[paymentDateIdx] && parts[paymentDateIdx] !== '-') {
+              appointment.payment_date = parts[paymentDateIdx];
+            }
+            
+            appointments.push(appointment);
           }
         }
 
@@ -502,14 +550,24 @@ function AdminManager({ onSettingsSaved }) {
           throw new Error('No valid appointments found in CSV');
         }
 
-        // Group by date and location for batch import
+        // Group by date and location for batch import, preserving optional fields
         const grouped = {};
         appointments.forEach(apt => {
           const key = `${apt.date}|${apt.location}`;
           if (!grouped[key]) {
             grouped[key] = { date: apt.date, location: apt.location, appointments: [] };
           }
-          grouped[key].appointments.push({ client_name: apt.client_name, service: apt.service });
+          // Include optional fields if present
+          const appointmentData = { 
+            client_name: apt.client_name, 
+            service: apt.service 
+          };
+          if (apt.type) appointmentData.type = apt.type;
+          if (apt.price !== null && apt.price !== undefined) appointmentData.price = apt.price;
+          if (apt.paid !== null && apt.paid !== undefined) appointmentData.paid = apt.paid;
+          if (apt.distance !== null && apt.distance !== undefined) appointmentData.distance = apt.distance;
+          if (apt.payment_date) appointmentData.payment_date = apt.payment_date;
+          grouped[key].appointments.push(appointmentData);
         });
 
         let imported = 0;
@@ -1581,7 +1639,7 @@ function AdminManager({ onSettingsSaved }) {
                         {deletingAppointments ? 'Deleting...' : 'Delete All'}
                       </button>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: date, client_name, service, location</span>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Import format: date, client_name, service, location (required). Optional: type, price, paid, distance, payment_date. Headers auto-detected.</span>
                   </div>
                   
                   {/* Locations */}

@@ -222,15 +222,16 @@ router.post('/batch', (req, res) => {
           let hasError = false;
 
           appointments.forEach((apt, index) => {
-            const { client_name, service } = apt;
+            const { client_name, service, type: aptType, price: aptPrice, paid: aptPaid, distance: aptDistance, payment_date: aptPaymentDate } = apt;
 
-            // Lookup service details - must belong to user
+            // Lookup service details - must belong to user (unless type and price are provided)
             db.get(
               'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
               [service, userId],
               (serviceErr, serviceRow) => {
                 if (hasError) return;
 
+                // If service not found and no type/price provided, error
                 if (serviceErr) {
                   console.error('Error fetching service:', serviceErr);
                   if (!hasError) {
@@ -240,32 +241,47 @@ router.post('/batch', (req, res) => {
                   return;
                 }
 
-                if (!serviceRow) {
+                if (!serviceRow && (!aptType || aptPrice === null || aptPrice === undefined)) {
                   if (!hasError) {
                     hasError = true;
-                    res.status(400).json({ error: `Service "${service}" not found` });
+                    res.status(400).json({ error: `Service "${service}" not found. Provide type and price in CSV if service doesn't exist.` });
                   }
                   return;
                 }
 
-                // Only add distance to the first appointment if no existing appointment has distance for this location/date
-                // AND this is the first appointment in the batch
-                const appointmentDistance = (!hasExistingDistance && existingAppointments.length === 0 && index === 0) ? distance : null;
+                // Use provided values or fall back to service lookup
+                const finalType = aptType || (serviceRow ? serviceRow.type : 'Hair');
+                const finalPrice = (aptPrice !== null && aptPrice !== undefined) ? aptPrice : (serviceRow ? serviceRow.price : 0);
+                const finalPaid = (aptPaid !== null && aptPaid !== undefined) ? aptPaid : 0;
+                const finalPaymentDate = aptPaymentDate || null;
+
+                // Distance handling: use provided distance, or location distance, or null
+                // Only add location distance to the first appointment if no existing appointment has distance for this location/date
+                let appointmentDistance = null;
+                if (aptDistance !== null && aptDistance !== undefined) {
+                  // Use provided distance
+                  appointmentDistance = aptDistance;
+                } else if (!hasExistingDistance && existingAppointments.length === 0 && index === 0 && distance !== null) {
+                  // Use location distance for first appointment if no existing distance
+                  appointmentDistance = distance;
+                }
 
             // Insert appointment with user_id
             db.run(
               `INSERT INTO appointments 
                (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 userId,
                 client_name,
                 service,
-                serviceRow.type,
+                finalType,
                 date,
                 location,
-                serviceRow.price,
-                appointmentDistance
+                finalPrice,
+                finalPaid,
+                appointmentDistance,
+                finalPaymentDate
               ],
               function(insertErr) {
                 if (hasError) return;
@@ -283,13 +299,13 @@ router.post('/batch', (req, res) => {
                   id: this.lastID,
                   client_name,
                   service,
-                  type: serviceRow.type,
+                  type: finalType,
                   date,
                   location,
-                  price: serviceRow.price,
-                  paid: 0,
+                  price: finalPrice,
+                  paid: finalPaid,
                   distance: appointmentDistance,
-                  payment_date: null
+                  payment_date: finalPaymentDate
                 });
 
                 completed++;
