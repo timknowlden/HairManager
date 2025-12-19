@@ -1771,7 +1771,7 @@ function AdminManager({ onSettingsSaved }) {
                         {exportingProfile ? 'Exporting...' : 'Export JSON'}
                       </button>
                     </div>
-                    <span style={{ fontSize: '11px', color: '#999' }}>Export/Import profile settings (name, email, business info, etc.). Passwords and API keys are not included for security.</span>
+                    <span style={{ fontSize: '11px', color: '#999' }}>Export/Import profile settings (name, email, business info, email API key, signature, default content, etc.). Email password is not included for security.</span>
                   </div>
                 </div>
                 {csvImportMessage && (
