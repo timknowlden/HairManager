@@ -35,6 +35,11 @@ COPY database ./database
 COPY middleware ./middleware
 COPY routes ./routes
 
+# Read version from package.json and add as label
+ARG VERSION=unknown
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL version="${VERSION}"
+
 # Create directory for database and set permissions
 RUN mkdir -p /app/data && chmod 755 /app/data
 

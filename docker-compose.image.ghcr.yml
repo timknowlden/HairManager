@@ -14,7 +14,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-    image: ghcr.io/timknowlden/hairmanager:main
+    image: ghcr.io/timknowlden/hairmanager:latest
     pull_policy: always
     labels:
       icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg

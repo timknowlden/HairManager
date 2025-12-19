@@ -34,6 +34,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -45,6 +52,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=v${{ steps.package-version.outputs.version }},enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.version=${{ steps.package-version.outputs.version }}
+            version=${{ steps.package-version.outputs.version }}
 
       - name: Build and push to GitHub Container Registry
         uses: docker/build-push-action@v5
@@ -54,6 +65,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.package-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -79,20 +92,23 @@ jobs:
         continue-on-error: true
         run: |
           echo "✅ Copying image from GHCR to Docker Hub..."
-          # Use lowercase repository name and the main tag (which was actually created)
-          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/hairmanager:main"
-          DOCKERHUB_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
+          # Use lowercase repository name and version tag
+          VERSION="${{ steps.package-version.outputs.version }}"
+          GHCR_IMAGE="ghcr.io/${{ github.repository_owner }}/hairmanager:v${VERSION}"
+          DOCKERHUB_IMAGE_LATEST="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
+          DOCKERHUB_IMAGE_VERSION="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:v${VERSION}"
           
           echo "Source: ${GHCR_IMAGE}"
-          echo "Target: ${DOCKERHUB_IMAGE}"
+          echo "Target (latest): ${DOCKERHUB_IMAGE_LATEST}"
+          echo "Target (version): ${DOCKERHUB_IMAGE_VERSION}"
           
-          # Use buildx imagetools to copy the image (no rebuild needed)
-          docker buildx imagetools create --tag ${DOCKERHUB_IMAGE} ${GHCR_IMAGE}
+          # Use buildx imagetools to copy the image with both tags
+          docker buildx imagetools create --tag ${DOCKERHUB_IMAGE_LATEST} --tag ${DOCKERHUB_IMAGE_VERSION} ${GHCR_IMAGE}
           
           if [ $? -ne 0 ]; then
             echo "❌ Failed to copy image to Docker Hub"
             exit 1
           fi
           
-          echo "✅ Successfully copied image to Docker Hub: ${DOCKERHUB_IMAGE}"
+          echo "✅ Successfully copied image to Docker Hub: ${DOCKERHUB_IMAGE_LATEST} and ${DOCKERHUB_IMAGE_VERSION}"
 
