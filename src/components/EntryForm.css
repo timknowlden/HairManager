@@ -59,6 +59,7 @@
   box-sizing: border-box;
   transition: all 0.2s;
   background: white;
+  height: 43px;
 }
 
 .form-group input:hover,
@@ -77,6 +78,7 @@
 .location-select,
 .date-input {
   cursor: pointer;
+  height: 43px;
 }
 
 .appointments-section {
@@ -392,7 +394,7 @@
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #45a049;
+  background: #4CAF50;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
 }
