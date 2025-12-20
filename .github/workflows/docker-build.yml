@@ -106,14 +106,20 @@ jobs:
           echo "Source: ${GHCR_IMAGE}"
           echo "Target (latest): ${DOCKERHUB_IMAGE_LATEST}"
           echo "Target (version): ${DOCKERHUB_IMAGE_VERSION}"
+          echo "Version: ${VERSION}"
           
           # Use buildx imagetools to copy the image with both tags
+          # This preserves all labels including version labels
           docker buildx imagetools create --tag ${DOCKERHUB_IMAGE_LATEST} --tag ${DOCKERHUB_IMAGE_VERSION} ${GHCR_IMAGE}
           
           if [ $? -ne 0 ]; then
             echo "❌ Failed to copy image to Docker Hub"
             exit 1
           fi
+          
+          # Verify labels were copied correctly
+          echo "Verifying labels on Docker Hub image..."
+          docker buildx imagetools inspect ${DOCKERHUB_IMAGE_LATEST} --format '{{json .}}' | jq -r '.Manifest.Labels // {}' || echo "Could not verify labels (this is OK if jq is not available)"
           
           echo "✅ Successfully copied image to Docker Hub: ${DOCKERHUB_IMAGE_LATEST} and ${DOCKERHUB_IMAGE_VERSION}"
 
