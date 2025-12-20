@@ -594,7 +594,25 @@ function AdminManager({ onSettingsSaved }) {
           
           // Try tab first (common from Excel/Google Sheets), then comma
           const separator = line.includes('\t') ? '\t' : ',';
-          const parts = line.split(separator).map(p => p.trim().replace(/^"|"$/g, ''));
+          // Use a more robust CSV parsing that handles empty columns correctly
+          // Split by separator and preserve empty fields
+          const parts = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === separator && !inQuotes) {
+              parts.push(current.trim().replace(/^"|"$/g, ''));
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          // Add the last part
+          parts.push(current.trim().replace(/^"|"$/g, ''));
           
           // Require at least date, client_name, service, location
           const maxRequiredIdx = Math.max(dateIdx, clientIdx, serviceIdx, locationIdx);
@@ -608,11 +626,35 @@ function AdminManager({ onSettingsSaved }) {
               continue; // Skip rows with invalid dates
             }
             
+            // Validate that location is not the same as type (common CSV mapping error)
+            const locationValue = parts[locationIdx] || '';
+            const typeValue = typeIdx >= 0 ? (parts[typeIdx] || '') : '';
+            
+            // Debug logging to verify column mapping (first 3 rows only)
+            if (appointments.length < 3) {
+              console.log('CSV Import Debug:', {
+                row: appointments.length + 1,
+                date: parts[dateIdx],
+                client: parts[clientIdx],
+                service: parts[serviceIdx],
+                type: typeValue,
+                location: locationValue,
+                price: priceIdx >= 0 ? parts[priceIdx] : 'N/A',
+                indices: { dateIdx, clientIdx, serviceIdx, typeIdx, locationIdx, priceIdx },
+                allParts: parts
+              });
+            }
+            
+            // Warn if location appears to be the type value (common mistake)
+            if (locationValue && typeValue && locationValue.toLowerCase() === typeValue.toLowerCase()) {
+              console.warn(`Warning: Location value "${locationValue}" matches type value. This may indicate a CSV column mapping issue.`);
+            }
+            
             const appointment = {
               date: parsedDate,
               client_name: parts[clientIdx],
               service: parts[serviceIdx],
-              location: parts[locationIdx]
+              location: locationValue // Ensure location is correctly mapped
             };
             
             // Add optional fields if present
@@ -848,10 +890,7 @@ function AdminManager({ onSettingsSaved }) {
       }
 
       setCsvImportMessage(data.message || `Successfully deleted all ${typeName}${data.sequenceReset ? ' (ID sequence reset)' : ''}`);
-      // Refresh the page to reflect changes
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Don't reload - stay on the profile page
     } catch (err) {
       setError(err.message || `Failed to delete ${type}`);
     } finally {
