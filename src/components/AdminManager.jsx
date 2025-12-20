@@ -594,25 +594,43 @@ function AdminManager({ onSettingsSaved }) {
           
           // Try tab first (common from Excel/Google Sheets), then comma
           const separator = line.includes('\t') ? '\t' : ',';
-          // Use a more robust CSV parsing that handles empty columns correctly
-          // Split by separator and preserve empty fields
+          
+          // Use a robust CSV parser that handles:
+          // 1. Quoted fields containing commas (e.g., "Colour, cut & blow dry")
+          // 2. Empty columns
+          // 3. Escaped quotes within quoted fields
           const parts = [];
           let current = '';
           let inQuotes = false;
           
           for (let i = 0; i < line.length; i++) {
             const char = line[i];
+            const nextChar = i + 1 < line.length ? line[i + 1] : null;
+            
             if (char === '"') {
-              inQuotes = !inQuotes;
+              if (inQuotes && nextChar === '"') {
+                // Escaped quote (double quote) - add single quote to current
+                current += '"';
+                i++; // Skip next quote
+              } else if (inQuotes && (nextChar === separator || nextChar === null || nextChar === '\r' || nextChar === '\n')) {
+                // End of quoted field
+                inQuotes = false;
+              } else if (!inQuotes) {
+                // Start of quoted field
+                inQuotes = true;
+              }
+              // If it's just a quote in the middle of a quoted field, ignore it (already handled above)
             } else if (char === separator && !inQuotes) {
-              parts.push(current.trim().replace(/^"|"$/g, ''));
+              // Field separator outside quotes
+              parts.push(current.trim());
               current = '';
             } else {
+              // Regular character
               current += char;
             }
           }
           // Add the last part
-          parts.push(current.trim().replace(/^"|"$/g, ''));
+          parts.push(current.trim());
           
           // Require at least date, client_name, service, location
           const maxRequiredIdx = Math.max(dateIdx, clientIdx, serviceIdx, locationIdx);
