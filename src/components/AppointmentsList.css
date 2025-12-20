@@ -153,6 +153,12 @@
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* Firefox - thumb and track colors */
 }
 
+.tbody-scroll-container table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
 /* Webkit browsers (Chrome, Safari, Opera) - minimal scrollbar */
 .tbody-scroll-container::-webkit-scrollbar {
   width: 8px;

@@ -725,32 +725,33 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       {appointments.length === 0 ? (
         <div className="no-appointments">No appointments found</div>
       ) : (
-        <div className="table-container" ref={tableContainerRef}>
+        <div className="table-container">
           <div className="filter-info">
             Showing {filteredAppointments.length} of {appointments.length} appointments
           </div>
-          <table>
-            <thead>
-              <tr>
-                {(invoiceMode || calculatorMode) && <th className="invoice-select-header">
-                  <input
-                    type="checkbox"
-                    checked={(invoiceMode ? selectedForInvoice.size : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
-                    onChange={invoiceMode ? handleSelectAllInvoices : handleSelectAllCalculator}
-                    className="select-all-checkbox"
-                  />
-                </th>}
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('id')}
-                  style={{ width: columnWidths.id, position: 'relative' }}
-                >
-                  ID {sortConfig.column === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'id')}
-                  ></div>
-                </th>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  {(invoiceMode || calculatorMode) && <th className="invoice-select-header">
+                    <input
+                      type="checkbox"
+                      checked={(invoiceMode ? selectedForInvoice.size : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
+                      onChange={invoiceMode ? handleSelectAllInvoices : handleSelectAllCalculator}
+                      className="select-all-checkbox"
+                    />
+                  </th>}
+                  <th 
+                    className="sortable resizable" 
+                    onClick={() => handleSort('id')}
+                    style={{ width: columnWidths.id, position: 'relative' }}
+                  >
+                    ID {sortConfig.column === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'id')}
+                    ></div>
+                  </th>
                 <th 
                   className="sortable resizable" 
                   onClick={() => handleSort('date')}
@@ -966,7 +967,19 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 {adminMode && <th></th>}
               </tr>
             </thead>
-            <tbody>
+          </table>
+          <div 
+            className="tbody-scroll-container" 
+            ref={tableContainerRef}
+            onScroll={(e) => {
+              const container = e.target;
+              const isAtTop = container.scrollTop === 0;
+              const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1; // +1 for rounding
+              setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+            }}
+          >
+            <table>
+              <tbody>
               {filteredAppointments.map((apt) => {
                 const isEditing = editingCell?.rowId === apt.id;
                 const hasChanges = editValues[apt.id] && Object.keys(editValues[apt.id]).length > 0;
@@ -1194,35 +1207,40 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-          {filteredAppointments.length === 0 && appointments.length > 0 && (
-            <div className="no-results">No appointments match the current filters</div>
-          )}
-          {/* Scroll to top/bottom buttons */}
-          <div className="scroll-buttons">
-            <button
-              className="scroll-btn scroll-to-top"
-              onClick={() => {
-                if (tableContainerRef.current) {
-                  tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-              }}
-              title="Scroll to top"
-            >
-              <FaArrowUp />
-            </button>
-            <button
-              className="scroll-btn scroll-to-bottom"
-              onClick={() => {
-                if (tableContainerRef.current) {
-                  tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
-                }
-              }}
-              title="Scroll to bottom"
-            >
-              <FaArrowDown />
-            </button>
+              </tbody>
+            </table>
+            {filteredAppointments.length === 0 && appointments.length > 0 && (
+              <div className="no-results">No appointments match the current filters</div>
+            )}
+            {/* Scroll to top/bottom buttons */}
+            <div className="scroll-buttons">
+              {!scrollPosition.top && (
+                <button
+                  className="scroll-btn scroll-to-top"
+                  onClick={() => {
+                    if (tableContainerRef.current) {
+                      tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  title="Scroll to top"
+                >
+                  <FaArrowUp />
+                </button>
+              )}
+              {!scrollPosition.bottom && (
+                <button
+                  className="scroll-btn scroll-to-bottom"
+                  onClick={() => {
+                    if (tableContainerRef.current) {
+                      tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
+                    }
+                  }}
+                  title="Scroll to bottom"
+                >
+                  <FaArrowDown />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
