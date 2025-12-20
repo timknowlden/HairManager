@@ -8,6 +8,7 @@ import { API_BASE } from '../config.js';
 
 function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }) {
   const { getAuthHeaders } = useAuth();
+  const tableContainerRef = useRef(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
