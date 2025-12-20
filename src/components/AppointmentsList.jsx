@@ -723,7 +723,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       {appointments.length === 0 ? (
         <div className="no-appointments">No appointments found</div>
       ) : (
-        <div className="table-container">
+        <div className="table-container" ref={tableContainerRef}>
           <div className="filter-info">
             Showing {filteredAppointments.length} of {appointments.length} appointments
           </div>
