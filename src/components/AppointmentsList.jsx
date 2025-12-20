@@ -487,6 +487,16 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [adminMode]);
 
+  // Initialize scroll position on mount and when filtered appointments change
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const container = tableContainerRef.current;
+      const isAtTop = container.scrollTop === 0;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
+      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+    }
+  }, [filteredAppointments]);
+
   // Handle column sorting
   const handleSort = (column) => {
     let direction = 'asc';
