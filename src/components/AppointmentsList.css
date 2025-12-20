@@ -131,12 +131,22 @@
 }
 
 .table-container {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: calc(100vh - 300px); /* Adjust based on your header/controls height */
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden; /* Hide overflow on container */
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  position: relative;
+}
+
+.tbody-scroll-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 400px); /* Adjust based on your header/controls height */
   position: relative;
   /* Minimal scrollbar styling */
   scrollbar-width: thin; /* Firefox - thin scrollbar */
@@ -144,21 +154,21 @@
 }
 
 /* Webkit browsers (Chrome, Safari, Opera) - minimal scrollbar */
-.table-container::-webkit-scrollbar {
+.tbody-scroll-container::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.table-container::-webkit-scrollbar-track {
+.tbody-scroll-container::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.table-container::-webkit-scrollbar-thumb {
+.tbody-scroll-container::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
 }
 
-.table-container::-webkit-scrollbar-thumb:hover {
+.tbody-scroll-container::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
 
