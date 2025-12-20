@@ -1252,6 +1252,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               )}
             </div>
           </div>
+          </div>
         </div>
       )}
     </div>
