@@ -89,6 +89,9 @@
 
 .filter-row {
   background: #fafafa;
+  position: sticky;
+  top: 48px; /* Height of header row - adjust if needed */
+  z-index: 9;
 }
 
 .filter-row th {
@@ -129,9 +132,12 @@
 
 .table-container {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px); /* Adjust based on your header/controls height */
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 table {
@@ -142,6 +148,9 @@ table {
 
 thead {
   background: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 th {
@@ -150,6 +159,7 @@ th {
   font-weight: 600;
   color: #555;
   border-bottom: 2px solid #ddd;
+  background: #f5f5f5; /* Ensure background for sticky header */
 }
 
 th.sortable {
