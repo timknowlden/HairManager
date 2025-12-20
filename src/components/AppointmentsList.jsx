@@ -1197,6 +1197,31 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
           {filteredAppointments.length === 0 && appointments.length > 0 && (
             <div className="no-results">No appointments match the current filters</div>
           )}
+          {/* Scroll to top/bottom buttons */}
+          <div className="scroll-buttons">
+            <button
+              className="scroll-btn scroll-to-top"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to top"
+            >
+              <FaArrowUp />
+            </button>
+            <button
+              className="scroll-btn scroll-to-bottom"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to bottom"
+            >
+              <FaArrowDown />
+            </button>
+          </div>
         </div>
       )}
     </div>
