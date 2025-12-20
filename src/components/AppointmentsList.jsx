@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator } from 'react-icons/fa';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';

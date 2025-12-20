@@ -646,4 +646,56 @@ th.resizable:hover .resize-handle {
   opacity: 0.3;
 }
 
+.scroll-buttons {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+
+.scroll-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #2196F3;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s;
+  font-size: 16px;
+}
+
+.scroll-btn:hover {
+  background: #1976D2;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-btn:active {
+  transform: scale(0.95);
+}
+
+.scroll-to-top {
+  background: #4CAF50;
+}
+
+.scroll-to-top:hover {
+  background: #45a049;
+}
+
+.scroll-to-bottom {
+  background: #2196F3;
+}
+
+.scroll-to-bottom:hover {
+  background: #1976D2;
+}
+
 
