@@ -7,23 +7,51 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
-// Get all appointments for the logged-in user
+// Get all appointments for the logged-in user (with optional pagination)
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
+  const limit = parseInt(req.query.limit) || null;
+  const offset = parseInt(req.query.offset) || 0;
   
-  db.all(
-    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC',
-    [userId],
-    (err, rows) => {
-      if (err) {
-        console.error('Error fetching appointments:', err);
-        res.status(500).json({ error: err.message });
-        return;
-      }
+  const startTime = Date.now();
+  let query = 'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC';
+  const params = [userId];
+  
+  if (limit !== null) {
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+  
+  db.all(query, params, (err, rows) => {
+    const queryTime = Date.now() - startTime;
+    console.log(`[Appointments Query] Fetched ${rows?.length || 0} appointments in ${queryTime}ms`);
+    
+    if (err) {
+      console.error('Error fetching appointments:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    // If pagination is used, also get total count
+    if (limit !== null) {
+      db.get('SELECT COUNT(*) as total FROM appointments WHERE user_id = ?', [userId], (countErr, countRow) => {
+        if (countErr) {
+          console.error('Error fetching appointment count:', countErr);
+          res.json(rows); // Return rows even if count fails
+          return;
+        }
+        res.json({
+          appointments: rows,
+          total: countRow.total,
+          limit: limit,
+          offset: offset
+        });
+      });
+    } else {
       res.json(rows);
     }
-  );
+  });
 });
 
 // Test route to verify PUT is working

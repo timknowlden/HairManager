@@ -85,6 +85,14 @@ export function initDatabase(dbPath) {
         FOREIGN KEY (user_id, location) REFERENCES address_data(user_id, location_name)
       )
     `))
+    .then(() => {
+      // Create indexes for appointments table to improve query performance
+      return Promise.all([
+        runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_user_id ON appointments(user_id)'),
+        runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(date)'),
+        runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_user_date_id ON appointments(user_id, date DESC, id ASC)')
+      ]);
+    })
     .then(() => runAsync(db, `
       CREATE TABLE IF NOT EXISTS admin_settings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown } from 'react-icons/fa';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';
@@ -56,6 +56,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     payment_date: ''
   });
 
+  // Tax year filter: Set of selected tax years (empty set = all)
+  const [taxYearMode, setTaxYearMode] = useState(false);
+  const [selectedTaxYears, setSelectedTaxYears] = useState(new Set());
+  
+  // Initialize with most recent tax year selected
+  const [taxYearInitialized, setTaxYearInitialized] = useState(false);
+
   // Sort state - default to ID ascending (1 at top)
   const [sortConfig, setSortConfig] = useState({ column: 'id', direction: 'asc' });
 
@@ -96,6 +103,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     // Clear new appointment IDs when manually refreshing
     setNewAppointmentIdsSet(new Set());
     try {
+      const startTime = performance.now();
       const response = await fetch(`${API_BASE}/appointments`, {
         headers: getAuthHeaders()
       });
@@ -103,7 +111,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error('Failed to fetch appointments');
       }
       const data = await response.json();
-      setAppointments(data);
+      const fetchTime = performance.now() - startTime;
+      console.log(`[Frontend] Fetched ${data.length || 0} appointments in ${fetchTime.toFixed(2)}ms`);
+      
+      // Handle both old format (array) and new format (object with appointments array)
+      const appointmentsData = Array.isArray(data) ? data : (data.appointments || data);
+      setAppointments(appointmentsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -371,19 +384,50 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const toggleInvoiceMode = () => {
     if (invoiceMode) {
       setSelectedForInvoice(new Set());
+      setInvoiceMode(false);
+    } else {
+      // Close other modes when opening invoice
+      setCalculatorMode(false);
+      setTaxYearMode(false);
+      if (calculatorMode) {
+        setSelectedForCalculator(new Set());
+      }
+      setInvoiceMode(true);
     }
-    setInvoiceMode(!invoiceMode);
     setAdminMode(false); // Disable admin mode when enabling invoice
-    setCalculatorMode(false); // Disable calculator mode when enabling invoice
   };
 
   const toggleCalculatorMode = () => {
     if (calculatorMode) {
       setSelectedForCalculator(new Set());
+      setCalculatorMode(false);
+    } else {
+      // Close other modes when opening calculator
+      setInvoiceMode(false);
+      setTaxYearMode(false);
+      if (invoiceMode) {
+        setSelectedForInvoice(new Set());
+      }
+      setCalculatorMode(true);
     }
-    setCalculatorMode(!calculatorMode);
     setAdminMode(false); // Disable admin mode when enabling calculator
-    setInvoiceMode(false); // Disable invoice mode when enabling calculator
+  };
+
+  const toggleTaxYearMode = () => {
+    if (taxYearMode) {
+      setTaxYearMode(false);
+    } else {
+      // Close other modes when opening tax year
+      setInvoiceMode(false);
+      setCalculatorMode(false);
+      if (invoiceMode) {
+        setSelectedForInvoice(new Set());
+      }
+      if (calculatorMode) {
+        setSelectedForCalculator(new Set());
+      }
+      setTaxYearMode(true);
+    }
   };
 
   // Calculator mode
@@ -400,7 +444,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
 
-  const formatDate = (dateString) => {
+  // Memoized date formatter
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', {
@@ -408,7 +453,56 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       month: '2-digit',
       year: 'numeric'
     });
+  }, []);
+
+  // Get UK tax year from a date (tax year runs from 6 April to 5 April)
+  const getTaxYear = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11
+    const day = date.getDate();
+    
+    // If date is on or after 6 April, it's in the tax year starting that year
+    // Otherwise, it's in the tax year starting the previous year
+    if (month > 4 || (month === 4 && day >= 6)) {
+      return `${year}-${(year + 1).toString().slice(-2)}`;
+    } else {
+      return `${year - 1}-${year.toString().slice(-2)}`;
+    }
   };
+
+  // Get available tax years from appointments
+  const availableTaxYears = useMemo(() => {
+    const taxYears = new Set();
+    appointments.forEach(apt => {
+      const taxYear = getTaxYear(apt.date);
+      if (taxYear) taxYears.add(taxYear);
+    });
+    return Array.from(taxYears).sort().reverse(); // Most recent first
+  }, [appointments]);
+
+  // Initialize selected tax years with the most recent one when appointments are loaded
+  useEffect(() => {
+    if (!taxYearInitialized && availableTaxYears.length > 0 && appointments.length > 0) {
+      const mostRecentTaxYear = availableTaxYears[0]; // First one is most recent
+      setSelectedTaxYears(new Set([mostRecentTaxYear]));
+      setTaxYearInitialized(true);
+    }
+  }, [availableTaxYears, appointments.length, taxYearInitialized]);
+
+  // Get current tax year
+  const currentTaxYear = useMemo(() => {
+    return getTaxYear(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  // Get previous tax year
+  const previousTaxYear = useMemo(() => {
+    if (!currentTaxYear) return null;
+    const [startYear] = currentTaxYear.split('-');
+    const prevStart = parseInt(startYear) - 1;
+    return `${prevStart}-${startYear.slice(-2)}`;
+  }, [currentTaxYear]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-GB', {
@@ -487,16 +581,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [adminMode]);
 
-  // Initialize scroll position on mount and when filtered appointments change
-  useEffect(() => {
-    if (tableContainerRef.current) {
-      const container = tableContainerRef.current;
-      const isAtTop = container.scrollTop === 0;
-      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
-      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
-    }
-  }, [filteredAppointments]);
-
   // Handle column sorting
   const handleSort = (column) => {
     let direction = 'asc';
@@ -538,6 +622,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Filter appointments based on filter state
   const filteredAppointments = useMemo(() => {
     let filtered = appointments.filter(apt => {
+      // Tax year filter - if tax years are selected, filter by them
+      if (selectedTaxYears.size > 0) {
+        const aptTaxYear = getTaxYear(apt.date);
+        if (!selectedTaxYears.has(aptTaxYear)) return false;
+      }
+
       // ID filter
       if (filters.id && apt.id.toString() !== filters.id) return false;
       
@@ -592,7 +682,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     filtered = sortData(filtered, sortColumn, sortDirection);
 
     return filtered;
-  }, [appointments, filters, sortConfig]);
+  }, [appointments, filters, sortConfig, selectedTaxYears]);
 
   // Calculate totals for selected appointments (must be after filteredAppointments)
   const calculateTotals = useMemo(() => {
@@ -606,6 +696,31 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       .reduce((sum, apt) => sum + (parseFloat(apt.price) || 0), 0);
     return { total, paid, unpaid };
   }, [filteredAppointments, selectedForCalculator]);
+
+  // Throttle scroll handler for better performance
+  const scrollTimeoutRef = useRef(null);
+  const handleScroll = useCallback((e) => {
+    if (scrollTimeoutRef.current) {
+      return; // Skip if already scheduled
+    }
+    scrollTimeoutRef.current = requestAnimationFrame(() => {
+      const container = e.target;
+      const isAtTop = container.scrollTop === 0;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
+      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+      scrollTimeoutRef.current = null;
+    });
+  }, []);
+
+  // Initialize scroll position on mount and when filtered appointments change
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const container = tableContainerRef.current;
+      const isAtTop = container.scrollTop === 0;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
+      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+    }
+  }, [filteredAppointments]);
 
   // Update handleSelectAllCalculator to use filteredAppointments
   const handleSelectAllCalculator = () => {
@@ -624,6 +739,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
   const clearFilters = () => {
+    setFilterInputs({
+      id: '',
+      date: '',
+      client_name: '',
+      service: '',
+      type: '',
+      location: '',
+      price: '',
+      distance: '',
+      paid: '',
+      payment_date: ''
+    });
     setFilters({
       id: '',
       date: '',
@@ -651,14 +778,14 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   return (
     <div className="appointments-list">
       <div className="appointments-header">
-        <h2>Appointments</h2>
-        <div className="header-actions">
+        <div className="header-title-section">
+          <h2>Appointments</h2>
           <button 
-            onClick={toggleAdminMode} 
-            className={`admin-btn ${adminMode ? 'active' : ''}`}
-            title="Toggle admin editing mode"
+            onClick={toggleTaxYearMode} 
+            className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
+            title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
           >
-            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
+            {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
           </button>
           <button 
             onClick={toggleInvoiceMode} 
@@ -673,6 +800,15 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             title="Toggle calculator mode"
           >
             <FaCalculator /> {calculatorMode ? 'Exit Calculator' : 'Calculator'}
+          </button>
+        </div>
+        <div className="header-actions">
+          <button 
+            onClick={toggleAdminMode} 
+            className={`admin-btn ${adminMode ? 'active' : ''}`}
+            title="Toggle admin editing mode"
+          >
+            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
           </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="clear-filters-btn">
@@ -728,6 +864,45 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               <span className="sum-label">Total:</span>
               <span className="sum-amount">{currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'}{calculateTotals.total.toFixed(2)}</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {taxYearMode && (
+        <div className="tax-year-controls">
+          <div className="tax-year-selection-info">
+            <div className="tax-year-checkboxes">
+              {availableTaxYears.map(taxYear => (
+                <button
+                  key={taxYear}
+                  type="button"
+                  className={`tax-year-checkbox-btn ${selectedTaxYears.has(taxYear) ? 'selected' : ''}`}
+                  onClick={() => {
+                    const newSet = new Set(selectedTaxYears);
+                    if (selectedTaxYears.has(taxYear)) {
+                      newSet.delete(taxYear);
+                    } else {
+                      newSet.add(taxYear);
+                    }
+                    setSelectedTaxYears(newSet);
+                  }}
+                >
+                  {selectedTaxYears.has(taxYear) ? <FaCheck /> : <FaSquare />} {taxYear}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => {
+                if (selectedTaxYears.size === availableTaxYears.length) {
+                  setSelectedTaxYears(new Set());
+                } else {
+                  setSelectedTaxYears(new Set(availableTaxYears));
+                }
+              }}
+              className="select-all-tax-years-btn"
+            >
+              {selectedTaxYears.size === availableTaxYears.length ? <FaCheck /> : <FaSquare />} {selectedTaxYears.size === availableTaxYears.length ? 'Deselect All' : 'Select All'}
+            </button>
           </div>
         </div>
       )}
@@ -981,12 +1156,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
           <div 
             className="tbody-scroll-container" 
             ref={tableContainerRef}
-            onScroll={(e) => {
-              const container = e.target;
-              const isAtTop = container.scrollTop === 0;
-              const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1; // +1 for rounding
-              setScrollPosition({ top: isAtTop, bottom: isAtBottom });
-            }}
+            onScroll={handleScroll}
           >
             <table>
               <tbody>
@@ -1222,35 +1392,32 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             {filteredAppointments.length === 0 && appointments.length > 0 && (
               <div className="no-results">No appointments match the current filters</div>
             )}
-            {/* Scroll to top/bottom buttons */}
-            <div className="scroll-buttons">
-              {!scrollPosition.top && (
-                <button
-                  className="scroll-btn scroll-to-top"
-                  onClick={() => {
-                    if (tableContainerRef.current) {
-                      tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                  }}
-                  title="Scroll to top"
-                >
-                  <FaArrowUp />
-                </button>
-              )}
-              {!scrollPosition.bottom && (
-                <button
-                  className="scroll-btn scroll-to-bottom"
-                  onClick={() => {
-                    if (tableContainerRef.current) {
-                      tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
-                    }
-                  }}
-                  title="Scroll to bottom"
-                >
-                  <FaArrowDown />
-                </button>
-              )}
-            </div>
+          </div>
+          {/* Scroll to top/bottom buttons */}
+          <div className="scroll-buttons">
+            <button
+              className="scroll-btn scroll-to-top"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to top"
+            >
+              <FaArrowUp />
+            </button>
+            <button
+              className="scroll-btn scroll-to-bottom"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to bottom"
+            >
+              <FaArrowDown />
+            </button>
+          </div>
           </div>
         </div>
       )}

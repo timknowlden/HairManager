@@ -24,6 +24,13 @@
   position: relative;
 }
 
+.header-title-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
 .appointments-header h2 {
   margin: 0;
   color: #333;
@@ -76,6 +83,101 @@
 
 .clear-filters-btn:hover {
   background: #f57c00;
+}
+
+.tax-year-controls {
+  background: #f5f5f5;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border: 2px solid #9E9E9E;
+}
+
+.tax-year-selection-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.tax-year-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+
+.tax-year-checkbox-btn {
+  padding: 8px 16px;
+  background: white;
+  color: #666;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tax-year-checkbox-btn:hover {
+  border-color: #9E9E9E;
+  color: #9E9E9E;
+}
+
+.tax-year-checkbox-btn.selected {
+  background: #9E9E9E;
+  color: white;
+  border-color: #9E9E9E;
+}
+
+.tax-year-checkbox-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.tax-year-checkbox-btn:not(.selected) svg {
+  fill: none;
+  stroke: #9E9E9E;
+  stroke-width: 2;
+}
+
+.tax-year-checkbox-btn.selected svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+.select-all-tax-years-btn {
+  padding: 8px 16px;
+  background: #9E9E9E;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.select-all-tax-years-btn:hover {
+  background: #757575;
+}
+
+.select-all-tax-years-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .filter-info {
@@ -148,6 +250,9 @@
   overflow-y: auto;
   max-height: calc(100vh - 400px); /* Adjust based on your header/controls height */
   position: relative;
+  /* Performance optimizations */
+  will-change: scroll-position;
+  transform: translateZ(0); /* Force GPU acceleration */
   /* Minimal scrollbar styling */
   scrollbar-width: thin; /* Firefox - thin scrollbar */
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* Firefox - thumb and track colors */
@@ -156,6 +261,12 @@
 .tbody-scroll-container table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Ensure header and body tables have matching column widths */
+.table-wrapper table,
+.tbody-scroll-container table {
   table-layout: fixed;
 }
 
@@ -213,6 +324,14 @@ th.sortable:hover {
 td {
   padding: 12px;
   border-bottom: 1px solid #eee;
+}
+
+tbody tr {
+  /* Performance optimization */
+  will-change: transform;
+  transform: translateZ(0);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 50px; /* Approximate row height */
 }
 
 tbody tr:hover {
@@ -348,6 +467,39 @@ tbody tr.unpaid {
   box-sizing: border-box;
 }
 
+.tax-year-btn {
+  padding: 8px 16px;
+  border: 2px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tax-year-btn:hover {
+  border-color: #9E9E9E;
+  color: #9E9E9E;
+}
+
+.tax-year-btn.active {
+  background: #9E9E9E;
+  color: white;
+  border-color: #9E9E9E;
+  padding: 8px 16px;
+  box-sizing: border-box;
+  font-weight: 600;
+}
+
 .invoice-controls {
   background: #f3e5f5;
   padding: 15px 20px;
@@ -424,13 +576,21 @@ tbody tr.unpaid {
 }
 
 .invoice-select-header {
-  width: 40px;
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
   text-align: center;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .invoice-select-cell {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
   text-align: center;
   padding: 12px;
+  box-sizing: border-box;
 }
 
 .invoice-checkbox,
@@ -678,7 +838,7 @@ th.resizable:hover .resize-handle {
 }
 
 .scroll-buttons {
-  position: absolute;
+  position: fixed;
   right: 20px;
   bottom: 20px;
   display: flex;
