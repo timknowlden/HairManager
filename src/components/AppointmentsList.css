@@ -245,6 +245,9 @@
   overflow-y: hidden;
   position: relative;
   width: 100%;
+  /* Account for scrollbar on body to keep widths aligned */
+  padding-right: 8px;
+  box-sizing: border-box;
 }
 
 .table-wrapper table {
@@ -261,6 +264,7 @@
   max-height: calc(100vh - 400px); /* Adjust based on your header/controls height */
   position: relative;
   width: 100%;
+  box-sizing: border-box;
   /* Performance optimizations */
   will-change: scroll-position;
   transform: translateZ(0); /* Force GPU acceleration */
@@ -303,16 +307,6 @@
   box-sizing: border-box;
   padding: 8px;
   margin: 0;
-}
-
-/* Account for scrollbar width to keep tables aligned */
-.tbody-scroll-container {
-  padding-right: 0;
-}
-
-/* When scrollbar is present, adjust header to match */
-.table-wrapper {
-  padding-right: 8px; /* Match scrollbar width when present */
 }
 
 /* Ensure both tables have the same structure when admin mode is on */
