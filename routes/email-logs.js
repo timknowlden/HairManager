@@ -319,20 +319,36 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       
       // First, find the email_log_id(s) that match this event
       // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
+      // Each recipient gets a unique full message ID in webhooks (e.g., "base.recvd-...")
+      // But we store the base ID when sending, so we need to match:
+      // 1. Full webhook ID matches stored base ID (stored base is prefix of webhook full)
+      // 2. Base webhook ID matches stored base ID (exact match)
+      // 3. Full webhook ID exact match (in case we stored full ID)
       const matchingLogs = await new Promise((resolve) => {
         db.all(
-          `SELECT id, user_id, recipient_email FROM email_logs 
-           WHERE (sendgrid_message_id = ? 
-              OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%'))
+          `SELECT id, user_id, recipient_email, sendgrid_message_id FROM email_logs 
+           WHERE (
+             sendgrid_message_id = ? 
+             OR sendgrid_message_id = ?
+             OR ? LIKE (sendgrid_message_id || '%')
+             OR sendgrid_message_id LIKE (? || '%')
+           )
            AND recipient_email = ?
            LIMIT 10`,
-          [sg_message_id, baseMessageId, sg_message_id, email],
+          [sg_message_id, baseMessageId, sg_message_id, baseMessageId, email],
           (err, rows) => {
             if (err) {
               console.error('[WEBHOOK] Error finding matching email logs:', err);
               resolve([]);
             } else {
+              if (rows && rows.length > 0) {
+                console.log(`[WEBHOOK] Found ${rows.length} matching email log(s) for recipient ${email}`);
+                rows.forEach(row => {
+                  console.log(`[WEBHOOK]   - Log ID: ${row.id}, stored msg_id: ${row.sendgrid_message_id}, recipient: ${row.recipient_email}`);
+                });
+              } else {
+                console.warn(`[WEBHOOK] No matching email log found for recipient ${email}, message ID: ${sg_message_id} (base: ${baseMessageId})`);
+              }
               resolve(rows || []);
             }
           }
