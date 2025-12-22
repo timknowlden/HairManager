@@ -46,32 +46,76 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
         return;
       }
       
-      // Try exact match first, then try partial match (base ID)
+      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}"`);
+      
+      // Try multiple matching strategies:
+      // 1. Exact match with full webhook ID
+      // 2. Exact match with base ID (most common case: we store base, webhook sends base)
+      // 3. LIKE pattern: webhook full ID starts with stored base ID (stored: "base", webhook: "base.recvd-...")
+      // The key is: if webhook sends "base.recvd-..." and we stored "base", we need to match
+      // We do this by checking if webhook's base matches stored value, OR if webhook full starts with stored
       db.run(
         `UPDATE email_logs 
          SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
-         WHERE sendgrid_message_id = ? OR sendgrid_message_id LIKE ?`,
-        [logStatus, sg_event_id || null, errorMsg, now, sg_message_id, `${baseMessageId}%`],
+         WHERE sendgrid_message_id = ? 
+            OR sendgrid_message_id = ?
+            OR ? LIKE (sendgrid_message_id || '%')`,
+        [
+          logStatus, 
+          sg_event_id || null, 
+          errorMsg, 
+          now, 
+          sg_message_id,           // Exact match with full ID
+          baseMessageId,           // Exact match with base ID (most common: both are base)
+          sg_message_id            // Webhook full ID starts with stored base (webhook: "base.recvd-...", stored: "base")
+        ],
         function(err) {
           if (err) {
-            console.error('Error updating email log from webhook:', err);
+            console.error('[WEBHOOK] Error updating email log from webhook:', err);
           } else if (this.changes > 0) {
-            console.log(`[WEBHOOK] Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus}`);
+            console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus}`);
           } else {
-            console.warn(`[WEBHOOK] No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId})`);
+            console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId})`);
             // Try to find by email and recent date as fallback
             db.all(
-              `SELECT id, sendgrid_message_id FROM email_logs 
+              `SELECT id, sendgrid_message_id, recipient_email, sent_at FROM email_logs 
                WHERE recipient_email = ? AND sent_at >= datetime('now', '-7 days')
                ORDER BY sent_at DESC LIMIT 5`,
               [email],
               (err, rows) => {
                 if (err) {
-                  console.error('Error finding email log by email:', err);
+                  console.error('[WEBHOOK] Error finding email log by email:', err);
                   return;
                 }
                 if (rows && rows.length > 0) {
-                  console.log(`[WEBHOOK] Found ${rows.length} potential matches by email. Stored message IDs:`, rows.map(r => r.sendgrid_message_id));
+                  console.log(`[WEBHOOK] Found ${rows.length} potential matches by email. Stored message IDs:`, rows.map(r => ({
+                    id: r.id,
+                    msg_id: r.sendgrid_message_id,
+                    email: r.recipient_email,
+                    sent_at: r.sent_at
+                  })));
+                  // Try to update the most recent one if it's within a few minutes
+                  const mostRecent = rows[0];
+                  const sentTime = new Date(mostRecent.sent_at);
+                  const now = new Date();
+                  const minutesDiff = (now - sentTime) / (1000 * 60);
+                  
+                  if (minutesDiff < 30) { // Within 30 minutes
+                    console.log(`[WEBHOOK] Attempting to update most recent log (ID: ${mostRecent.id}) as fallback match`);
+                    db.run(
+                      `UPDATE email_logs 
+                       SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
+                       WHERE id = ?`,
+                      [logStatus, sg_event_id || null, errorMsg, new Date().toISOString(), mostRecent.id],
+                      function(updateErr) {
+                        if (updateErr) {
+                          console.error('[WEBHOOK] Error updating fallback match:', updateErr);
+                        } else if (this.changes > 0) {
+                          console.log(`[WEBHOOK] ✓ Updated fallback match (ID: ${mostRecent.id}) -> ${logStatus}`);
+                        }
+                      }
+                    );
+                  }
                 }
               }
             );
