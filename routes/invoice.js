@@ -171,9 +171,19 @@ router.post('/send-email', async (req, res) => {
         console.log('Email sent via SendGrid');
         
         // Extract SendGrid message ID from response
-        const sendgridMessageId = result[0]?.headers?.['x-message-id'] || 
-                                  result[0]?.body?.message_id || 
-                                  null;
+        // SendGrid returns message ID in x-message-id header
+        // Format can be: "base.recvd-..." or just "base"
+        // We'll store the base part (before first dot) for better matching
+        let sendgridMessageId = result[0]?.headers?.['x-message-id'] || 
+                                result[0]?.body?.message_id || 
+                                null;
+        
+        // Extract base message ID (before first dot) for consistent matching
+        if (sendgridMessageId && sendgridMessageId.includes('.')) {
+          sendgridMessageId = sendgridMessageId.split('.')[0];
+        }
+        
+        console.log('SendGrid message ID extracted:', sendgridMessageId);
         
         // Save PDF to server
         const invoicesDir = process.env.NODE_ENV === 'production' 

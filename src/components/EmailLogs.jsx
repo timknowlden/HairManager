@@ -135,9 +135,37 @@ function EmailLogs() {
     } catch (err) {
       console.error('Error checking status:', err);
       setError(err.message);
-      alert('Failed to check status: ' + err.message);
+      const errorMsg = err.message.includes('Email Activity') || err.message.includes('authorization required')
+        ? 'SendGrid Messages API requires Email Activity add-on. Use "Mark Delivered" button for local testing, or configure webhook for production.'
+        : err.message;
+      alert('Failed to check status: ' + errorMsg);
     } finally {
       setCheckingStatus(false);
+    }
+  };
+
+  const handleManualStatusUpdate = async (logId, newStatus) => {
+    if (!window.confirm(`Mark this email as ${newStatus}?`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE}/email-logs/${logId}/status`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update status');
+      }
+      
+      // Refresh the logs to show updated status
+      await fetchLogs();
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert('Failed to update status: ' + err.message);
     }
   };
 
@@ -242,12 +270,13 @@ function EmailLogs() {
               <th>Updated At</th>
               <th>Error</th>
               <th>PDF</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan="9" className="no-logs">No email logs found</td>
+                <td colSpan="10" className="no-logs">No email logs found</td>
               </tr>
             ) : (
               filteredLogs.map(log => {
@@ -277,23 +306,34 @@ function EmailLogs() {
                         </span>
                       ) : '-'}
                     </td>
-                    <td>
-                      {log.pdf_file_path ? (
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleViewPdf(log.id);
-                          }}
-                          className="pdf-link"
-                        >
-                          View PDF
-                        </a>
-                      ) : '-'}
-                    </td>
-                  </tr>
-                );
-              })
+                  <td>
+                    {log.pdf_file_path ? (
+                      <a
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleViewPdf(log.id);
+                        }}
+                        className="pdf-link"
+                      >
+                        View PDF
+                      </a>
+                    ) : '-'}
+                  </td>
+                  <td>
+                    {log.status === 'sent' || log.status === 'pending' ? (
+                      <button
+                        onClick={() => handleManualStatusUpdate(log.id, 'delivered')}
+                        className="status-update-btn"
+                        title="Mark as delivered (for local testing)"
+                      >
+                        Mark Delivered
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })
             )}
           </tbody>
         </table>
