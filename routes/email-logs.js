@@ -127,10 +127,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       // For "open" events, we need to check current status first
       // Only update to "opened" if current status is "delivered"
       if (logStatus === 'opened') {
-        // First, get the current status
+        // First, get the current status AND id (we need id for webhook_events table)
         const currentRow = await new Promise((resolve) => {
           db.get(
-            `SELECT status FROM email_logs 
+            `SELECT id, status, user_id FROM email_logs 
              WHERE sendgrid_message_id = ? 
                 OR sendgrid_message_id = ?
                 OR ? LIKE (sendgrid_message_id || '%')
@@ -153,13 +153,37 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           continue;
         }
         
+        // Always store the webhook event, even if we skip the status update
+        db.run(
+          `INSERT INTO webhook_events 
+           (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            currentRow.id,
+            currentRow.user_id,
+            eventType,
+            sg_message_id,
+            sg_event_id || null,
+            eventJson,
+            webhookReceivedAt,
+            timestamp || null
+          ],
+          (err) => {
+            if (err) {
+              console.error('[WEBHOOK] Error storing webhook event for opened:', err);
+            } else {
+              console.log(`[WEBHOOK] ✓ Stored webhook event for opened: email_log_id=${currentRow.id}, status="${currentRow.status}"`);
+            }
+          }
+        );
+        
         // Only update to "opened" if current status is "delivered"
         // This prevents skipping the "delivered" state
         if (currentRow.status === 'delivered') {
           const openResult = await new Promise((resolve) => {
             db.run(
               `UPDATE email_logs 
-               SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
+               SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
                WHERE sendgrid_message_id = ? 
                   OR sendgrid_message_id = ?
                   OR ? LIKE (sendgrid_message_id || '%')`,
@@ -168,6 +192,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 sg_event_id || null,
                 errorMsg,
                 now,
+                eventJson, // Store latest webhook event data
                 sg_message_id,
                 baseMessageId,
                 sg_message_id
