@@ -83,7 +83,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       const eventJson = JSON.stringify(event);
       console.log(`[WEBHOOK] --- Processing event ${index + 1}/${events.length} ---`);
       console.log(`[WEBHOOK] Event JSON:`, eventJson);
-      const { sg_message_id, sg_event_id, event: eventType, email, timestamp, reason, status } = event;
+      const { sg_message_id, sg_event_id, event: eventType, email, timestamp, reason, status, sg_machine_open } = event;
       
       processedCount++;
       console.log(`[WEBHOOK] Event type: ${eventType}`);
@@ -92,6 +92,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       console.log(`[WEBHOOK] Email: ${email}`);
       console.log(`[WEBHOOK] Timestamp: ${timestamp} (${new Date(timestamp * 1000).toISOString()})`);
       if (reason) console.log(`[WEBHOOK] Reason: ${reason}`);
+      if (eventType === 'open' && sg_machine_open !== undefined) {
+        console.log(`[WEBHOOK] Machine/Preview Open: ${sg_machine_open}`);
+      }
       
       // Map SendGrid event types to our status
       // Important: We need to respect status hierarchy - "opened" should only be set if already "delivered"
@@ -101,9 +104,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       } else if (eventType === 'bounce' || eventType === 'dropped' || eventType === 'deferred') {
         logStatus = 'failed';
       } else if (eventType === 'open' || eventType === 'click') {
-        // Only set to "opened" if current status is already "delivered"
-        // Otherwise, keep the current status (don't skip "delivered" state)
-        logStatus = 'opened'; // We'll check current status before updating
+        // Only set to "opened" if:
+        // 1. Current status is already "delivered" (can't skip delivery state)
+        // 2. It's NOT a machine/preview open (sg_machine_open should be false or undefined)
+        // Machine opens (like Outlook's scanner) should not update status to "opened"
+        if (sg_machine_open === true) {
+          console.log(`[WEBHOOK] ⏭ Skipping machine/preview open event - not a real user open`);
+          logStatus = null; // Don't update status for machine opens
+        } else {
+          logStatus = 'opened'; // We'll check current status before updating
+        }
       } else if (eventType === 'processed') {
         logStatus = 'sent';
       }
@@ -179,9 +189,11 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           }
         );
         
-        // Only update to "opened" if current status is "delivered"
-        // This prevents skipping the "delivered" state
-        if (currentRow.status === 'delivered') {
+        // Only update to "opened" if:
+        // 1. Current status is "delivered" (can't skip delivery state)
+        // 2. It's NOT a machine/preview open (already checked above, but double-check)
+        // This prevents skipping the "delivered" state and ignores preview/scanner opens
+        if (currentRow.status === 'delivered' && sg_machine_open !== true) {
           const openResult = await new Promise((resolve) => {
             // First try with webhook_event_data column
             db.run(
@@ -512,6 +524,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           
           if (updatedLogId) {
             // Check for any "open" events that were stored but not applied
+            // Only apply real user opens (not machine/preview opens) that occurred after delivery
             db.get(
               `SELECT id, raw_event_data, event_timestamp, sendgrid_event_id 
                FROM webhook_events 
@@ -524,10 +537,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 if (!err && openEvent) {
                   try {
                     const openEventData = JSON.parse(openEvent.raw_event_data);
+                    
+                    // Skip machine/preview opens - only apply real user opens
+                    if (openEventData.sg_machine_open === true) {
+                      console.log(`[WEBHOOK] Found pending "open" event but it's a machine/preview open - skipping`);
+                      return;
+                    }
+                    
                     const openTimestamp = openEvent.event_timestamp || Math.floor(Date.now() / 1000);
                     const openNow = new Date(openTimestamp * 1000).toISOString();
                     
-                    console.log(`[WEBHOOK] Found pending "open" event (timestamp: ${openTimestamp}), applying now that status is "delivered"`);
+                    console.log(`[WEBHOOK] Found pending real user "open" event (timestamp: ${openTimestamp}), applying now that status is "delivered"`);
                     
                     // Update to "opened" using the stored open event data
                     db.run(
