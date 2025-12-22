@@ -749,42 +749,71 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               // Get the body container's client width (excludes scrollbar)
               const bodyContainerClientWidth = bodyContainer.clientWidth;
               
-              // Set header table width to match body container's client width
-              // This accounts for the scrollbar on the body
-              headerTable.style.width = `${bodyContainerClientWidth}px`;
-              headerTable.style.minWidth = `${bodyContainerClientWidth}px`;
-              headerTable.style.maxWidth = `${bodyContainerClientWidth}px`;
+              // Calculate total width needed based on columnWidths state
+              // Account for invoice/calculator checkbox column if present
+              let totalWidth = 0;
+              const columnWidthArray = [];
               
-              // Also set body table width to match
-              bodyTable.style.width = `${bodyContainerClientWidth}px`;
-              bodyTable.style.minWidth = `${bodyContainerClientWidth}px`;
-              bodyTable.style.maxWidth = `${bodyContainerClientWidth}px`;
+              // Build array of column widths in order
+              if (invoiceMode || calculatorMode) {
+                columnWidthArray.push(50); // Checkbox column
+              }
+              columnWidthArray.push(
+                columnWidths.id,
+                columnWidths.date,
+                columnWidths.client_name,
+                columnWidths.service,
+                columnWidths.type,
+                columnWidths.location,
+                columnWidths.price,
+                columnWidths.distance,
+                columnWidths.paid,
+                columnWidths.payment_date
+              );
+              if (adminMode) {
+                columnWidthArray.push(columnWidths.actions);
+              }
               
-              // Now measure actual rendered widths from body cells and apply to both
-              bodyCells.forEach((bodyCell, index) => {
-                const headerCell = headerCells[index];
-                if (headerCell && bodyCell) {
-                  // Get the actual rendered width of the body cell
-                  const bodyWidth = bodyCell.offsetWidth;
-                  
-                  // Apply the same width to both header and body cells
-                  headerCell.style.width = `${bodyWidth}px`;
-                  headerCell.style.minWidth = `${bodyWidth}px`;
-                  headerCell.style.maxWidth = `${bodyWidth}px`;
-                  bodyCell.style.width = `${bodyWidth}px`;
-                  bodyCell.style.minWidth = `${bodyWidth}px`;
-                  bodyCell.style.maxWidth = `${bodyWidth}px`;
+              // Calculate total
+              columnWidthArray.forEach(w => totalWidth += w);
+              
+              // If total is less than container width, use container width
+              const tableWidth = Math.max(totalWidth, bodyContainerClientWidth);
+              
+              // Set both tables to the same width
+              headerTable.style.width = `${tableWidth}px`;
+              headerTable.style.minWidth = `${tableWidth}px`;
+              headerTable.style.maxWidth = `${tableWidth}px`;
+              bodyTable.style.width = `${tableWidth}px`;
+              bodyTable.style.minWidth = `${tableWidth}px`;
+              bodyTable.style.maxWidth = `${tableWidth}px`;
+              
+              // Apply exact widths from columnWidthArray to all cells
+              headerCells.forEach((headerCell, index) => {
+                if (columnWidthArray[index] !== undefined) {
+                  const width = columnWidthArray[index];
+                  headerCell.style.width = `${width}px`;
+                  headerCell.style.minWidth = `${width}px`;
+                  headerCell.style.maxWidth = `${width}px`;
                 }
               });
               
-              // Also apply widths to all body rows (not just first) to ensure consistency
+              bodyCells.forEach((bodyCell, index) => {
+                if (columnWidthArray[index] !== undefined) {
+                  const width = columnWidthArray[index];
+                  bodyCell.style.width = `${width}px`;
+                  bodyCell.style.minWidth = `${width}px`;
+                  bodyCell.style.maxWidth = `${width}px`;
+                }
+              });
+              
+              // Apply widths to all body rows
               const allBodyRows = bodyTable.querySelectorAll('tbody tr');
               allBodyRows.forEach((row) => {
                 const rowCells = row.querySelectorAll('td');
                 rowCells.forEach((cell, index) => {
-                  const headerCell = headerCells[index];
-                  if (headerCell && cell) {
-                    const width = headerCell.offsetWidth;
+                  if (columnWidthArray[index] !== undefined) {
+                    const width = columnWidthArray[index];
                     cell.style.width = `${width}px`;
                     cell.style.minWidth = `${width}px`;
                     cell.style.maxWidth = `${width}px`;
@@ -792,14 +821,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 });
               });
               
-              // Also sync all header rows (including filter row)
+              // Apply widths to all header rows (including filter row)
               const allHeaderRows = headerTable.querySelectorAll('thead tr');
               allHeaderRows.forEach((row) => {
                 const rowCells = row.querySelectorAll('th');
                 rowCells.forEach((cell, index) => {
-                  const mainHeaderCell = headerCells[index];
-                  if (mainHeaderCell && cell) {
-                    const width = mainHeaderCell.offsetWidth;
+                  if (columnWidthArray[index] !== undefined) {
+                    const width = columnWidthArray[index];
                     cell.style.width = `${width}px`;
                     cell.style.minWidth = `${width}px`;
                     cell.style.maxWidth = `${width}px`;
