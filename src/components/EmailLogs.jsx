@@ -263,14 +263,13 @@ function EmailLogs() {
               <th>Status</th>
               <th>Sent At</th>
               <th>Updated At</th>
-              <th>Error</th>
               <th>PDF</th>
             </tr>
           </thead>
           <tbody>
             {sortedLogs.length === 0 ? (
               <tr>
-                <td colSpan="9" className="no-logs">No email logs found</td>
+                <td colSpan="8" className="no-logs">No email logs found</td>
               </tr>
             ) : (
               sortedLogs.map(log => {
@@ -301,18 +300,9 @@ function EmailLogs() {
                           {log.status}
                         </span>
                       </td>
-                      <td>{formatDate(log.sent_at)}</td>
-                      <td>{formatDate(log.updated_at)}</td>
-                      <td className="error-cell">
-                        {log.error_message ? (
-                          <span title={log.error_message} className="error-message">
-                            {log.error_message.length > 50 
-                              ? log.error_message.substring(0, 50) + '...' 
-                              : log.error_message}
-                          </span>
-                        ) : '-'}
-                      </td>
-                      <td>
+                    <td>{formatDate(log.sent_at)}</td>
+                    <td>{formatDate(log.updated_at)}</td>
+                    <td>
                         {log.pdf_file_path ? (
                           <a
                             href="#"

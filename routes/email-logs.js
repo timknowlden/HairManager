@@ -184,9 +184,10 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             db.run(
               `UPDATE email_logs 
                SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-               WHERE sendgrid_message_id = ? 
+               WHERE (sendgrid_message_id = ? 
                   OR sendgrid_message_id = ?
-                  OR ? LIKE (sendgrid_message_id || '%')`,
+                  OR ? LIKE (sendgrid_message_id || '%'))
+               AND recipient_email = ?`,
               [
                 'opened',
                 sg_event_id || null,
@@ -195,7 +196,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 eventJson, // Store latest webhook event data
                 sg_message_id,
                 baseMessageId,
-                sg_message_id
+                sg_message_id,
+                email  // Match by recipient email to handle multiple recipients
               ],
               function(updateErr) {
                 if (updateErr) {
@@ -276,14 +278,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       }
       
       // First, find the email_log_id(s) that match this event
+      // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
       const matchingLogs = await new Promise((resolve) => {
         db.all(
-          `SELECT id, user_id FROM email_logs 
-           WHERE sendgrid_message_id = ? 
+          `SELECT id, user_id, recipient_email FROM email_logs 
+           WHERE (sendgrid_message_id = ? 
               OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%')
+              OR ? LIKE (sendgrid_message_id || '%'))
+           AND recipient_email = ?
            LIMIT 10`,
-          [sg_message_id, baseMessageId, sg_message_id],
+          [sg_message_id, baseMessageId, sg_message_id, email],
           (err, rows) => {
             if (err) {
               console.error('[WEBHOOK] Error finding matching email logs:', err);
@@ -391,14 +395,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         skippedCount++;
       }
       
-      // If no match found, try fallback matching by email
+      // If no match found, try fallback matching by email AND message ID
       if (!updateResult.success && updateResult.changes === 0) {
-        // Try to find by email and recent date as fallback
+        // Try to find by email, message ID, and recent date as fallback
         db.all(
           `SELECT id, sendgrid_message_id, recipient_email, sent_at FROM email_logs 
-           WHERE recipient_email = ? AND sent_at >= datetime('now', '-7 days')
+           WHERE recipient_email = ? 
+           AND (sendgrid_message_id = ? OR sendgrid_message_id = ? OR ? LIKE (sendgrid_message_id || '%'))
+           AND sent_at >= datetime('now', '-7 days')
            ORDER BY sent_at DESC LIMIT 5`,
-          [email],
+          [email, sg_message_id, baseMessageId, sg_message_id],
           (err, rows) => {
             if (err) {
               console.error('[WEBHOOK] Error finding email log by email:', err);

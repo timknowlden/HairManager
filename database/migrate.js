@@ -258,11 +258,19 @@ function migrateDatabase(customDbPath = null) {
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at)'));
                 
                 // Add webhook_event_data column if it doesn't exist
+                // This needs to be done synchronously to ensure it runs
                 db.all("PRAGMA table_info(email_logs)", [], (err, columns) => {
                   if (!err && columns) {
                     const hasWebhookData = columns.some(col => col.name === 'webhook_event_data');
                     if (!hasWebhookData) {
-                      migrations.push(runAsync(db, 'ALTER TABLE email_logs ADD COLUMN webhook_event_data TEXT'));
+                      console.log('[MIGRATION] Adding webhook_event_data column to email_logs table');
+                      db.run('ALTER TABLE email_logs ADD COLUMN webhook_event_data TEXT', (alterErr) => {
+                        if (alterErr) {
+                          console.error('[MIGRATION] Error adding webhook_event_data column:', alterErr);
+                        } else {
+                          console.log('[MIGRATION] Successfully added webhook_event_data column');
+                        }
+                      });
                     }
                   }
                 });
