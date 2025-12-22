@@ -128,14 +128,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       // Only update to "opened" if current status is "delivered"
       if (logStatus === 'opened') {
         // First, get the current status AND id (we need id for webhook_events table)
+        // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
         const currentRow = await new Promise((resolve) => {
           db.get(
             `SELECT id, status, user_id FROM email_logs 
-             WHERE sendgrid_message_id = ? 
+             WHERE (sendgrid_message_id = ? 
                 OR sendgrid_message_id = ?
-                OR ? LIKE (sendgrid_message_id || '%')
+                OR ? LIKE (sendgrid_message_id || '%'))
+             AND recipient_email = ?
              LIMIT 1`,
-            [sg_message_id, baseMessageId, sg_message_id],
+            [sg_message_id, baseMessageId, sg_message_id, email],
             (err, row) => {
               if (err) {
                 console.error('[WEBHOOK] Error checking current status:', err);
@@ -149,7 +151,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         
         if (!currentRow) {
           skippedCount++;
-          console.warn(`[WEBHOOK] No email log found for message ID: ${sg_message_id} (base: ${baseMessageId})`);
+          console.warn(`[WEBHOOK] No email log found for message ID: ${sg_message_id} (base: ${baseMessageId}) and recipient ${email}`);
           continue;
         }
         
@@ -272,14 +274,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       
       // Check current status before updating to respect hierarchy
       // Don't downgrade: delivered > sent, opened > delivered
+      // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
       const currentStatus = await new Promise((resolve) => {
         db.get(
           `SELECT status FROM email_logs 
-           WHERE sendgrid_message_id = ? 
+           WHERE (sendgrid_message_id = ? 
               OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%')
+              OR ? LIKE (sendgrid_message_id || '%'))
+           AND recipient_email = ?
            LIMIT 1`,
-          [sg_message_id, baseMessageId, sg_message_id],
+          [sg_message_id, baseMessageId, sg_message_id, email],
           (err, row) => {
             if (err) {
               console.error('[WEBHOOK] Error checking current status:', err);
