@@ -16,6 +16,8 @@ function EmailLogs() {
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
   const [expandedLogs, setExpandedLogs] = useState(new Set());
   const [webhookEvents, setWebhookEvents] = useState({});
+  const [adminMode, setAdminMode] = useState(false);
+  const [selectedLogs, setSelectedLogs] = useState(new Set());
 
   useEffect(() => {
     fetchLogs();
@@ -177,7 +179,23 @@ function EmailLogs() {
     <div className="email-logs">
       <div className="email-logs-header">
         <h2>Email Logs</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="header-actions">
+          <button
+            onClick={toggleAdminMode}
+            className={`admin-btn ${adminMode ? 'active' : ''}`}
+            title="Toggle admin mode"
+          >
+            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
+          </button>
+          {adminMode && selectedLogs.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="delete-btn"
+              title={`Delete ${selectedLogs.size} selected log(s)`}
+            >
+              <FaTrash /> Delete Selected ({selectedLogs.size})
+            </button>
+          )}
           <button onClick={fetchLogs} className="refresh-btn">Refresh</button>
         </div>
       </div>
@@ -254,6 +272,16 @@ function EmailLogs() {
         <table className="email-logs-table">
           <thead>
             <tr>
+              {adminMode && (
+                <th style={{ width: '50px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedLogs.size === sortedLogs.length && sortedLogs.length > 0}
+                    onChange={handleSelectAll}
+                    title="Select all"
+                  />
+                </th>
+              )}
               <th 
                 className="sortable-header"
                 onClick={() => handleSort('id')}
@@ -268,12 +296,13 @@ function EmailLogs() {
               <th>Sent At</th>
               <th>Updated At</th>
               <th>PDF</th>
+              {adminMode && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {sortedLogs.length === 0 ? (
               <tr>
-                <td colSpan="8" className="no-logs">No email logs found</td>
+                <td colSpan={adminMode ? 9 : 8} className="no-logs">No email logs found</td>
               </tr>
             ) : (
               sortedLogs.map(log => {
@@ -282,7 +311,16 @@ function EmailLogs() {
                 const events = webhookEvents[log.id] || [];
                 return (
                   <>
-                    <tr key={log.id} className={isExpanded ? 'expanded-row' : ''}>
+                    <tr key={log.id} className={`${isExpanded ? 'expanded-row' : ''} ${adminMode && selectedLogs.has(log.id) ? 'selected-row' : ''}`}>
+                      {adminMode && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedLogs.has(log.id)}
+                            onChange={() => handleSelectLog(log.id)}
+                          />
+                        </td>
+                      )}
                       <td>
                         <button
                           onClick={() => toggleExpand(log.id)}
@@ -323,7 +361,7 @@ function EmailLogs() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${log.id}-expanded`} className="expanded-details-row">
-                        <td colSpan="8" className="expanded-details-cell" style={{ width: '100%' }}>
+                        <td colSpan={adminMode ? 9 : 8} className="expanded-details-cell" style={{ width: '100%' }}>
                           <div className="webhook-details">
                             <h4>Webhook Events ({events.length})</h4>
                             {events.length === 0 ? (
