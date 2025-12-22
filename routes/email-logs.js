@@ -271,7 +271,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       });
       
       // Store webhook event in webhook_events table for debugging (even if no match found)
-      const eventJson = JSON.stringify(event);
+      // eventJson is already declared at the start of the loop
       if (matchingLogs.length > 0) {
         for (const log of matchingLogs) {
           db.run(
