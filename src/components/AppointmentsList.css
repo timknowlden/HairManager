@@ -243,6 +243,14 @@
 .table-wrapper {
   overflow-x: auto;
   position: relative;
+  width: 100%;
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0;
 }
 
 .tbody-scroll-container {
@@ -250,6 +258,7 @@
   overflow-y: auto;
   max-height: calc(100vh - 400px); /* Adjust based on your header/controls height */
   position: relative;
+  width: 100%;
   /* Performance optimizations */
   will-change: scroll-position;
   transform: translateZ(0); /* Force GPU acceleration */
@@ -262,6 +271,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  margin: 0;
 }
 
 /* Ensure header and body tables have matching column widths */
@@ -269,6 +279,23 @@
 .tbody-scroll-container table {
   table-layout: fixed;
   width: 100%;
+}
+
+/* Ensure both tables have the same structure when admin mode is on */
+.table-wrapper table thead tr,
+.tbody-scroll-container table tbody tr {
+  display: table-row;
+}
+
+/* Make sure columns align properly */
+.table-wrapper table th,
+.tbody-scroll-container table td {
+  box-sizing: border-box;
+}
+
+/* Ensure filter row also has proper structure */
+.table-wrapper table .filter-row th {
+  box-sizing: border-box;
 }
 
 /* Ensure both tables have the same structure when admin mode is on */
