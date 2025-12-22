@@ -30,6 +30,8 @@
   align-items: center;
   gap: 6px;
   transition: background 0.2s;
+  height: 35px;
+  box-sizing: border-box;
 }
 
 .email-logs .admin-btn:hover {
@@ -55,6 +57,8 @@
   white-space: nowrap;
   min-width: fit-content;
   width: auto;
+  height: 35px;
+  box-sizing: border-box;
 }
 
 .email-logs .delete-btn:hover {
@@ -108,6 +112,8 @@
   align-items: center;
   gap: 6px;
   transition: background 0.2s;
+  height: 35px;
+  box-sizing: border-box;
 }
 
 .email-logs .refresh-btn:hover {
