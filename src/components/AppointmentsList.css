@@ -241,7 +241,8 @@
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: hidden; /* Hide horizontal scroll on header */
+  overflow-y: hidden;
   position: relative;
   width: 100%;
 }
@@ -251,6 +252,7 @@
   border-collapse: collapse;
   table-layout: fixed;
   margin: 0;
+  padding: 0;
 }
 
 .tbody-scroll-container {
@@ -272,6 +274,7 @@
   border-collapse: collapse;
   table-layout: fixed;
   margin: 0;
+  padding: 0;
 }
 
 /* Ensure header and body tables have matching column widths */
@@ -287,15 +290,29 @@
   display: table-row;
 }
 
-/* Make sure columns align properly */
+/* Make sure columns align properly - use exact pixel widths */
 .table-wrapper table th,
 .tbody-scroll-container table td {
   box-sizing: border-box;
+  padding: 8px;
+  margin: 0;
 }
 
 /* Ensure filter row also has proper structure */
 .table-wrapper table .filter-row th {
   box-sizing: border-box;
+  padding: 8px;
+  margin: 0;
+}
+
+/* Account for scrollbar width to keep tables aligned */
+.tbody-scroll-container {
+  padding-right: 0;
+}
+
+/* When scrollbar is present, adjust header to match */
+.table-wrapper {
+  padding-right: 8px; /* Match scrollbar width when present */
 }
 
 /* Ensure both tables have the same structure when admin mode is on */
