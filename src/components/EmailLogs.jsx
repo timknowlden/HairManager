@@ -444,6 +444,17 @@ function EmailLogs() {
                           </a>
                         ) : '-'}
                       </td>
+                      {adminMode && (
+                        <td className="actions-cell">
+                          <button
+                            onClick={() => handleDeleteLog(log.id)}
+                            className="delete-btn-small"
+                            title="Delete this email log"
+                          >
+                            <FaTrash />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                     {isExpanded && (
                       <tr key={`${log.id}-expanded`} className="expanded-details-row">
