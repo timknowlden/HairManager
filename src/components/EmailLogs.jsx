@@ -8,7 +8,6 @@ function EmailLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
     recipient: '',
@@ -114,36 +113,6 @@ function EmailLogs() {
     }
   };
 
-  const handleCheckStatus = async () => {
-    setCheckingStatus(true);
-    setError(null);
-    try {
-      const response = await fetch(`${API_BASE}/email-logs/check-status`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to check status');
-      }
-      
-      const data = await response.json();
-      // Refresh the logs to show updated statuses
-      await fetchLogs();
-      alert(data.message || `Checked ${data.checked} emails, updated ${data.updated} statuses`);
-    } catch (err) {
-      console.error('Error checking status:', err);
-      setError(err.message);
-      const errorMsg = err.message.includes('Email Activity') || err.message.includes('authorization required') || err.message.includes('Failed to fetch')
-        ? 'SendGrid Messages API requires Email Activity add-on (paid feature). This is expected. Use "Mark Delivered" button for local testing, or configure webhook for production automatic updates.'
-        : err.message;
-      alert('Status check: ' + errorMsg);
-    } finally {
-      setCheckingStatus(false);
-    }
-  };
-
   const handleManualStatusUpdate = async (logId, newStatus) => {
     if (!window.confirm(`Mark this email as ${newStatus}?`)) {
       return;
@@ -182,9 +151,6 @@ function EmailLogs() {
       <div className="email-logs-header">
         <h2>Email Logs</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={handleCheckStatus} className="refresh-btn" disabled={checkingStatus}>
-            {checkingStatus ? 'Checking...' : 'Check SendGrid Status'}
-          </button>
           <button onClick={fetchLogs} className="refresh-btn">Refresh</button>
         </div>
       </div>
