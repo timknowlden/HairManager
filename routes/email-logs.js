@@ -393,8 +393,11 @@ router.post('/check-status', async (req, res) => {
                   console.error(`[STATUS CHECK] SendGrid API error for log ${log.id}:`, response.status, response.statusText);
                   console.error('[STATUS CHECK] Error details:', JSON.stringify(errorData, null, 2));
                   
-                  // If it's a 403 or specific permission error, provide helpful message
-                  if (response.status === 403 || (errorData.errors && errorData.errors.some(e => e.message && e.message.includes('permission')))) {
+                  // The Messages API requires Email Activity add-on (paid feature)
+                  // This is expected if you don't have the add-on
+                  if (response.status === 400 && errorData.errors && errorData.errors.some(e => e.message && e.message.includes('authorization required'))) {
+                    console.log(`[STATUS CHECK] Messages API requires Email Activity add-on. This is expected. Use "Mark Delivered" button for local testing, or configure webhook for production.`);
+                  } else if (response.status === 403 || (errorData.errors && errorData.errors.some(e => e.message && e.message.includes('permission')))) {
                     console.error('[STATUS CHECK] Messages API requires Email Activity add-on or Pro plan');
                   }
                   return;

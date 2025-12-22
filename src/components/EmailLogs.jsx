@@ -135,10 +135,10 @@ function EmailLogs() {
     } catch (err) {
       console.error('Error checking status:', err);
       setError(err.message);
-      const errorMsg = err.message.includes('Email Activity') || err.message.includes('authorization required')
-        ? 'SendGrid Messages API requires Email Activity add-on. Use "Mark Delivered" button for local testing, or configure webhook for production.'
+      const errorMsg = err.message.includes('Email Activity') || err.message.includes('authorization required') || err.message.includes('Failed to fetch')
+        ? 'SendGrid Messages API requires Email Activity add-on (paid feature). This is expected. Use "Mark Delivered" button for local testing, or configure webhook for production automatic updates.'
         : err.message;
-      alert('Failed to check status: ' + errorMsg);
+      alert('Status check: ' + errorMsg);
     } finally {
       setCheckingStatus(false);
     }
