@@ -251,11 +251,11 @@
 }
 
 .table-wrapper table {
-  width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
   margin: 0;
   padding: 0;
+  /* Width will be set dynamically via JS */
 }
 
 .tbody-scroll-container {
@@ -274,18 +274,18 @@
 }
 
 .tbody-scroll-container table {
-  width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
   margin: 0;
   padding: 0;
+  /* Width will be set dynamically via JS */
 }
 
 /* Ensure header and body tables have matching column widths */
 .table-wrapper table,
 .tbody-scroll-container table {
   table-layout: fixed;
-  width: 100%;
+  /* Width will be set dynamically via JS to ensure alignment */
 }
 
 /* Ensure both tables have the same structure when admin mode is on */
