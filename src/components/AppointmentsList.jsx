@@ -739,18 +739,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
   const clearFilters = () => {
-    setFilterInputs({
-      id: '',
-      date: '',
-      client_name: '',
-      service: '',
-      type: '',
-      location: '',
-      price: '',
-      distance: '',
-      paid: '',
-      payment_date: ''
-    });
     setFilters({
       id: '',
       date: '',
