@@ -733,6 +733,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         const bodyContainer = tableContainerRef.current;
         
         if (bodyTable && headerTable && bodyContainer) {
+          // Calculate scrollbar width
+          const scrollbarWidth = bodyContainer.offsetWidth - bodyContainer.clientWidth;
+          
           // Get the main header row (first tr in thead, not the filter row)
           const mainHeaderRow = headerTable.querySelector('thead tr:first-child');
           const bodyFirstRow = bodyTable.querySelector('tbody tr:first-child');
@@ -743,29 +746,47 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             
             // Only sync if we have matching column counts
             if (headerCells.length === bodyCells.length) {
-              // First, set explicit widths on header cells based on columnWidths
-              headerCells.forEach((headerCell, index) => {
-                const bodyCell = bodyCells[index];
-                if (bodyCell) {
-                  // Get the computed width from the body cell (which has explicit width styles)
-                  const bodyWidth = bodyCell.offsetWidth;
-                  // Apply the same width to the header cell
-                  headerCell.style.width = `${bodyWidth}px`;
-                  headerCell.style.minWidth = `${bodyWidth}px`;
-                  headerCell.style.maxWidth = `${bodyWidth}px`;
+              // First, collect all column widths from body cells
+              const columnWidths = [];
+              let totalWidth = 0;
+              bodyCells.forEach((bodyCell) => {
+                const width = bodyCell.offsetWidth;
+                columnWidths.push(width);
+                totalWidth += width;
+              });
+              
+              // Set header table width to match total body table width
+              // This ensures both tables have the same total width
+              headerTable.style.width = `${totalWidth}px`;
+              headerTable.style.minWidth = `${totalWidth}px`;
+              headerTable.style.maxWidth = `${totalWidth}px`;
+              
+              // Now explicitly set each column width to match
+              bodyCells.forEach((bodyCell, index) => {
+                const headerCell = headerCells[index];
+                if (headerCell && bodyCell && columnWidths[index]) {
+                  const width = columnWidths[index];
+                  // Apply the same width to both header and body cells
+                  headerCell.style.width = `${width}px`;
+                  headerCell.style.minWidth = `${width}px`;
+                  headerCell.style.maxWidth = `${width}px`;
+                  bodyCell.style.width = `${width}px`;
+                  bodyCell.style.minWidth = `${width}px`;
+                  bodyCell.style.maxWidth = `${width}px`;
                 }
               });
               
-              // Then, ensure all body cells match their corresponding header cells
-              bodyCells.forEach((bodyCell, index) => {
-                const headerCell = headerCells[index];
-                if (headerCell && bodyCell) {
-                  const headerWidth = headerCell.offsetWidth;
-                  // Ensure body cell matches header cell width
-                  bodyCell.style.width = `${headerWidth}px`;
-                  bodyCell.style.minWidth = `${headerWidth}px`;
-                  bodyCell.style.maxWidth = `${headerWidth}px`;
-                }
+              // Also apply widths to all body rows (not just first)
+              const allBodyRows = bodyTable.querySelectorAll('tbody tr');
+              allBodyRows.forEach((row) => {
+                const rowCells = row.querySelectorAll('td');
+                rowCells.forEach((cell, index) => {
+                  if (columnWidths[index]) {
+                    cell.style.width = `${columnWidths[index]}px`;
+                    cell.style.minWidth = `${columnWidths[index]}px`;
+                    cell.style.maxWidth = `${columnWidths[index]}px`;
+                  }
+                });
               });
               
               // Also sync the filter row's admin mode cell if it exists
@@ -783,10 +804,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 }
               }
             }
-            
-            // Set the overall table width to match
-            const bodyTableContentWidth = bodyTable.offsetWidth;
-            headerTable.style.width = `${bodyTableContentWidth}px`;
           }
         }
       }
@@ -798,16 +815,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     // Also sync on window resize
     window.addEventListener('resize', syncTableWidths);
     
-    // Use a small delay to ensure DOM is updated
-    const timeoutId = setTimeout(syncTableWidths, 100);
-    const timeoutId2 = setTimeout(syncTableWidths, 300); // Extra delay for admin mode changes
+    // Use multiple delays to ensure DOM is fully updated
+    const timeoutId = setTimeout(syncTableWidths, 50);
+    const timeoutId2 = setTimeout(syncTableWidths, 150);
+    const timeoutId3 = setTimeout(syncTableWidths, 300);
     
     return () => {
       window.removeEventListener('resize', syncTableWidths);
       clearTimeout(timeoutId);
       clearTimeout(timeoutId2);
+      clearTimeout(timeoutId3);
     };
-  }, [adminMode, filteredAppointments.length, columnWidths]);
+  }, [adminMode, filteredAppointments.length, columnWidths, invoiceMode, calculatorMode]);
 
   // Update handleSelectAllCalculator to use filteredAppointments
   const handleSelectAllCalculator = () => {
