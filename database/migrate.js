@@ -222,6 +222,41 @@ function migrateDatabase(customDbPath = null) {
             if (!adminColumnNames.includes('email_relay_bcc_enabled')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_bcc_enabled INTEGER DEFAULT 0'));
             }
+            if (!adminColumnNames.includes('email_subject')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_subject TEXT'));
+            }
+            
+            // Check if email_logs table exists
+            db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='email_logs'", [], (emailLogsErr, emailLogsTables) => {
+              if (emailLogsErr) {
+                console.error('Error checking for email_logs table:', emailLogsErr);
+                return;
+              }
+              
+              if (emailLogsTables.length === 0) {
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS email_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    invoice_number TEXT,
+                    recipient_email TEXT NOT NULL,
+                    subject TEXT,
+                    status TEXT DEFAULT 'pending',
+                    sendgrid_message_id TEXT,
+                    sendgrid_event_id TEXT,
+                    error_message TEXT,
+                    pdf_file_path TEXT,
+                    sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_user_id ON email_logs(user_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sendgrid_message_id ON email_logs(sendgrid_message_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at)'));
+              }
+            });
             // Add email relay service fields
             if (!adminColumnNames.includes('use_email_relay')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN use_email_relay INTEGER DEFAULT 0'));

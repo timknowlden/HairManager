@@ -103,6 +103,7 @@ function AdminManager({ onSettingsSaved }) {
     email_relay_from_email: '',
     email_relay_from_name: '',
     email_relay_bcc_enabled: false,
+    email_subject: '',
     email_signature: '',
     default_email_content: ''
   });
@@ -177,6 +178,7 @@ function AdminManager({ onSettingsSaved }) {
         email_relay_from_email: data.email_relay_from_email || '',
         email_relay_bcc_enabled: data.email_relay_bcc_enabled || false,
         email_relay_from_name: data.email_relay_from_name || '',
+        email_subject: data.email_subject || '',
         email_signature: data.email_signature || '',
         default_email_content: data.default_email_content || ''
       });
@@ -1534,9 +1536,24 @@ function AdminManager({ onSettingsSaved }) {
               
               <div className="form-row">
                 <div className="form-group full-width">
-                  <label htmlFor="email_relay_bcc_enabled" style={{ display: 'block', marginBottom: '8px' }}>
-                    Include sender email in BCC/CC for all invoice emails
-                  </label>
+                  <label htmlFor="email_subject">Email Subject</label>
+                  <input
+                    type="text"
+                    id="email_subject"
+                    name="email_subject"
+                    value={formData.email_subject}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Invoice {invoiceNumber} from {businessName}"
+                  />
+                  <p className="field-help">
+                    Default subject line for invoice emails. Available variables: {'{invoiceNumber}'}, {'{visitDate}'}, {'{businessName}'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="default_email_content">Default Email Content</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                     <input
                       type="checkbox"
@@ -1718,6 +1735,29 @@ function AdminManager({ onSettingsSaved }) {
                   <p className="field-help">
                     This will be automatically appended to all invoice emails. 
                     You can format text, add lists, and paste your existing HTML signature.
+                    Available variables: {'{invoiceNumber}'}, {'{visitDate}'}, {'{businessName}'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="email_relay_bcc_enabled" style={{ display: 'block', marginBottom: '8px' }}>
+                    Include sender email in BCC/CC for all invoice emails
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="email_relay_bcc_enabled"
+                      name="email_relay_bcc_enabled"
+                      checked={formData.email_relay_bcc_enabled || false}
+                      onChange={(e) => handleInputChange({ target: { name: 'email_relay_bcc_enabled', value: e.target.checked } })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer', margin: '0' }}
+                    />
+                    <span style={{ fontSize: '14px', color: '#333' }}>Enable this option</span>
+                  </div>
+                  <p className="field-help">
+                    When enabled, a copy of every invoice email will be sent to your "From Email Address" above
                   </p>
                 </div>
               </div>

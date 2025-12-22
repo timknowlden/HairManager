@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine } from 'react-icons/fa';
+import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from './contexts/AuthContext';
 import EntryForm from './components/EntryForm';
 import AppointmentsList from './components/AppointmentsList';
@@ -8,6 +8,7 @@ import ServicesManager from './components/ServicesManager';
 import AdminManager from './components/AdminManager';
 import Invoice from './components/Invoice';
 import Financial from './components/Financial';
+import EmailLogs from './components/EmailLogs';
 import Login from './components/Login';
 import './App.css';
 import { API_BASE } from './config.js';
@@ -146,6 +147,12 @@ function App() {
           >
             <FaUser /> Profile
           </button>
+          <button
+            className={activeTab === 'email-logs' ? 'active' : ''}
+            onClick={() => setActiveTab('email-logs')}
+          >
+            <FaEnvelope /> Email Logs
+          </button>
         </nav>
       </header>
 
@@ -174,6 +181,9 @@ function App() {
         )}
         {activeTab === 'financial' && (
           <Financial />
+        )}
+        {activeTab === 'email-logs' && (
+          <EmailLogs />
         )}
       </main>
     </div>

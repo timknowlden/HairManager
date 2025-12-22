@@ -23,6 +23,19 @@ function Invoice({ appointments: propsAppointments, onBack }) {
       return;
     }
 
+    // Get visit date from first appointment (all appointments should have the same date)
+    const visitDate = appointments[0]?.date 
+      ? new Date(appointments[0].date).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+      : new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+
     setInvoiceData({
       appointments,
       invoiceNumber: appointments[0]?.id || '',
@@ -30,7 +43,8 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
-      })
+      }),
+      visitDate: visitDate
     });
 
     fetchProfileSettings();
@@ -228,9 +242,24 @@ function Invoice({ appointments: propsAppointments, onBack }) {
 
   const handleEmailInvoice = async () => {
     // Get all emails for this location
-    const allEmails = locationDetails.emails.length > 0 
+    // Collect all emails and flatten/split any semicolon or comma-separated strings
+    let allEmails = locationDetails.emails.length > 0 
       ? locationDetails.emails 
       : (locationDetails.email ? [locationDetails.email] : []);
+    
+    // Flatten and split any emails that contain semicolons or commas
+    allEmails = allEmails
+      .flatMap(email => {
+        if (typeof email === 'string') {
+          // Split by semicolon or comma, then trim and filter
+          return email
+            .split(/[;,]/)
+            .map(e => e.trim())
+            .filter(e => e && e.length > 0);
+        }
+        return [email];
+      })
+      .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
     
     if (allEmails.length === 0) {
       alert('No email address found for this location');
@@ -315,11 +344,64 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         console.log('Original emailBody (first 1000 chars):', emailBody.substring(0, 1000));
         console.log('EmailBody includes {invoiceNumber}:', emailBody.includes('{invoiceNumber}'));
         console.log('EmailBody includes {InvoiceNumber}:', emailBody.includes('{InvoiceNumber}'));
+        console.log('EmailBody includes {visitDate}:', emailBody.includes('{visitDate}'));
+        console.log('EmailBody includes {VisitDate}:', emailBody.includes('{VisitDate}'));
+        console.log('EmailBody includes {businessName}:', emailBody.includes('{businessName}'));
+        console.log('EmailBody includes {BusinessName}:', emailBody.includes('{BusinessName}'));
         console.log('EmailBody includes HTML entities:', emailBody.includes('&#123;') || emailBody.includes('&#125;'));
         
         // Replace {invoiceNumber} and {InvoiceNumber} placeholders if present (works for both HTML and plain text)
         // Tiptap stores content as HTML, so handle various encodings and HTML tag structures
         const invoiceNum = String(invoiceData.invoiceNumber || '');
+        const visitDate = invoiceData.visitDate || '';
+        const businessNameValue = businessName || '';
+        
+        // Replace {businessName} first (simpler, less HTML encoding issues)
+        if (businessNameValue) {
+          emailBody = emailBody.replace(/\{businessName\}/gi, businessNameValue);
+          emailBody = emailBody.replace(/\{BusinessName\}/gi, businessNameValue);
+          emailBody = emailBody.replace(/&#123;businessName&#125;/gi, businessNameValue);
+          emailBody = emailBody.replace(/&#123;BusinessName&#125;/gi, businessNameValue);
+          emailBody = emailBody.replace(/&amp;#123;businessName&amp;#125;/gi, businessNameValue);
+          emailBody = emailBody.replace(/&amp;#123;BusinessName&amp;#125;/gi, businessNameValue);
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{businessName\}\s*<\/span>/gi, businessNameValue);
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{BusinessName\}\s*<\/span>/gi, businessNameValue);
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*businessName\s*<\/span>\}/gi, businessNameValue);
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*BusinessName\s*<\/span>\}/gi, businessNameValue);
+          emailBody = emailBody.split('{businessName}').join(businessNameValue);
+          emailBody = emailBody.split('{BusinessName}').join(businessNameValue);
+          emailBody = emailBody.split('&#123;businessName&#125;').join(businessNameValue);
+          emailBody = emailBody.split('&#123;BusinessName&#125;').join(businessNameValue);
+        }
+        
+        // Replace {visitDate} (simpler, less HTML encoding issues)
+        if (visitDate) {
+          // Pattern 1: Most common - plain text within HTML tags: <p>Visit on {visitDate}</p>
+          emailBody = emailBody.replace(/\{visitDate\}/gi, visitDate);
+          emailBody = emailBody.replace(/\{VisitDate\}/gi, visitDate);
+          
+          // Pattern 2: HTML entity encoded braces
+          emailBody = emailBody.replace(/&#123;visitDate&#125;/gi, visitDate);
+          emailBody = emailBody.replace(/&#123;VisitDate&#125;/gi, visitDate);
+          
+          // Pattern 3: Double-encoded HTML entities
+          emailBody = emailBody.replace(/&amp;#123;visitDate&amp;#125;/gi, visitDate);
+          emailBody = emailBody.replace(/&amp;#123;VisitDate&amp;#125;/gi, visitDate);
+          
+          // Pattern 4: Handle spans wrapping the placeholder: <span>{visitDate}</span>
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{visitDate\}\s*<\/span>/gi, visitDate);
+          emailBody = emailBody.replace(/<span[^>]*>\s*\{VisitDate\}\s*<\/span>/gi, visitDate);
+          
+          // Pattern 4b: Handle braces OUTSIDE span with placeholder text INSIDE: {<span>visitDate</span>}
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*visitDate\s*<\/span>\}/gi, visitDate);
+          emailBody = emailBody.replace(/\{<span[^>]*>\s*VisitDate\s*<\/span>\}/gi, visitDate);
+          
+          // Final fallback using split/join
+          emailBody = emailBody.split('{visitDate}').join(visitDate);
+          emailBody = emailBody.split('{VisitDate}').join(visitDate);
+          emailBody = emailBody.split('&#123;visitDate&#125;').join(visitDate);
+          emailBody = emailBody.split('&#123;VisitDate&#125;').join(visitDate);
+        }
         
         if (!invoiceNum) {
           console.error('Invoice number is missing!', invoiceData);
@@ -428,7 +510,25 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to: allEmails, // Send array of all emails
-            subject: `Invoice ${invoiceData.invoiceNumber} from ${businessName}`,
+            invoiceNumber: invoiceData.invoiceNumber, // Include invoice number
+            subject: (() => {
+              // Get subject from profile settings or use default
+              let subject = profileSettings?.email_subject || `Invoice ${invoiceData.invoiceNumber} from ${businessName}`;
+              
+              // Replace variables in subject
+              const invoiceNum = String(invoiceData.invoiceNumber || '');
+              const visitDate = invoiceData.visitDate || '';
+              const businessNameValue = businessName || '';
+              
+              subject = subject.replace(/\{invoiceNumber\}/gi, invoiceNum);
+              subject = subject.replace(/\{InvoiceNumber\}/gi, invoiceNum);
+              subject = subject.replace(/\{visitDate\}/gi, visitDate);
+              subject = subject.replace(/\{VisitDate\}/gi, visitDate);
+              subject = subject.replace(/\{businessName\}/gi, businessNameValue);
+              subject = subject.replace(/\{BusinessName\}/gi, businessNameValue);
+              
+              return subject;
+            })(),
             body: emailBody,
             pdfData: base64data,
             pdfFilename: filename

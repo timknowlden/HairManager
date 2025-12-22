@@ -13,6 +13,7 @@ import profileRoutes from './routes/profile.js';
 import invoiceRoutes from './routes/invoice.js';
 import authRoutes from './routes/auth.js';
 import financialRoutes from './routes/financial.js';
+import emailLogsRoutes from './routes/email-logs.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -588,6 +589,9 @@ initDatabase(dbPath)
       
       app.use('/api/invoice', invoiceRoutes);
       console.log('✓ Invoice routes registered');
+      
+      app.use('/api/email-logs', emailLogsRoutes);
+      console.log('✓ Email logs routes registered');
       
       app.use('/api/financial', financialRoutes);
       console.log('✓ Financial routes registered');
