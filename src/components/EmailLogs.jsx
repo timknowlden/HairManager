@@ -33,6 +33,10 @@ function EmailLogs() {
       }
       const data = await response.json();
       setLogs(data);
+      // Clear webhook events cache so they reload when expanded
+      setWebhookEvents({});
+      // Clear expanded logs so they need to be re-expanded
+      setExpandedLogs(new Set());
     } catch (err) {
       setError(err.message);
     } finally {
