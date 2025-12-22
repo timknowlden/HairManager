@@ -92,6 +92,10 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
 }
 
 .refresh-btn:hover {
