@@ -13,6 +13,9 @@ function EmailLogs() {
     recipient: '',
     invoiceNumber: ''
   });
+  const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
+  const [expandedLogs, setExpandedLogs] = useState(new Set());
+  const [webhookEvents, setWebhookEvents] = useState({});
 
   useEffect(() => {
     fetchLogs();
@@ -59,6 +62,27 @@ function EmailLogs() {
     if (filters.invoiceNumber && !invoiceNum.includes(filters.invoiceNumber)) return false;
     return true;
   });
+
+  // Sort logs
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    const aValue = a[sortConfig.key];
+    const bValue = b[sortConfig.key];
+    
+    if (sortConfig.key === 'id') {
+      return sortConfig.direction === 'desc' ? bValue - aValue : aValue - bValue;
+    }
+    
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -113,29 +137,28 @@ function EmailLogs() {
     }
   };
 
-  const handleManualStatusUpdate = async (logId, newStatus) => {
-    if (!window.confirm(`Mark this email as ${newStatus}?`)) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${API_BASE}/email-logs/${logId}/status`, {
-        method: 'PUT',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update status');
+  const toggleExpand = async (logId) => {
+    const newExpanded = new Set(expandedLogs);
+    if (newExpanded.has(logId)) {
+      newExpanded.delete(logId);
+    } else {
+      newExpanded.add(logId);
+      // Fetch webhook events if not already loaded
+      if (!webhookEvents[logId]) {
+        try {
+          const response = await fetch(`${API_BASE}/email-logs/${logId}/webhook-events`, {
+            headers: getAuthHeaders()
+          });
+          if (response.ok) {
+            const events = await response.json();
+            setWebhookEvents(prev => ({ ...prev, [logId]: events }));
+          }
+        } catch (err) {
+          console.error('Error fetching webhook events:', err);
+        }
       }
-      
-      // Refresh the logs to show updated status
-      await fetchLogs();
-    } catch (err) {
-      console.error('Error updating status:', err);
-      alert('Failed to update status: ' + err.message);
     }
+    setExpandedLogs(newExpanded);
   };
 
   if (loading) {
@@ -227,79 +250,128 @@ function EmailLogs() {
         <table className="email-logs-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Invoice #</th>
-              <th>Recipient</th>
-              <th>Subject</th>
+              <th 
+                className="sortable-header"
+                onClick={() => handleSort('id')}
+                style={{ cursor: 'pointer' }}
+              >
+                ID {sortConfig.key === 'id' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
+              <th className="invoice-col">Invoice #</th>
+              <th className="recipient-col">Recipient</th>
+              <th className="subject-col">Subject</th>
               <th>Status</th>
               <th>Sent At</th>
               <th>Updated At</th>
               <th>Error</th>
               <th>PDF</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredLogs.length === 0 ? (
+            {sortedLogs.length === 0 ? (
               <tr>
-                <td colSpan="10" className="no-logs">No email logs found</td>
+                <td colSpan="9" className="no-logs">No email logs found</td>
               </tr>
             ) : (
-              filteredLogs.map(log => {
+              sortedLogs.map(log => {
                 const invoiceNum = getInvoiceNumber(log);
+                const isExpanded = expandedLogs.has(log.id);
+                const events = webhookEvents[log.id] || [];
                 return (
-                  <tr key={log.id}>
-                    <td>{log.id}</td>
-                    <td>{invoiceNum}</td>
-                    <td>{log.recipient_email}</td>
-                    <td className="subject-cell">{log.subject || '-'}</td>
-                    <td>
-                      <span
-                        className="status-badge"
-                        style={{ backgroundColor: getStatusColor(log.status) }}
-                      >
-                        {log.status}
-                      </span>
-                    </td>
-                    <td>{formatDate(log.sent_at)}</td>
-                    <td>{formatDate(log.updated_at)}</td>
-                    <td className="error-cell">
-                      {log.error_message ? (
-                        <span title={log.error_message} className="error-message">
-                          {log.error_message.length > 50 
-                            ? log.error_message.substring(0, 50) + '...' 
-                            : log.error_message}
+                  <>
+                    <tr key={log.id} className={isExpanded ? 'expanded-row' : ''}>
+                      <td>
+                        <button
+                          onClick={() => toggleExpand(log.id)}
+                          className="expand-btn"
+                          title={isExpanded ? 'Collapse' : 'Expand to view webhook events'}
+                        >
+                          {isExpanded ? '▼' : '▶'}
+                        </button>
+                        {log.id}
+                      </td>
+                      <td className="invoice-cell">{invoiceNum}</td>
+                      <td className="recipient-cell">{log.recipient_email}</td>
+                      <td className="subject-cell">{log.subject || '-'}</td>
+                      <td>
+                        <span
+                          className="status-badge"
+                          style={{ backgroundColor: getStatusColor(log.status) }}
+                        >
+                          {log.status}
                         </span>
-                      ) : '-'}
-                    </td>
-                  <td>
-                    {log.pdf_file_path ? (
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleViewPdf(log.id);
-                        }}
-                        className="pdf-link"
-                      >
-                        View PDF
-                      </a>
-                    ) : '-'}
-                  </td>
-                  <td>
-                    {log.status === 'sent' || log.status === 'pending' ? (
-                      <button
-                        onClick={() => handleManualStatusUpdate(log.id, 'delivered')}
-                        className="status-update-btn"
-                        title="Mark as delivered (for local testing)"
-                      >
-                        Mark Delivered
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })
+                      </td>
+                      <td>{formatDate(log.sent_at)}</td>
+                      <td>{formatDate(log.updated_at)}</td>
+                      <td className="error-cell">
+                        {log.error_message ? (
+                          <span title={log.error_message} className="error-message">
+                            {log.error_message.length > 50 
+                              ? log.error_message.substring(0, 50) + '...' 
+                              : log.error_message}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td>
+                        {log.pdf_file_path ? (
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleViewPdf(log.id);
+                            }}
+                            className="pdf-link"
+                          >
+                            View PDF
+                          </a>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${log.id}-expanded`} className="expanded-details-row">
+                        <td colSpan="9" className="expanded-details-cell">
+                          <div className="webhook-details">
+                            <h4>Webhook Events ({events.length})</h4>
+                            {events.length === 0 ? (
+                              <p>No webhook events received yet.</p>
+                            ) : (
+                              <div className="webhook-events-list">
+                                {events.map((event, idx) => (
+                                  <div key={event.id || idx} className="webhook-event">
+                                    <div className="webhook-event-header">
+                                      <span className="webhook-event-type">{event.event_type}</span>
+                                      <span className="webhook-event-time">
+                                        {formatDate(event.processed_at)}
+                                      </span>
+                                    </div>
+                                    <details className="webhook-event-details">
+                                      <summary>View Raw JSON</summary>
+                                      <pre className="webhook-json">
+                                        {JSON.stringify(JSON.parse(event.raw_event_data), null, 2)}
+                                      </pre>
+                                    </details>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {log.webhook_event_data && (
+                              <div className="latest-webhook-data">
+                                <h4>Latest Webhook Event Data (from email_logs table)</h4>
+                                <details>
+                                  <summary>View Latest Event JSON</summary>
+                                  <pre className="webhook-json">
+                                    {JSON.stringify(JSON.parse(log.webhook_event_data), null, 2)}
+                                  </pre>
+                                </details>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })
             )}
           </tbody>
         </table>

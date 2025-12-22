@@ -127,6 +127,30 @@
   white-space: nowrap;
 }
 
+.sortable-header:hover {
+  background: #e8e8e8;
+}
+
+.invoice-col {
+  width: 80px;
+  min-width: 80px;
+}
+
+.recipient-col {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subject-col {
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+}
+
 .email-logs-table td {
   padding: 12px;
   border-bottom: 1px solid #eee;
@@ -147,7 +171,23 @@
   text-transform: capitalize;
 }
 
+.invoice-cell {
+  width: 80px;
+  min-width: 80px;
+}
+
+.recipient-cell {
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .subject-cell {
+  width: 300px;
+  min-width: 300px;
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -190,5 +230,129 @@
 
 .error {
   color: #F44336;
+}
+
+.expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  margin-right: 8px;
+  color: #666;
+}
+
+.expand-btn:hover {
+  color: #333;
+}
+
+.expanded-row {
+  background: #f0f7ff;
+}
+
+.expanded-details-row {
+  background: #f9f9f9;
+}
+
+.expanded-details-cell {
+  padding: 20px !important;
+  background: #f9f9f9;
+}
+
+.webhook-details {
+  max-width: 100%;
+}
+
+.webhook-details h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.webhook-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.webhook-event {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  background: white;
+}
+
+.webhook-event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.webhook-event-type {
+  font-weight: 600;
+  color: #2196F3;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.webhook-event-time {
+  color: #666;
+  font-size: 12px;
+}
+
+.webhook-event-details {
+  margin-top: 10px;
+}
+
+.webhook-event-details summary {
+  cursor: pointer;
+  color: #2196F3;
+  font-size: 13px;
+  user-select: none;
+}
+
+.webhook-event-details summary:hover {
+  text-decoration: underline;
+}
+
+.webhook-json {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.latest-webhook-data {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #ddd;
+}
+
+.latest-webhook-data h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.latest-webhook-data details {
+  margin-top: 10px;
+}
+
+.latest-webhook-data summary {
+  cursor: pointer;
+  color: #2196F3;
+  font-size: 13px;
+  user-select: none;
+}
+
+.latest-webhook-data summary:hover {
+  text-decoration: underline;
 }
 

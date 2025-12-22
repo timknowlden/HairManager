@@ -246,6 +246,7 @@ function migrateDatabase(customDbPath = null) {
                     sendgrid_event_id TEXT,
                     error_message TEXT,
                     pdf_file_path TEXT,
+                    webhook_event_data TEXT,
                     sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -255,6 +256,36 @@ function migrateDatabase(customDbPath = null) {
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sendgrid_message_id ON email_logs(sendgrid_message_id)'));
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status)'));
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at)'));
+                
+                // Add webhook_event_data column if it doesn't exist
+                db.all("PRAGMA table_info(email_logs)", [], (err, columns) => {
+                  if (!err && columns) {
+                    const hasWebhookData = columns.some(col => col.name === 'webhook_event_data');
+                    if (!hasWebhookData) {
+                      migrations.push(runAsync(db, 'ALTER TABLE email_logs ADD COLUMN webhook_event_data TEXT'));
+                    }
+                  }
+                });
+                
+                // Create webhook_events table to store all webhook events in order
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS webhook_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email_log_id INTEGER,
+                    user_id INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    sendgrid_message_id TEXT,
+                    sendgrid_event_id TEXT,
+                    raw_event_data TEXT NOT NULL,
+                    processed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    event_timestamp INTEGER,
+                    FOREIGN KEY (email_log_id) REFERENCES email_logs(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_email_log_id ON webhook_events(email_log_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_sendgrid_message_id ON webhook_events(sendgrid_message_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_processed_at ON webhook_events(processed_at)'));
               }
             });
             // Add email relay service fields
