@@ -727,10 +727,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Sync header table width with body table (accounting for scrollbar)
   useEffect(() => {
     const syncTableWidths = () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:729',message:'syncTableWidths called',data:{hasTableContainer:!!tableContainerRef.current,hasHeaderTable:!!headerTableRef.current},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
       if (tableContainerRef.current && headerTableRef.current) {
         const bodyTable = tableContainerRef.current.querySelector('table');
         const headerTable = headerTableRef.current;
@@ -748,16 +744,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             const headerCells = mainHeaderRow.querySelectorAll('th');
             const bodyCells = bodyFirstRow.querySelectorAll('td');
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:748',message:'Cell counts before sync',data:{headerCellCount:headerCells.length,bodyCellCount:bodyCells.length,scrollbarWidth,bodyContainerClientWidth:bodyContainer.clientWidth},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            
             // Only sync if we have matching column counts
             if (headerCells.length === bodyCells.length) {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:756',message:'Starting sync with matching cell counts',data:{headerCellCount:headerCells.length,bodyCellCount:bodyCells.length,adminMode,invoiceMode,calculatorMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-              // #endregion
-              
               // Get the body container's client width (excludes scrollbar)
               const bodyContainerClientWidth = bodyContainer.clientWidth;
               
@@ -786,20 +774,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 columnWidthArray.push(columnWidths.actions);
               }
               
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:785',message:'Column width array built',data:{columnWidthArray,arrayLength:columnWidthArray.length,expectedCells:headerCells.length,adminMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-              // #endregion
-              
               // Calculate total
               columnWidthArray.forEach(w => totalWidth += w);
               
               // Set table width to container width to fill available space
-              // The last column will expand to fill remaining space
               const tableWidth = bodyContainerClientWidth;
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:798',message:'Width calculations',data:{columnWidthArray,totalWidth,bodyContainerClientWidth,tableWidth,adminMode,invoiceMode,calculatorMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-              // #endregion
               
               // Set both tables to container width
               headerTable.style.width = `${tableWidth}px`;
@@ -827,13 +806,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               // Distribute remaining space equally among the three columns
               const spacePerColumn = remainingSpace > 0 ? Math.floor(remainingSpace / 3) : 0;
               
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:820',message:'Space distribution',data:{remainingSpace,spacePerColumn,clientNameIndex,serviceIndex,locationIndex,checkboxOffset},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-              // #endregion
-              
               // Apply exact widths from columnWidthArray to all cells
               // Client Name, Service, and Location get additional space
-              const headerWidthsApplied = [];
               headerCells.forEach((headerCell, index) => {
                 if (columnWidthArray[index] !== undefined) {
                   let width = columnWidthArray[index];
@@ -844,11 +818,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   headerCell.style.width = `${width}px`;
                   headerCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                   headerCell.style.maxWidth = `${width}px`;
-                  headerWidthsApplied.push({index, width, applied: headerCell.style.width, rendered: headerCell.offsetWidth});
                 }
               });
               
-              const bodyWidthsApplied = [];
               bodyCells.forEach((bodyCell, index) => {
                 if (columnWidthArray[index] !== undefined) {
                   let width = columnWidthArray[index];
@@ -859,13 +831,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   bodyCell.style.width = `${width}px`;
                   bodyCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                   bodyCell.style.maxWidth = `${width}px`;
-                  bodyWidthsApplied.push({index, width, applied: bodyCell.style.width, rendered: bodyCell.offsetWidth});
                 }
               });
-              
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:808',message:'Widths applied to first row cells',data:{headerWidthsApplied,bodyWidthsApplied},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-              // #endregion
               
               // Apply widths to all body rows
               const allBodyRows = bodyTable.querySelectorAll('tbody tr');
@@ -887,14 +854,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               
               // Apply widths to all header rows (including filter row)
               const allHeaderRows = headerTable.querySelectorAll('thead tr');
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:860',message:'Applying widths to all header rows',data:{headerRowCount:allHeaderRows.length,columnWidthArrayLength:columnWidthArray.length,adminMode,remainingSpace},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-              // #endregion
               allHeaderRows.forEach((row, rowIndex) => {
                 const rowCells = row.querySelectorAll('th');
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:866',message:'Processing header row',data:{rowIndex,rowCellCount:rowCells.length,columnWidthArrayLength:columnWidthArray.length,isFilterRow:row.classList.contains('filter-row'),adminMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                // #endregion
                 rowCells.forEach((cell, index) => {
                   if (columnWidthArray[index] !== undefined) {
                     let width = columnWidthArray[index];
@@ -905,30 +866,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     cell.style.width = `${width}px`;
                     cell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                     cell.style.maxWidth = `${width}px`;
-                  } else {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:900',message:'WARNING: Column width undefined for cell',data:{rowIndex,cellIndex:index,columnWidthArrayLength:columnWidthArray.length,adminMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                    // #endregion
                   }
                 });
               });
-              
-              // #region agent log
-              // Measure actual rendered widths after all applications
-              const finalHeaderWidths = Array.from(headerCells).map((cell, idx) => ({
-                index: idx,
-                styleWidth: cell.style.width,
-                offsetWidth: cell.offsetWidth,
-                clientWidth: cell.clientWidth
-              }));
-              const finalBodyWidths = Array.from(bodyCells).map((cell, idx) => ({
-                index: idx,
-                styleWidth: cell.style.width,
-                offsetWidth: cell.offsetWidth,
-                clientWidth: cell.clientWidth
-              }));
-              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:840',message:'Final rendered widths after sync',data:{finalHeaderWidths,finalBodyWidths,headerTableWidth:headerTable.style.width,bodyTableWidth:bodyTable.style.width},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-              // #endregion
               
               // Also sync the filter row's admin mode cell if it exists
               const filterRow = headerTable.querySelector('thead tr:last-child');
@@ -950,10 +890,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       }
     };
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:856',message:'useEffect triggered for syncTableWidths',data:{adminMode,filteredAppointmentsLength:filteredAppointments.length,columnWidths,invoiceMode,calculatorMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    
     // Sync on mount and when admin mode changes
     syncTableWidths();
     
@@ -961,24 +897,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     window.addEventListener('resize', syncTableWidths);
     
     // Use multiple delays to ensure DOM is fully updated
-    const timeoutId = setTimeout(() => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:867',message:'Delayed sync 50ms',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      syncTableWidths();
-    }, 50);
-    const timeoutId2 = setTimeout(() => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:872',message:'Delayed sync 150ms',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      syncTableWidths();
-    }, 150);
-    const timeoutId3 = setTimeout(() => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:877',message:'Delayed sync 300ms',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      syncTableWidths();
-    }, 300);
+    const timeoutId = setTimeout(syncTableWidths, 50);
+    const timeoutId2 = setTimeout(syncTableWidths, 150);
+    const timeoutId3 = setTimeout(syncTableWidths, 300);
     
     return () => {
       window.removeEventListener('resize', syncTableWidths);
