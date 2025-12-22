@@ -724,6 +724,37 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [filteredAppointments]);
 
+  // Sync header table width with body table (accounting for scrollbar)
+  useEffect(() => {
+    const syncTableWidths = () => {
+      if (tableContainerRef.current && headerTableRef.current) {
+        const bodyTable = tableContainerRef.current.querySelector('table');
+        const headerTable = headerTableRef.current;
+        
+        if (bodyTable && headerTable) {
+          // Get the actual width of the body table (excluding scrollbar)
+          const bodyTableWidth = bodyTable.offsetWidth;
+          // Set header table to match
+          headerTable.style.width = `${bodyTableWidth}px`;
+        }
+      }
+    };
+
+    // Sync on mount and when admin mode changes
+    syncTableWidths();
+    
+    // Also sync on window resize
+    window.addEventListener('resize', syncTableWidths);
+    
+    // Use a small delay to ensure DOM is updated
+    const timeoutId = setTimeout(syncTableWidths, 100);
+    
+    return () => {
+      window.removeEventListener('resize', syncTableWidths);
+      clearTimeout(timeoutId);
+    };
+  }, [adminMode, filteredAppointments.length]);
+
   // Update handleSelectAllCalculator to use filteredAppointments
   const handleSelectAllCalculator = () => {
     if (selectedForCalculator.size === filteredAppointments.length) {
