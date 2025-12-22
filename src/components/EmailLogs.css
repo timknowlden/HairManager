@@ -53,7 +53,8 @@
   gap: 6px;
   transition: background 0.2s;
   white-space: nowrap;
-  min-width: auto;
+  min-width: fit-content;
+  width: auto;
 }
 
 .email-logs .delete-btn:hover {
