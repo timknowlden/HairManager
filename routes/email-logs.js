@@ -18,18 +18,53 @@ router.get('/webhook', (req, res) => {
 router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const db = req.app.locals.db;
   
+  // Log webhook receipt
+  console.log('\n[WEBHOOK] ========================================');
+  console.log('[WEBHOOK] Webhook received at:', new Date().toISOString());
+  console.log('[WEBHOOK] Content-Type:', req.headers['content-type']);
+  console.log('[WEBHOOK] Content-Length:', req.headers['content-length']);
+  console.log('[WEBHOOK] User-Agent:', req.headers['user-agent']);
+  console.log('[WEBHOOK] ========================================\n');
+  
   try {
     // SendGrid sends events as an array
-    const events = Array.isArray(req.body) ? req.body : JSON.parse(req.body.toString());
-    
-    if (!Array.isArray(events)) {
-      return res.status(400).json({ error: 'Invalid webhook format' });
+    let events;
+    try {
+      if (Array.isArray(req.body)) {
+        events = req.body;
+      } else {
+        events = JSON.parse(req.body.toString());
+      }
+    } catch (parseErr) {
+      console.error('[WEBHOOK] ❌ Error parsing webhook body:', parseErr.message);
+      console.error('[WEBHOOK] Body type:', typeof req.body);
+      console.error('[WEBHOOK] Body preview:', req.body?.toString?.()?.substring(0, 200));
+      return res.status(400).json({ error: 'Invalid webhook format', details: parseErr.message });
     }
     
-    events.forEach(event => {
+    if (!Array.isArray(events)) {
+      console.error('[WEBHOOK] ❌ Events is not an array. Type:', typeof events);
+      console.error('[WEBHOOK] Events value:', events);
+      return res.status(400).json({ error: 'Invalid webhook format - expected array' });
+    }
+    
+    console.log(`[WEBHOOK] ✓ Received ${events.length} event(s) from SendGrid\n`);
+    
+    let processedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
+    
+    events.forEach((event, index) => {
+      console.log(`[WEBHOOK] --- Processing event ${index + 1}/${events.length} ---`);
       const { sg_message_id, sg_event_id, event: eventType, email, timestamp, reason, status } = event;
       
-      console.log(`[WEBHOOK] Received event: ${eventType} for message: ${sg_message_id}, email: ${email}`);
+      processedCount++;
+      console.log(`[WEBHOOK] Event type: ${eventType}`);
+      console.log(`[WEBHOOK] Message ID: ${sg_message_id}`);
+      console.log(`[WEBHOOK] Event ID: ${sg_event_id}`);
+      console.log(`[WEBHOOK] Email: ${email}`);
+      console.log(`[WEBHOOK] Timestamp: ${timestamp} (${new Date(timestamp * 1000).toISOString()})`);
+      if (reason) console.log(`[WEBHOOK] Reason: ${reason}`);
       
       // Map SendGrid event types to our status
       // Important: We need to respect status hierarchy - "opened" should only be set if already "delivered"
@@ -59,7 +94,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
         return;
       }
       
-      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}", event="${eventType}", proposed status="${logStatus}"`);
+      console.log(`[WEBHOOK] Proposed status: ${logStatus || 'none (will skip)'}`);
+      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}"`);
       
       // For "open" events, we need to check current status first
       // Only update to "opened" if current status is "delivered"
@@ -103,14 +139,19 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
                 ],
                 function(updateErr) {
                   if (updateErr) {
-                    console.error('[WEBHOOK] Error updating to opened:', updateErr);
+                    console.error('[WEBHOOK] ❌ Error updating to opened:', updateErr);
                   } else if (this.changes > 0) {
+                    updatedCount++;
                     console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id}`);
+                  } else {
+                    skippedCount++;
+                    console.log(`[WEBHOOK] ⚠ No rows updated for opened event`);
                   }
                 }
               );
             } else {
-              console.log(`[WEBHOOK] Skipping "opened" update - current status is "${row.status}", not "delivered"`);
+              skippedCount++;
+              console.log(`[WEBHOOK] ⏭ Skipping "opened" update - current status is "${row.status}", not "delivered"`);
             }
           }
         );
@@ -144,10 +185,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
         ],
         function(err) {
           if (err) {
-            console.error('[WEBHOOK] Error updating email log from webhook:', err);
+            console.error('[WEBHOOK] ❌ Error updating email log:', err);
           } else if (this.changes > 0) {
+            updatedCount++;
             console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus}`);
           } else {
+            skippedCount++;
             console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId})`);
             // Try to find by email and recent date as fallback
             db.all(
@@ -197,10 +240,23 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
       );
     });
     
-    res.status(200).json({ success: true });
+    // Summary log
+    console.log('\n[WEBHOOK] ========================================');
+    console.log(`[WEBHOOK] Summary: ${processedCount} processed, ${updatedCount} updated, ${skippedCount} skipped`);
+    console.log('[WEBHOOK] ========================================\n');
+    
+    res.status(200).json({ 
+      success: true, 
+      processed: processedCount,
+      updated: updatedCount,
+      skipped: skippedCount
+    });
   } catch (error) {
-    console.error('Error processing SendGrid webhook:', error);
-    res.status(500).json({ error: 'Failed to process webhook' });
+    console.error('\n[WEBHOOK] ❌❌❌ ERROR PROCESSING WEBHOOK ❌❌❌');
+    console.error('[WEBHOOK] Error:', error.message);
+    console.error('[WEBHOOK] Stack:', error.stack);
+    console.error('[WEBHOOK] ========================================\n');
+    res.status(500).json({ error: 'Failed to process webhook', details: error.message });
   }
 });
 
