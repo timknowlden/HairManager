@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './EmailLogs.css';
 import { API_BASE } from '../config.js';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
 function EmailLogs() {
   const { getAuthHeaders } = useAuth();
@@ -165,6 +166,91 @@ function EmailLogs() {
       }
     }
     setExpandedLogs(newExpanded);
+  };
+
+  const toggleAdminMode = () => {
+    setAdminMode(!adminMode);
+    setSelectedLogs(new Set()); // Clear selections when toggling admin mode
+  };
+
+  const handleSelectLog = (logId) => {
+    const newSelected = new Set(selectedLogs);
+    if (newSelected.has(logId)) {
+      newSelected.delete(logId);
+    } else {
+      newSelected.add(logId);
+    }
+    setSelectedLogs(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedLogs.size === sortedLogs.length) {
+      setSelectedLogs(new Set());
+    } else {
+      setSelectedLogs(new Set(sortedLogs.map(log => log.id)));
+    }
+  };
+
+  const handleDeleteLog = async (logId) => {
+    if (!confirm('Are you sure you want to delete this email log?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/email-logs/${logId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete email log');
+      }
+
+      // Remove from local state
+      setLogs(prevLogs => prevLogs.filter(log => log.id !== logId));
+      setSelectedLogs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(logId);
+        return newSet;
+      });
+    } catch (err) {
+      console.error('Error deleting email log:', err);
+      alert('Failed to delete email log: ' + err.message);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLogs.size === 0) {
+      alert('Please select at least one email log to delete');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedLogs.size} email log(s)?`)) {
+      return;
+    }
+
+    try {
+      const deletePromises = Array.from(selectedLogs).map(logId =>
+        fetch(`${API_BASE}/email-logs/${logId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+      const failed = results.filter(r => !r.ok);
+
+      if (failed.length > 0) {
+        throw new Error(`Failed to delete ${failed.length} email log(s)`);
+      }
+
+      // Remove from local state
+      setLogs(prevLogs => prevLogs.filter(log => !selectedLogs.has(log.id)));
+      setSelectedLogs(new Set());
+    } catch (err) {
+      console.error('Error deleting email logs:', err);
+      alert('Failed to delete email logs: ' + err.message);
+    }
   };
 
   if (loading) {
