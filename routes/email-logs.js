@@ -758,6 +758,64 @@ router.get('/:id', (req, res) => {
   );
 });
 
+// DELETE /api/email-logs/:id - Delete an email log
+router.delete('/:id', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const { id } = req.params;
+  
+  // First verify the email log belongs to the user
+  db.get(
+    'SELECT id FROM email_logs WHERE id = ? AND user_id = ?',
+    [id, userId],
+    (err, row) => {
+      if (err) {
+        console.error('Error checking email log:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      if (!row) {
+        res.status(404).json({ error: 'Email log not found' });
+        return;
+      }
+      
+      // Delete associated webhook events first (due to foreign key)
+      db.run(
+        'DELETE FROM webhook_events WHERE email_log_id = ?',
+        [id],
+        (webhookErr) => {
+          if (webhookErr) {
+            console.error('Error deleting webhook events:', webhookErr);
+            // Continue with email log deletion even if webhook events fail
+          }
+          
+          // Delete the email log
+          db.run(
+            'DELETE FROM email_logs WHERE id = ? AND user_id = ?',
+            [id, userId],
+            function(deleteErr) {
+              if (deleteErr) {
+                console.error('Error deleting email log:', deleteErr);
+                res.status(500).json({ error: deleteErr.message });
+                return;
+              }
+              
+              if (this.changes === 0) {
+                res.status(404).json({ error: 'Email log not found' });
+                return;
+              }
+              
+              console.log(`[EMAIL LOGS] Deleted email log ${id} for user ${userId}`);
+              res.json({ success: true, message: 'Email log deleted successfully' });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
 // GET /api/email-logs/pdf/:id - Serve PDF file
 router.get('/pdf/:id', (req, res) => {
   const db = req.app.locals.db;
