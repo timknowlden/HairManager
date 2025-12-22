@@ -111,7 +111,7 @@
   min-width: 100%;
   border-collapse: collapse;
   background: white;
-  table-layout: auto;
+  table-layout: fixed; /* Fixed layout prevents column width changes */
 }
 
 .email-logs-table thead {
@@ -127,6 +127,13 @@
   color: #333;
   border-bottom: 2px solid #ddd;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-logs-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sortable-header:hover {
@@ -134,23 +141,40 @@
 }
 
 .invoice-col {
-  width: 80px;
-  min-width: 80px;
+  width: 100px;
 }
 
 .recipient-col {
-  width: 200px;
-  min-width: 200px;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 220px;
 }
 
 .subject-col {
   width: 300px;
-  min-width: 300px;
-  max-width: 300px;
+}
+
+.email-logs-table th:first-child,
+.email-logs-table td:first-child {
+  width: 80px; /* ID column */
+}
+
+.email-logs-table th:nth-child(5),
+.email-logs-table td:nth-child(5) {
+  width: 100px; /* Status column */
+}
+
+.email-logs-table th:nth-child(6),
+.email-logs-table td:nth-child(6) {
+  width: 150px; /* Sent At column */
+}
+
+.email-logs-table th:nth-child(7),
+.email-logs-table td:nth-child(7) {
+  width: 150px; /* Updated At column */
+}
+
+.email-logs-table th:nth-child(8),
+.email-logs-table td:nth-child(8) {
+  width: 100px; /* PDF column */
 }
 
 .email-logs-table td {
@@ -261,10 +285,17 @@
   background: #f9f9f9;
   width: 100%;
   min-width: 100%;
+  white-space: normal; /* Allow wrapping in expanded details */
+  overflow: visible;
 }
 
 .expanded-details-row {
   width: 100%;
+}
+
+.expanded-details-row td {
+  white-space: normal !important; /* Override normal cell white-space for expanded content */
+  overflow: visible !important;
 }
 
 .webhook-details {
