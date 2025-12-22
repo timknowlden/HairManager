@@ -22,13 +22,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
       console.log(`[WEBHOOK] Received event: ${eventType} for message: ${sg_message_id}, email: ${email}`);
       
       // Map SendGrid event types to our status
-      let logStatus = 'unknown';
+      // Important: We need to respect status hierarchy - "opened" should only be set if already "delivered"
+      let logStatus = null; // null means don't update status for this event
       if (eventType === 'delivered') {
         logStatus = 'delivered';
       } else if (eventType === 'bounce' || eventType === 'dropped' || eventType === 'deferred') {
         logStatus = 'failed';
       } else if (eventType === 'open' || eventType === 'click') {
-        logStatus = 'opened';
+        // Only set to "opened" if current status is already "delivered"
+        // Otherwise, keep the current status (don't skip "delivered" state)
+        logStatus = 'opened'; // We'll check current status before updating
       } else if (eventType === 'processed') {
         logStatus = 'sent';
       }
@@ -46,14 +49,74 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
         return;
       }
       
-      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}"`);
+      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}", event="${eventType}", proposed status="${logStatus}"`);
+      
+      // For "open" events, we need to check current status first
+      // Only update to "opened" if current status is "delivered"
+      if (logStatus === 'opened') {
+        // First, get the current status
+        db.get(
+          `SELECT status FROM email_logs 
+           WHERE sendgrid_message_id = ? 
+              OR sendgrid_message_id = ?
+              OR ? LIKE (sendgrid_message_id || '%')
+           LIMIT 1`,
+          [sg_message_id, baseMessageId, sg_message_id],
+          (err, row) => {
+            if (err) {
+              console.error('[WEBHOOK] Error checking current status:', err);
+              return;
+            }
+            
+            if (!row) {
+              console.warn(`[WEBHOOK] No email log found for message ID: ${sg_message_id} (base: ${baseMessageId})`);
+              return;
+            }
+            
+            // Only update to "opened" if current status is "delivered"
+            // This prevents skipping the "delivered" state
+            if (row.status === 'delivered') {
+              db.run(
+                `UPDATE email_logs 
+                 SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
+                 WHERE sendgrid_message_id = ? 
+                    OR sendgrid_message_id = ?
+                    OR ? LIKE (sendgrid_message_id || '%')`,
+                [
+                  'opened',
+                  sg_event_id || null,
+                  errorMsg,
+                  now,
+                  sg_message_id,
+                  baseMessageId,
+                  sg_message_id
+                ],
+                function(updateErr) {
+                  if (updateErr) {
+                    console.error('[WEBHOOK] Error updating to opened:', updateErr);
+                  } else if (this.changes > 0) {
+                    console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id}`);
+                  }
+                }
+              );
+            } else {
+              console.log(`[WEBHOOK] Skipping "opened" update - current status is "${row.status}", not "delivered"`);
+            }
+          }
+        );
+        return; // Don't continue with the regular update for "open" events
+      }
+      
+      // For all other events, update normally
+      if (!logStatus) {
+        console.log(`[WEBHOOK] No status mapping for event type: ${eventType}, skipping status update`);
+        return;
+      }
       
       // Try multiple matching strategies:
       // 1. Exact match with full webhook ID
       // 2. Exact match with base ID (most common case: we store base, webhook sends base)
       // 3. LIKE pattern: webhook full ID starts with stored base ID (stored: "base", webhook: "base.recvd-...")
-      // The key is: if webhook sends "base.recvd-..." and we stored "base", we need to match
-      // We do this by checking if webhook's base matches stored value, OR if webhook full starts with stored
       db.run(
         `UPDATE email_logs 
          SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
