@@ -181,6 +181,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         // This prevents skipping the "delivered" state
         if (currentRow.status === 'delivered') {
           const openResult = await new Promise((resolve) => {
+            // First try with webhook_event_data column
             db.run(
               `UPDATE email_logs 
                SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
@@ -201,10 +202,45 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
               ],
               function(updateErr) {
                 if (updateErr) {
-                  console.error('[WEBHOOK] ❌ Error updating to opened:', updateErr);
-                  resolve({ success: false, changes: 0 });
+                  // If webhook_event_data column doesn't exist, try without it
+                  if (updateErr.message && updateErr.message.includes('webhook_event_data')) {
+                    console.warn('[WEBHOOK] webhook_event_data column not found for opened event, updating without it');
+                    db.run(
+                      `UPDATE email_logs 
+                       SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
+                       WHERE (sendgrid_message_id = ? 
+                          OR sendgrid_message_id = ?
+                          OR ? LIKE (sendgrid_message_id || '%'))
+                       AND recipient_email = ?`,
+                      [
+                        'opened',
+                        sg_event_id || null,
+                        errorMsg,
+                        now,
+                        sg_message_id,
+                        baseMessageId,
+                        sg_message_id,
+                        email
+                      ],
+                      function(retryErr) {
+                        if (retryErr) {
+                          console.error('[WEBHOOK] ❌ Error updating to opened:', retryErr);
+                          resolve({ success: false, changes: 0 });
+                        } else if (this.changes > 0) {
+                          console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id} for ${email}`);
+                          resolve({ success: true, changes: this.changes });
+                        } else {
+                          console.log(`[WEBHOOK] ⚠ No rows updated for opened event`);
+                          resolve({ success: false, changes: 0 });
+                        }
+                      }
+                    );
+                  } else {
+                    console.error('[WEBHOOK] ❌ Error updating to opened:', updateErr);
+                    resolve({ success: false, changes: 0 });
+                  }
                 } else if (this.changes > 0) {
-                  console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id}`);
+                  console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id} for ${email}`);
                   resolve({ success: true, changes: this.changes });
                 } else {
                   console.log(`[WEBHOOK] ⚠ No rows updated for opened event`);
