@@ -131,30 +131,29 @@
   text-overflow: ellipsis;
 }
 
-.email-logs-table td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .sortable-header:hover {
   background: #e8e8e8;
 }
 
-.invoice-col {
-  width: 100px;
-}
-
-.recipient-col {
-  width: 220px;
-}
-
-.subject-col {
-  width: 300px;
-}
-
+/* Fixed column widths - all columns must have explicit widths for table-layout: fixed */
 .email-logs-table th:first-child,
 .email-logs-table td:first-child {
   width: 80px; /* ID column */
+}
+
+.email-logs-table th:nth-child(2),
+.email-logs-table td:nth-child(2) {
+  width: 100px; /* Invoice # column */
+}
+
+.email-logs-table th:nth-child(3),
+.email-logs-table td:nth-child(3) {
+  width: 220px; /* Recipient column */
+}
+
+.email-logs-table th:nth-child(4),
+.email-logs-table td:nth-child(4) {
+  width: 300px; /* Subject column */
 }
 
 .email-logs-table th:nth-child(5),
@@ -181,6 +180,9 @@
   padding: 12px;
   border-bottom: 1px solid #eee;
   font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .email-logs-table tbody tr:hover {
