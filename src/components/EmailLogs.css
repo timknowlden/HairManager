@@ -259,6 +259,11 @@
   width: 100px; /* PDF column */
 }
 
+.email-logs-table th:nth-child(9),
+.email-logs-table td:nth-child(9) {
+  width: 100px; /* Actions column (when admin mode is on) */
+}
+
 .email-logs-table td {
   padding: 12px;
   border-bottom: 1px solid #eee;
