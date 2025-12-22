@@ -491,7 +491,6 @@ router.post('/check-status', async (req, res) => {
                 const baseMessageId = log.sendgrid_message_id ? log.sendgrid_message_id.split('.')[0] : null;
                 
                 // Query by email - get recent messages for this recipient
-                // Note: Messages API requires Email Activity add-on or Pro plan
                 const queryParams = new URLSearchParams({
                   query: `to_email="${log.recipient_email}"`,
                   limit: '50' // Get up to 50 recent messages
@@ -522,12 +521,12 @@ router.post('/check-status', async (req, res) => {
                   console.error(`[STATUS CHECK] SendGrid API error for log ${log.id}:`, response.status, response.statusText);
                   console.error('[STATUS CHECK] Error details:', JSON.stringify(errorData, null, 2));
                   
-                  // The Messages API requires Email Activity add-on (paid feature)
-                  // This is expected if you don't have the add-on
+                  // The Messages API requires additional permissions
+                  // This is expected - use webhooks for automatic status updates
                   if (response.status === 400 && errorData.errors && errorData.errors.some(e => e.message && e.message.includes('authorization required'))) {
-                    console.log(`[STATUS CHECK] Messages API requires Email Activity add-on. This is expected. Use "Mark Delivered" button for local testing, or configure webhook for production.`);
+                    console.log(`[STATUS CHECK] Messages API not available. Use "Mark Delivered" button for local testing, or configure webhook for production.`);
                   } else if (response.status === 403 || (errorData.errors && errorData.errors.some(e => e.message && e.message.includes('permission')))) {
-                    console.error('[STATUS CHECK] Messages API requires Email Activity add-on or Pro plan');
+                    console.error('[STATUS CHECK] Messages API requires additional permissions');
                   }
                   return;
                 }
