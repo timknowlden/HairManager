@@ -245,9 +245,8 @@
   overflow-y: hidden;
   position: relative;
   width: 100%;
-  /* Account for scrollbar on body to keep widths aligned */
-  padding-right: 8px;
   box-sizing: border-box;
+  /* Don't use fixed padding - width will be set dynamically via JS */
 }
 
 .table-wrapper table {
@@ -300,6 +299,7 @@
   box-sizing: border-box;
   padding: 8px;
   margin: 0;
+  vertical-align: top;
 }
 
 /* Ensure filter row also has proper structure */
@@ -307,18 +307,13 @@
   box-sizing: border-box;
   padding: 8px;
   margin: 0;
+  vertical-align: top;
 }
 
-/* Ensure both tables have the same structure when admin mode is on */
+/* Ensure both tables have the same structure */
 .table-wrapper table thead tr,
 .tbody-scroll-container table tbody tr {
   display: table-row;
-}
-
-/* Make sure columns align properly */
-.table-wrapper table th,
-.tbody-scroll-container table td {
-  box-sizing: border-box;
 }
 
 /* Webkit browsers (Chrome, Safari, Opera) - minimal scrollbar */
