@@ -809,18 +809,38 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               bodyTable.style.minWidth = `${tableWidth}px`;
               bodyTable.style.maxWidth = `${tableWidth}px`;
               
-              // Calculate remaining space for the last column
+              // Calculate remaining space
               const remainingSpace = tableWidth - totalWidth;
               
+              // Find indices of Client Name, Service, and Location columns
+              // These are the columns that should expand to fill remaining space
+              let clientNameIndex = -1;
+              let serviceIndex = -1;
+              let locationIndex = -1;
+              
+              // Account for checkbox column offset if present
+              const checkboxOffset = (invoiceMode || calculatorMode) ? 1 : 0;
+              clientNameIndex = 2 + checkboxOffset; // ID, Date, then Client Name
+              serviceIndex = 3 + checkboxOffset;    // ID, Date, Client Name, then Service
+              locationIndex = 5 + checkboxOffset;   // ID, Date, Client Name, Service, Type, then Location
+              
+              // Distribute remaining space equally among the three columns
+              const spacePerColumn = remainingSpace > 0 ? Math.floor(remainingSpace / 3) : 0;
+              
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:820',message:'Space distribution',data:{remainingSpace,spacePerColumn,clientNameIndex,serviceIndex,locationIndex,checkboxOffset},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
+              // #endregion
+              
               // Apply exact widths from columnWidthArray to all cells
-              // Last column gets remaining space to fill the table
+              // Client Name, Service, and Location get additional space
               const headerWidthsApplied = [];
               headerCells.forEach((headerCell, index) => {
                 if (columnWidthArray[index] !== undefined) {
-                  const isLastColumn = index === headerCells.length - 1;
-                  const width = isLastColumn && remainingSpace > 0 
-                    ? columnWidthArray[index] + remainingSpace 
-                    : columnWidthArray[index];
+                  let width = columnWidthArray[index];
+                  // Add space to Client Name, Service, or Location columns
+                  if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                    width += spacePerColumn;
+                  }
                   headerCell.style.width = `${width}px`;
                   headerCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                   headerCell.style.maxWidth = `${width}px`;
@@ -831,10 +851,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               const bodyWidthsApplied = [];
               bodyCells.forEach((bodyCell, index) => {
                 if (columnWidthArray[index] !== undefined) {
-                  const isLastColumn = index === bodyCells.length - 1;
-                  const width = isLastColumn && remainingSpace > 0 
-                    ? columnWidthArray[index] + remainingSpace 
-                    : columnWidthArray[index];
+                  let width = columnWidthArray[index];
+                  // Add space to Client Name, Service, or Location columns
+                  if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                    width += spacePerColumn;
+                  }
                   bodyCell.style.width = `${width}px`;
                   bodyCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                   bodyCell.style.maxWidth = `${width}px`;
@@ -852,10 +873,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 const rowCells = row.querySelectorAll('td');
                 rowCells.forEach((cell, index) => {
                   if (columnWidthArray[index] !== undefined) {
-                    const isLastColumn = index === rowCells.length - 1;
-                    const width = isLastColumn && remainingSpace > 0 
-                      ? columnWidthArray[index] + remainingSpace 
-                      : columnWidthArray[index];
+                    let width = columnWidthArray[index];
+                    // Add space to Client Name, Service, or Location columns
+                    if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                      width += spacePerColumn;
+                    }
                     cell.style.width = `${width}px`;
                     cell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                     cell.style.maxWidth = `${width}px`;
@@ -875,16 +897,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 // #endregion
                 rowCells.forEach((cell, index) => {
                   if (columnWidthArray[index] !== undefined) {
-                    const isLastColumn = index === rowCells.length - 1;
-                    const width = isLastColumn && remainingSpace > 0 
-                      ? columnWidthArray[index] + remainingSpace 
-                      : columnWidthArray[index];
+                    let width = columnWidthArray[index];
+                    // Add space to Client Name, Service, or Location columns
+                    if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                      width += spacePerColumn;
+                    }
                     cell.style.width = `${width}px`;
                     cell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
                     cell.style.maxWidth = `${width}px`;
                   } else {
                     // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:877',message:'WARNING: Column width undefined for cell',data:{rowIndex,cellIndex:index,columnWidthArrayLength:columnWidthArray.length,adminMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+                    fetch('http://127.0.0.1:7242/ingest/360bcd24-ca3c-48a3-bd97-c0d0287d971c',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AppointmentsList.jsx:900',message:'WARNING: Column width undefined for cell',data:{rowIndex,cellIndex:index,columnWidthArrayLength:columnWidthArray.length,adminMode},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
                     // #endregion
                   }
                 });
