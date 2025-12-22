@@ -352,17 +352,19 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         );
       }
       
-      // Try multiple matching strategies:
-      // 1. Exact match with full webhook ID
-      // 2. Exact match with base ID (most common case: we store base, webhook sends base)
-      // 3. LIKE pattern: webhook full ID starts with stored base ID (stored: "base", webhook: "base.recvd-...")
+      // Try multiple matching strategies, but also match by recipient email:
+      // 1. Exact match with full webhook ID AND recipient email
+      // 2. Exact match with base ID AND recipient email
+      // 3. LIKE pattern: webhook full ID starts with stored base ID AND recipient email matches
       const updateResult = await new Promise((resolve) => {
+        // First try with webhook_event_data column
         db.run(
           `UPDATE email_logs 
            SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-           WHERE sendgrid_message_id = ? 
+           WHERE (sendgrid_message_id = ? 
               OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%')`,
+              OR ? LIKE (sendgrid_message_id || '%'))
+           AND recipient_email = ?`,
           [
             logStatus, 
             sg_event_id || null, 
@@ -371,17 +373,53 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             eventJson, // Store latest webhook event data
             sg_message_id,           // Exact match with full ID
             baseMessageId,           // Exact match with base ID (most common: both are base)
-            sg_message_id            // Webhook full ID starts with stored base (webhook: "base.recvd-...", stored: "base")
+            sg_message_id,           // Webhook full ID starts with stored base (webhook: "base.recvd-...", stored: "base")
+            email                     // Match by recipient email to handle multiple recipients
           ],
           function(err) {
             if (err) {
-              console.error('[WEBHOOK] ❌ Error updating email log:', err);
-              resolve({ success: false, changes: 0 });
+              // If webhook_event_data column doesn't exist, try without it
+              if (err.message && err.message.includes('webhook_event_data')) {
+                console.warn('[WEBHOOK] webhook_event_data column not found, updating without it');
+                db.run(
+                  `UPDATE email_logs 
+                   SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
+                   WHERE (sendgrid_message_id = ? 
+                      OR sendgrid_message_id = ?
+                      OR ? LIKE (sendgrid_message_id || '%'))
+                   AND recipient_email = ?`,
+                  [
+                    logStatus, 
+                    sg_event_id || null, 
+                    errorMsg, 
+                    now,
+                    sg_message_id,
+                    baseMessageId,
+                    sg_message_id,
+                    email
+                  ],
+                  function(retryErr) {
+                    if (retryErr) {
+                      console.error('[WEBHOOK] ❌ Error updating email log:', retryErr);
+                      resolve({ success: false, changes: 0 });
+                    } else if (this.changes > 0) {
+                      console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus} for ${email}`);
+                      resolve({ success: true, changes: this.changes });
+                    } else {
+                      console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId}) and email: ${email}`);
+                      resolve({ success: false, changes: 0, notFound: true });
+                    }
+                  }
+                );
+              } else {
+                console.error('[WEBHOOK] ❌ Error updating email log:', err);
+                resolve({ success: false, changes: 0 });
+              }
             } else if (this.changes > 0) {
-              console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus}`);
+              console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus} for ${email}`);
               resolve({ success: true, changes: this.changes });
             } else {
-              console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId})`);
+              console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId}) and email: ${email}`);
               resolve({ success: false, changes: 0, notFound: true });
             }
           }
