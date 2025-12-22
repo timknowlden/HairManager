@@ -485,6 +485,98 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       // Update counters synchronously based on result
       if (updateResult.success && updateResult.changes > 0) {
         updatedCount++;
+        
+        // If we just updated to "delivered", check for any pending "open" events
+        // This handles cases where Outlook sends "open" events before "delivered"
+        if (logStatus === 'delivered') {
+          // Find the email_log_id that was just updated
+          const updatedLogId = await new Promise((resolve) => {
+            db.get(
+              `SELECT id FROM email_logs 
+               WHERE (sendgrid_message_id = ? 
+                  OR sendgrid_message_id = ?
+                  OR ? LIKE (sendgrid_message_id || '%'))
+               AND recipient_email = ?
+               LIMIT 1`,
+              [sg_message_id, baseMessageId, sg_message_id, email],
+              (err, row) => {
+                if (err) {
+                  console.error('[WEBHOOK] Error finding updated log ID:', err);
+                  resolve(null);
+                } else {
+                  resolve(row ? row.id : null);
+                }
+              }
+            );
+          });
+          
+          if (updatedLogId) {
+            // Check for any "open" events that were stored but not applied
+            db.get(
+              `SELECT id, raw_event_data, event_timestamp, sendgrid_event_id 
+               FROM webhook_events 
+               WHERE email_log_id = ? 
+                 AND event_type IN ('open', 'click')
+               ORDER BY event_timestamp DESC 
+               LIMIT 1`,
+              [updatedLogId],
+              (err, openEvent) => {
+                if (!err && openEvent) {
+                  try {
+                    const openEventData = JSON.parse(openEvent.raw_event_data);
+                    const openTimestamp = openEvent.event_timestamp || Math.floor(Date.now() / 1000);
+                    const openNow = new Date(openTimestamp * 1000).toISOString();
+                    
+                    console.log(`[WEBHOOK] Found pending "open" event (timestamp: ${openTimestamp}), applying now that status is "delivered"`);
+                    
+                    // Update to "opened" using the stored open event data
+                    db.run(
+                      `UPDATE email_logs 
+                       SET status = 'opened', sendgrid_event_id = ?, updated_at = ?, webhook_event_data = ?
+                       WHERE id = ?`,
+                      [
+                        openEvent.sendgrid_event_id || null,
+                        openNow,
+                        openEvent.raw_event_data,
+                        updatedLogId
+                      ],
+                      function(openUpdateErr) {
+                        if (openUpdateErr) {
+                          // Try without webhook_event_data if column doesn't exist
+                          if (openUpdateErr.message && openUpdateErr.message.includes('webhook_event_data')) {
+                            db.run(
+                              `UPDATE email_logs 
+                               SET status = 'opened', sendgrid_event_id = ?, updated_at = ?
+                               WHERE id = ?`,
+                              [
+                                openEvent.sendgrid_event_id || null,
+                                openNow,
+                                updatedLogId
+                              ],
+                              (retryErr) => {
+                                if (retryErr) {
+                                  console.error('[WEBHOOK] Error applying pending open event:', retryErr);
+                                } else {
+                                  console.log(`[WEBHOOK] ✓ Applied pending "open" event to email_log_id=${updatedLogId}`);
+                                }
+                              }
+                            );
+                          } else {
+                            console.error('[WEBHOOK] Error applying pending open event:', openUpdateErr);
+                          }
+                        } else {
+                          console.log(`[WEBHOOK] ✓ Applied pending "open" event to email_log_id=${updatedLogId}`);
+                        }
+                      }
+                    );
+                  } catch (parseErr) {
+                    console.error('[WEBHOOK] Error parsing pending open event data:', parseErr);
+                  }
+                }
+              }
+            );
+          }
+        }
       } else if (updateResult.notFound) {
         skippedCount++;
       }
