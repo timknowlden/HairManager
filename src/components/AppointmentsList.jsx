@@ -582,8 +582,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [adminMode]);
 
-  // Sync header table width with body table (accounting for scrollbar)
-  // This will be moved after filteredAppointments is defined
 
   // Handle column sorting
   const handleSort = (column) => {
