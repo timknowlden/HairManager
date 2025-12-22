@@ -17,7 +17,8 @@
   align-items: center;
 }
 
-.admin-btn {
+/* Make all EmailLogs button styles scoped to .email-logs to avoid conflicts */
+.email-logs .admin-btn {
   padding: 8px 16px;
   background: #607d8b;
   color: white;
@@ -31,15 +32,15 @@
   transition: background 0.2s;
 }
 
-.admin-btn:hover {
+.email-logs .admin-btn:hover {
   background: #455a64;
 }
 
-.admin-btn.active {
+.email-logs .admin-btn.active {
   background: #9e9e9e;
 }
 
-.delete-btn {
+.email-logs .delete-btn {
   padding: 8px 16px;
   background: #f44336;
   color: white;
@@ -53,11 +54,11 @@
   transition: background 0.2s;
 }
 
-.delete-btn:hover {
+.email-logs .delete-btn:hover {
   background: #d32f2f;
 }
 
-.delete-btn-small {
+.email-logs .delete-btn-small {
   padding: 4px 8px;
   background: #f44336;
   color: white;
@@ -71,11 +72,11 @@
   transition: background 0.2s;
 }
 
-.delete-btn-small:hover {
+.email-logs .delete-btn-small:hover {
   background: #d32f2f;
 }
 
-.selected-row {
+.email-logs .selected-row {
   background-color: #fff3cd !important;
 }
 
@@ -84,7 +85,7 @@
   color: #333;
 }
 
-.refresh-btn {
+.email-logs .refresh-btn {
   padding: 8px 16px;
   background: #2196F3;
   color: white;
@@ -98,7 +99,7 @@
   transition: background 0.2s;
 }
 
-.refresh-btn:hover {
+.email-logs .refresh-btn:hover {
   background: #1976D2;
 }
 
