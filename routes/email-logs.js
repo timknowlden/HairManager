@@ -5,6 +5,16 @@ import { readFileSync } from 'fs';
 const router = express.Router();
 
 // Webhook route doesn't require authentication (SendGrid calls it)
+// GET handler for testing webhook endpoint
+router.get('/webhook', (req, res) => {
+  res.json({ 
+    message: 'SendGrid webhook endpoint is active. SendGrid will POST events here.',
+    method: 'POST',
+    note: 'This endpoint does not require authentication for SendGrid webhooks'
+  });
+});
+
+// POST handler for SendGrid webhook events
 router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const db = req.app.locals.db;
   
