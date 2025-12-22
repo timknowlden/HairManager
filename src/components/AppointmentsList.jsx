@@ -730,12 +730,35 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       if (tableContainerRef.current && headerTableRef.current) {
         const bodyTable = tableContainerRef.current.querySelector('table');
         const headerTable = headerTableRef.current;
+        const bodyContainer = tableContainerRef.current;
         
-        if (bodyTable && headerTable) {
-          // Get the actual width of the body table (excluding scrollbar)
-          const bodyTableWidth = bodyTable.offsetWidth;
-          // Set header table to match
-          headerTable.style.width = `${bodyTableWidth}px`;
+        if (bodyTable && headerTable && bodyContainer) {
+          // Calculate scrollbar width
+          const scrollbarWidth = bodyContainer.offsetWidth - bodyContainer.clientWidth;
+          
+          // Get the actual content width of the body table (excluding scrollbar)
+          const bodyTableContentWidth = bodyTable.offsetWidth;
+          
+          // Set header table to match the body table's content width
+          // This ensures columns align properly
+          headerTable.style.width = `${bodyTableContentWidth}px`;
+          
+          // Also ensure all column widths match by explicitly setting them
+          const headerCells = headerTable.querySelectorAll('thead th');
+          const bodyCells = bodyTable.querySelectorAll('tbody tr:first-child td');
+          
+          if (headerCells.length === bodyCells.length) {
+            bodyCells.forEach((bodyCell, index) => {
+              const headerCell = headerCells[index];
+              if (headerCell && bodyCell) {
+                const headerWidth = headerCell.offsetWidth;
+                // Ensure body cell matches header cell width
+                bodyCell.style.width = `${headerWidth}px`;
+                bodyCell.style.minWidth = `${headerWidth}px`;
+                bodyCell.style.maxWidth = `${headerWidth}px`;
+              }
+            });
+          }
         }
       }
     };
@@ -748,12 +771,14 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     
     // Use a small delay to ensure DOM is updated
     const timeoutId = setTimeout(syncTableWidths, 100);
+    const timeoutId2 = setTimeout(syncTableWidths, 300); // Extra delay for admin mode changes
     
     return () => {
       window.removeEventListener('resize', syncTableWidths);
       clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
     };
-  }, [adminMode, filteredAppointments.length]);
+  }, [adminMode, filteredAppointments.length, columnWidths]);
 
   // Update handleSelectAllCalculator to use filteredAppointments
   const handleSelectAllCalculator = () => {
