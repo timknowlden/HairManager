@@ -323,7 +323,7 @@ function EmailLogs() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${log.id}-expanded`} className="expanded-details-row">
-                        <td colSpan="9" className="expanded-details-cell">
+                        <td colSpan="8" className="expanded-details-cell" style={{ width: '100%' }}>
                           <div className="webhook-details">
                             <h4>Webhook Events ({events.length})</h4>
                             {events.length === 0 ? (
