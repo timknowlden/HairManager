@@ -108,8 +108,10 @@
 
 .email-logs-table {
   width: 100%;
+  min-width: 100%;
   border-collapse: collapse;
   background: white;
+  table-layout: auto;
 }
 
 .email-logs-table thead {
@@ -257,6 +259,12 @@
 .expanded-details-cell {
   padding: 20px !important;
   background: #f9f9f9;
+  width: 100%;
+  min-width: 100%;
+}
+
+.expanded-details-row {
+  width: 100%;
 }
 
 .webhook-details {
