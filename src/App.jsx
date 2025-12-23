@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from './contexts/AuthContext';
 import EntryForm from './components/EntryForm';
@@ -20,6 +20,9 @@ function App() {
       const [newAppointmentIds, setNewAppointmentIds] = useState(null);
       const [pageTitle, setPageTitle] = useState("HairManager - Appointment Management");
       const [invoiceAppointments, setInvoiceAppointments] = useState(null);
+      const [profileSettings, setProfileSettings] = useState(null);
+      const [showProfileMenu, setShowProfileMenu] = useState(false);
+      const profileMenuRef = useRef(null);
 
       useEffect(() => {
         if (isAuthenticated) {
@@ -34,6 +37,23 @@ function App() {
         }
       }, [activeTab, isAuthenticated]);
 
+      // Close profile menu when clicking outside
+      useEffect(() => {
+        const handleClickOutside = (event) => {
+          if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+            setShowProfileMenu(false);
+          }
+        };
+
+        if (showProfileMenu) {
+          document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+          document.removeEventListener('mousedown', handleClickOutside);
+        };
+      }, [showProfileMenu]);
+
       const fetchProfileSettings = async () => {
         try {
           const response = await fetch(`${API_BASE}/profile`, {
@@ -41,14 +61,39 @@ function App() {
           });
           if (response.ok) {
             const data = await response.json();
+            setProfileSettings(data);
             if (data.business_name && data.business_name.trim()) {
-              setPageTitle(`${data.business_name} - Appointment Management`);
+              setPageTitle(data.business_name);
+            } else {
+              setPageTitle("HairManager");
             }
-            // If no business_name, keep default title
           }
         } catch (err) {
           console.error('Error fetching profile settings:', err);
           // Keep default title on error
+        }
+      };
+
+      // Get user's display name and initials
+      const getUserDisplayName = () => {
+        if (profileSettings?.name) {
+          return profileSettings.name;
+        }
+        return user?.username || 'User';
+      };
+
+      const getUserInitials = () => {
+        const name = getUserDisplayName();
+        const parts = name.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          // First letter of first name + first letter of last name
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        } else if (parts.length === 1 && parts[0].length >= 2) {
+          // If only one word, use first two letters
+          return parts[0].substring(0, 2).toUpperCase();
+        } else {
+          // Fallback to first letter
+          return name.charAt(0).toUpperCase();
         }
       };
 
@@ -80,37 +125,10 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div style={{ position: 'relative', marginBottom: '20px' }}>
-          <h1 style={{ margin: 0 }}>{pageTitle}</h1>
-          <div style={{ 
-            position: 'absolute', 
-            right: 0, 
-            top: '50%', 
-            transform: 'translateY(-50%)',
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '15px' 
-          }}>
-            <span style={{ color: '#666' }}>Welcome, {user?.username}</span>
-            <button
-              onClick={logout}
-              style={{
-                padding: '8px 16px',
-                background: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <FaSignOutAlt /> Logout
-            </button>
-          </div>
-        </div>
-        <nav className="tabs">
+        <div className="app-header-content">
+          <div className="header-row">
+            <h1 className="business-name">{pageTitle}</h1>
+            <nav className="tabs">
           <button
             className={activeTab === 'entry' ? 'active' : ''}
             onClick={() => setActiveTab('entry')}
@@ -141,19 +159,56 @@ function App() {
           >
             <FaChartLine /> Financial
           </button>
-          <button
-            className={activeTab === 'admin' ? 'active' : ''}
-            onClick={() => setActiveTab('admin')}
-          >
-            <FaUser /> Profile
-          </button>
-          <button
-            className={activeTab === 'email-logs' ? 'active' : ''}
-            onClick={() => setActiveTab('email-logs')}
-          >
-            <FaEnvelope /> Email Logs
-          </button>
-        </nav>
+            </nav>
+            <div 
+              ref={profileMenuRef}
+              className="profile-menu-container"
+              onMouseEnter={() => setShowProfileMenu(true)}
+              onMouseLeave={() => setShowProfileMenu(false)}
+            >
+              <div className="profile-trigger">
+                <div className="profile-avatar">
+                  {getUserInitials()}
+                </div>
+                <span className="profile-name">{getUserDisplayName()}</span>
+              </div>
+              {showProfileMenu && (
+                <>
+                  <div className="profile-dropdown-bridge"></div>
+                  <div className="profile-dropdown">
+                    <button
+                      className="profile-dropdown-item"
+                      onClick={() => {
+                        setActiveTab('admin');
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      <FaUser /> Profile
+                    </button>
+                    <button
+                      className="profile-dropdown-item"
+                      onClick={() => {
+                        setActiveTab('email-logs');
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      <FaEnvelope /> Email Logs
+                    </button>
+                    <button
+                      className="profile-dropdown-item"
+                      onClick={() => {
+                        logout();
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      <FaSignOutAlt /> Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </header>
 
       <main className="app-main">
