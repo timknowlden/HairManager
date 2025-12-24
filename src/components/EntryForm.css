@@ -492,12 +492,38 @@ form button.submit-btn:hover:not(:disabled) {
   transition: background 0.15s;
 }
 
-.autocomplete-suggestion:hover {
+.autocomplete-suggestion:hover,
+.autocomplete-suggestion.selected {
   background: #e8f5e9;
+  font-weight: 600;
 }
 
 .autocomplete-suggestion:last-child {
   border-bottom: none;
+}
+
+.autocomplete-suggestions-grouped {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.autocomplete-group-header {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  font-weight: 600;
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e0e0e0;
+  cursor: default;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.autocomplete-group-header:hover {
+  background: #f5f5f5;
 }
 
 /* Responsive design */

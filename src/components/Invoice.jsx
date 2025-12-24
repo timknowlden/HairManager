@@ -11,6 +11,8 @@ function Invoice({ appointments: propsAppointments, onBack }) {
   const [loading, setLoading] = useState(true);
   const [invoiceData, setInvoiceData] = useState(null);
   const [locationDetails, setLocationDetails] = useState({ name: '', address: '', email: '', emails: [] });
+  const [useCustomEmail, setUseCustomEmail] = useState(false);
+  const [customEmail, setCustomEmail] = useState('');
   const invoiceRef = useRef(null);
 
   useEffect(() => {
@@ -241,28 +243,40 @@ function Invoice({ appointments: propsAppointments, onBack }) {
   };
 
   const handleEmailInvoice = async () => {
-    // Get all emails for this location
-    // Collect all emails and flatten/split any semicolon or comma-separated strings
-    let allEmails = locationDetails.emails.length > 0 
-      ? locationDetails.emails 
-      : (locationDetails.email ? [locationDetails.email] : []);
+    // Get all emails - use custom email if enabled, otherwise use location emails
+    let allEmails = [];
     
-    // Flatten and split any emails that contain semicolons or commas
-    allEmails = allEmails
-      .flatMap(email => {
-        if (typeof email === 'string') {
-          // Split by semicolon or comma, then trim and filter
-          return email
-            .split(/[;,]/)
-            .map(e => e.trim())
-            .filter(e => e && e.length > 0);
-        }
-        return [email];
-      })
-      .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
+    if (useCustomEmail && customEmail.trim()) {
+      // Use custom email
+      allEmails = customEmail
+        .split(/[;,]/)
+        .map(e => e.trim())
+        .filter(e => e && e.length > 0);
+    } else {
+      // Use location emails
+      allEmails = locationDetails.emails.length > 0 
+        ? locationDetails.emails 
+        : (locationDetails.email ? [locationDetails.email] : []);
+      
+      // Flatten and split any emails that contain semicolons or commas
+      allEmails = allEmails
+        .flatMap(email => {
+          if (typeof email === 'string') {
+            // Split by semicolon or comma, then trim and filter
+            return email
+              .split(/[;,]/)
+              .map(e => e.trim())
+              .filter(e => e && e.length > 0);
+          }
+          return [email];
+        })
+        .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
+    }
     
     if (allEmails.length === 0) {
-      alert('No email address found for this location');
+      alert(useCustomEmail 
+        ? 'Please enter a custom email address' 
+        : 'No email address found for this location');
       return;
     }
 
@@ -571,23 +585,18 @@ function Invoice({ appointments: propsAppointments, onBack }) {
   return (
     <div className="invoice-container">
       <div className="invoice-actions">
-        {onBack && (
-          <button onClick={onBack} className="invoice-back-btn">
-            <span>←</span>
-            <span>Back to Appointments</span>
-          </button>
-        )}
-        {(locationDetails.email || locationDetails.emails.length > 0) && (
-          <>
-            {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
-              <button 
-                onClick={handleEmailInvoice}
-                className="invoice-email-btn"
-              >
-                <span>📧</span>
-                <span>Email Invoice</span>
-              </button>
-            )}
+        <div className="invoice-actions-row">
+          {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
+            <button 
+              onClick={handleEmailInvoice}
+              className="invoice-email-btn"
+              disabled={useCustomEmail && !customEmail.trim()}
+            >
+              <span>📧</span>
+              <span>Email Invoice</span>
+            </button>
+          )}
+          {(locationDetails.email || locationDetails.emails.length > 0) && (
             <button 
               onClick={handleOpenEmailApp}
               className="invoice-email-app-btn"
@@ -596,16 +605,44 @@ function Invoice({ appointments: propsAppointments, onBack }) {
               <span>📬</span>
               <span>Open Email App</span>
             </button>
-          </>
+          )}
+          <button onClick={handlePrint} className="invoice-print-btn">
+            <span>🖨️</span>
+            <span>Print</span>
+          </button>
+          <button onClick={handleExportPDF} className="invoice-pdf-btn">
+            <span>📄</span>
+            <span>Export to PDF</span>
+          </button>
+        </div>
+        {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
+          <div className="invoice-email-section">
+            <div className="invoice-email-options">
+              <label className="invoice-email-option">
+                <input
+                  type="checkbox"
+                  checked={useCustomEmail}
+                  onChange={(e) => {
+                    setUseCustomEmail(e.target.checked);
+                    if (!e.target.checked) {
+                      setCustomEmail('');
+                    }
+                  }}
+                />
+                <span>Use custom email recipient</span>
+              </label>
+            </div>
+            {useCustomEmail && (
+              <input
+                type="email"
+                value={customEmail}
+                onChange={(e) => setCustomEmail(e.target.value)}
+                placeholder="Enter email address(es) - separate multiple with comma or semicolon"
+                className="invoice-custom-email-input"
+              />
+            )}
+          </div>
         )}
-        <button onClick={handlePrint} className="invoice-print-btn">
-          <span>🖨️</span>
-          <span>Print</span>
-        </button>
-        <button onClick={handleExportPDF} className="invoice-pdf-btn">
-          <span>📄</span>
-          <span>Export to PDF</span>
-        </button>
       </div>
       <div className="invoice-page" ref={invoiceRef}>
         <div className="invoice-header">

@@ -125,7 +125,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   };
 
-  const handleTogglePaid = async (id, currentPaidStatus) => {
+  const handleTogglePaid = async (id, currentPaidStatus, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     try {
       const endpoint = currentPaidStatus 
         ? `${API_BASE}/appointments/${id}/unpay`
@@ -140,9 +145,21 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error('Failed to update payment status');
       }
 
-      fetchAppointments();
+      // Update local state instead of refetching to prevent page movement
+      setAppointments(prev => prev.map(apt => {
+        if (apt.id === id) {
+          return {
+            ...apt,
+            paid: currentPaidStatus ? 0 : 1,
+            payment_date: currentPaidStatus ? null : new Date().toISOString()
+          };
+        }
+        return apt;
+      }));
     } catch (err) {
       setError(err.message);
+      // If update fails, refetch to ensure consistency
+      fetchAppointments();
     }
   };
 
@@ -1524,7 +1541,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     <td style={{ width: columnWidths.paid }}>
                       <button
                         className={`paid-toggle ${apt.paid ? 'paid' : 'unpaid'}`}
-                        onClick={() => handleTogglePaid(apt.id, apt.paid)}
+                        onClick={(e) => handleTogglePaid(apt.id, apt.paid, e)}
                       >
                         {apt.paid ? '✓ Paid' : 'Unpaid'}
                       </button>

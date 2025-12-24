@@ -9,11 +9,23 @@
 
 .invoice-actions {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 20px;
-  justify-content: center;
   width: 100%;
   max-width: 210mm;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.invoice-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
 }
 
 .invoice-back-btn,
@@ -21,19 +33,39 @@
 .invoice-email-app-btn,
 .invoice-print-btn,
 .invoice-pdf-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: #4CAF50;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  transition: background 0.2s;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  min-height: 44px;
+}
+
+.invoice-back-btn:hover,
+.invoice-email-btn:hover,
+.invoice-email-app-btn:hover,
+.invoice-print-btn:hover,
+.invoice-pdf-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.invoice-back-btn:active,
+.invoice-email-btn:active,
+.invoice-email-app-btn:active,
+.invoice-print-btn:active,
+.invoice-pdf-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .invoice-back-btn span,
@@ -78,6 +110,86 @@
 
 .invoice-pdf-btn:hover {
   background: #F57C00;
+}
+
+.invoice-back-btn span,
+.invoice-email-btn span,
+.invoice-email-app-btn span,
+.invoice-print-btn span,
+.invoice-pdf-btn span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.invoice-email-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.invoice-email-options {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.invoice-email-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #333;
+  white-space: nowrap;
+}
+
+.invoice-email-option:hover {
+  color: #2196F3;
+}
+
+.invoice-email-option input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #2196F3;
+  margin: 0;
+}
+
+.invoice-custom-email-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  background: white;
+}
+
+.invoice-custom-email-input:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.invoice-email-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.invoice-email-btn:disabled:hover {
+  background: #ccc;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .invoice-page {
