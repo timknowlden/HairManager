@@ -202,14 +202,21 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     };
 
     html2pdf().set(opt).from(element).save().then(() => {
-      // Restore original styles
-      element.style.width = originalStyles.width;
-      element.style.height = originalStyles.height;
-      element.style.maxHeight = originalStyles.maxHeight;
-      element.style.padding = originalStyles.padding;
-      element.style.margin = originalStyles.margin;
-      element.style.position = originalStyles.position;
-      element.style.overflow = '';
+      // Restore original styles (remove if empty to avoid CSS parsing errors)
+      if (originalStyles.width) element.style.width = originalStyles.width;
+      else element.style.removeProperty('width');
+      if (originalStyles.height) element.style.height = originalStyles.height;
+      else element.style.removeProperty('height');
+      if (originalStyles.maxHeight) element.style.maxHeight = originalStyles.maxHeight;
+      else element.style.removeProperty('max-height');
+      if (originalStyles.padding) element.style.padding = originalStyles.padding;
+      else element.style.removeProperty('padding');
+      if (originalStyles.margin) element.style.margin = originalStyles.margin;
+      else element.style.removeProperty('margin');
+      if (originalStyles.position) element.style.position = originalStyles.position;
+      else element.style.removeProperty('position');
+      if (originalStyles.overflow) element.style.overflow = originalStyles.overflow;
+      else element.style.removeProperty('overflow');
     });
   };
 
@@ -286,13 +293,13 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     }
 
     try {
-      // Generate PDF first
+      // Generate PDF first (using original working method)
       const element = invoiceRef.current;
       const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
       const locationName = locationDetails.name || 'Location';
       const filename = `Invoice_${invoiceData.invoiceNumber}_${businessName.replace(/\s+/g, '_')}_${locationName.replace(/\s+/g, '_')}.pdf`;
 
-      // Apply temporary styles for PDF generation
+      // Temporarily apply print-like constraints to the element
       const originalStyles = {
         width: element.style.width,
         height: element.style.height,
@@ -302,6 +309,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         position: element.style.position
       };
 
+      // Set exact dimensions for PDF capture
       element.style.width = '210mm';
       element.style.height = '257mm';
       element.style.maxHeight = '257mm';
@@ -319,8 +327,8 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
-          width: 794,
-          height: 970,
+          width: 794, // 210mm at 96 DPI ≈ 794px
+          height: 970, // 257mm at 96 DPI ≈ 970px
           windowWidth: 794,
           windowHeight: 970
         },
