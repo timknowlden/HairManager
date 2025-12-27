@@ -594,63 +594,78 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     <div className="invoice-container">
       <div className="invoice-actions">
         <div className="invoice-actions-row">
-          {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
-            <button 
-              onClick={handleEmailInvoice}
-              className="invoice-email-btn"
-              disabled={useCustomEmail && !customEmail.trim()}
-            >
-              <span>📧</span>
-              <span>Email Invoice</span>
-            </button>
-          )}
-          {(locationDetails.email || locationDetails.emails.length > 0) && (
-            <button 
-              onClick={handleOpenEmailApp}
-              className="invoice-email-app-btn"
-              title="Open email app with location email(s)"
-            >
-              <span>📬</span>
-              <span>Open Email App</span>
-            </button>
-          )}
-          <button onClick={handlePrint} className="invoice-print-btn">
-            <span>🖨️</span>
-            <span>Print</span>
-          </button>
-          <button onClick={handleExportPDF} className="invoice-pdf-btn">
-            <span>📄</span>
-            <span>Export to PDF</span>
-          </button>
-        </div>
-        {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
-          <div className="invoice-email-section">
-            <div className="invoice-email-options">
-              <label className="invoice-email-option">
-                <input
-                  type="checkbox"
-                  checked={useCustomEmail}
-                  onChange={(e) => {
-                    setUseCustomEmail(e.target.checked);
-                    if (!e.target.checked) {
+          <div className="invoice-actions-left">
+            {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
+              <button 
+                onClick={handleEmailInvoice}
+                className="invoice-email-btn"
+                disabled={useCustomEmail && !customEmail.trim()}
+              >
+                <i className="fas fa-paper-plane"></i>
+                <span>Send</span>
+              </button>
+            )}
+            {(locationDetails.email || locationDetails.emails.length > 0) && (
+              <button 
+                onClick={handleOpenEmailApp}
+                className="invoice-email-app-btn"
+                title="Open email app with location email(s)"
+              >
+                <i className="fas fa-envelope"></i>
+                <span>App</span>
+              </button>
+            )}
+            <div className="invoice-actions-divider"></div>
+            {profileSettings?.email_relay_api_key && (profileSettings?.email_relay_from_email || profileSettings?.email) && (
+              <div className="invoice-custom-wrapper">
+                {useCustomEmail ? (
+                  <div className="invoice-email-input-wrapper">
+                    <input
+                      type="email"
+                      value={customEmail}
+                      onChange={(e) => setCustomEmail(e.target.value)}
+                      placeholder="@email.com"
+                      className="invoice-email-input"
+                      autoFocus
+                    />
+                  <button
+                    type="button"
+                    className="invoice-email-close"
+                    onClick={() => {
+                      setUseCustomEmail(false);
                       setCustomEmail('');
-                    }
-                  }}
-                />
-                <span>Use custom email recipient</span>
-              </label>
-            </div>
-            {useCustomEmail && (
-              <input
-                type="email"
-                value={customEmail}
-                onChange={(e) => setCustomEmail(e.target.value)}
-                placeholder="Enter email address(es) - separate multiple with comma or semicolon"
-                className="invoice-custom-email-input"
-              />
+                    }}
+                    title="Close custom email"
+                  >
+                    <i className="fas fa-check"></i>
+                  </button>
+                  </div>
+                ) : (
+                  <label className="invoice-custom-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={useCustomEmail}
+                      onChange={(e) => {
+                        setUseCustomEmail(e.target.checked);
+                      }}
+                    />
+                    <span>Custom email</span>
+                  </label>
+                )}
+              </div>
             )}
           </div>
-        )}
+          <div className="invoice-actions-right">
+            <button onClick={handlePrint} className="invoice-print-btn">
+              <i className="fas fa-print"></i>
+              <span>Print</span>
+            </button>
+            <button onClick={handleExportPDF} className="invoice-pdf-btn">
+              <i className="fas fa-file-pdf"></i>
+              <span>PDF</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div className="invoice-page" ref={invoiceRef}>
         <div className="invoice-header">
