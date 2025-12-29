@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
-import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare } from 'react-icons/fa';
+import { FaWrench, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare, FaSync, FaCalendarAlt } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';
@@ -750,6 +750,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         const bodyContainer = tableContainerRef.current;
         
         if (bodyTable && headerTable && bodyContainer) {
+          // Get the table-wrapper element (parent of headerTable)
+          const tableWrapper = headerTable.parentElement;
+          
+          if (!tableWrapper) return;
+          
           // Calculate scrollbar width
           const scrollbarWidth = bodyContainer.offsetWidth - bodyContainer.clientWidth;
           
@@ -763,8 +768,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             
             // Only sync if we have matching column counts
             if (headerCells.length === bodyCells.length) {
-              // Get the body container's client width (excludes scrollbar)
-              const bodyContainerClientWidth = bodyContainer.clientWidth;
+              // Get the table-wrapper's width (this is the actual available width)
+              const tableWrapperWidth = tableWrapper.offsetWidth;
               
               // Calculate total width needed based on columnWidths state
               // Account for invoice/calculator checkbox column if present
@@ -794,8 +799,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               // Calculate total
               columnWidthArray.forEach(w => totalWidth += w);
               
-              // Set table width to container width to fill available space
-              const tableWidth = bodyContainerClientWidth;
+              // Set table width to table-wrapper width to fill available space
+              const tableWidth = tableWrapperWidth;
               
               // Set both tables to container width
               headerTable.style.width = `${tableWidth}px`;
@@ -971,14 +976,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     <div className="appointments-list">
       <div className="appointments-header">
         <div className="header-title-section">
-          <h2>Appointments</h2>
-          <button 
-            onClick={toggleTaxYearMode} 
-            className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
-            title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
-          >
-            {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
-          </button>
+          <div className="title-group">
+            <h2>Appointments</h2>
+            <p className="appointment-count-text">Showing {filteredAppointments.length} of {appointments.length} appointments</p>
+          </div>
+        </div>
+        <div className="header-actions">
           <button 
             onClick={toggleInvoiceMode} 
             className={`invoice-btn ${invoiceMode ? 'active' : ''}`}
@@ -993,23 +996,29 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
           >
             <FaCalculator /> {calculatorMode ? 'Exit Calculator' : 'Calculator'}
           </button>
-        </div>
-        <div className="header-actions">
           <button 
             onClick={toggleAdminMode} 
             className={`admin-btn ${adminMode ? 'active' : ''}`}
             title="Toggle admin editing mode"
           >
-            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
+            <FaWrench /> {adminMode ? 'Exit Admin' : 'Admin'}
+          </button>
+          <button onClick={fetchAppointments} className="refresh-btn" title="Refresh">
+            <FaSync />
+          </button>
+          <div className="nav-divider"></div>
+          <button 
+            onClick={toggleTaxYearMode} 
+            className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
+            title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
+          >
+            <FaCalendarAlt /> {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
           </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="clear-filters-btn">
-              Clear Filters
+              <FaTimes /> Clear Filters
             </button>
           )}
-          <button onClick={fetchAppointments} className="refresh-btn">
-            Refresh
-          </button>
         </div>
       </div>
 
@@ -1103,9 +1112,6 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         <div className="no-appointments">No appointments found</div>
       ) : (
         <div className="table-container">
-          <div className="filter-info">
-            Showing {filteredAppointments.length} of {appointments.length} appointments
-          </div>
           <div className="table-wrapper">
             <table ref={headerTableRef}>
               <thead>

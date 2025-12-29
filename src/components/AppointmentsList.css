@@ -1,13 +1,15 @@
 .appointments-list {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
   position: relative;
   min-height: 100%;
-  background: transparent;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .appointments-header {
@@ -22,6 +24,11 @@
   min-width: 0;
   overflow: hidden;
   position: relative;
+  border-radius: 8px;
+  background: #f5f5f5;
+  padding: 20px 30px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ddd;
 }
 
 .header-title-section {
@@ -31,14 +38,29 @@
   min-width: 0;
 }
 
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .appointments-header h2 {
   margin: 0;
   color: #333;
+  font-size: 28px;
+  font-weight: 700;
   flex-shrink: 0;
   white-space: nowrap;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.appointment-count-text {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .header-actions {
@@ -52,48 +74,92 @@
   position: relative;
 }
 
+.header-actions .nav-divider {
+  width: 1px;
+  height: 30px;
+  background-color: #d0d0d0;
+  margin: 0 5px;
+  flex-shrink: 0;
+}
+
 
 .refresh-btn {
-  padding: 8px 16px;
-  background: #2196F3;
+  padding: 0;
+  background: #00BCD4;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover {
-  background: #1976D2;
+  background: #00ACC1;
 }
 
-.clear-filters-btn {
-  padding: 8px 16px;
-  background: #ff9800;
+.refresh-btn svg {
+  width: 14px;
+  height: 14px;
   color: white;
+}
+
+.appointments-list .clear-filters-btn,
+.header-actions .clear-filters-btn {
+  padding: 10px 18px;
   border: none;
-  border-radius: 4px;
+  background: #f44336;
+  color: white;
+  border-radius: 20px !important;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
   flex-shrink: 0;
   white-space: nowrap;
+  position: relative;
+  box-sizing: border-box;
+  height: 40px;
 }
 
-.clear-filters-btn:hover {
-  background: #f57c00;
+.appointments-list .clear-filters-btn:hover,
+.header-actions .clear-filters-btn:hover {
+  background: #d32f2f;
+  color: white;
+}
+
+.appointments-list .clear-filters-btn svg,
+.header-actions .clear-filters-btn svg {
+  color: white;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.appointments-list .clear-filters-btn:hover svg,
+.header-actions .clear-filters-btn:hover svg {
+  color: white;
 }
 
 .tax-year-controls {
-  background: #f5f5f5;
+  background: #E3F2FD;
   padding: 15px 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border: 2px solid #9E9E9E;
+  border: 2px solid #2196F3;
 }
 
 .tax-year-selection-info {
@@ -116,10 +182,11 @@
   padding: 8px 16px;
   background: white;
   color: #666;
-  border: 2px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -128,14 +195,15 @@
 }
 
 .tax-year-checkbox-btn:hover {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  border-color: #2196F3;
+  color: #2196F3;
+  background: #E3F2FD;
 }
 
 .tax-year-checkbox-btn.selected {
-  background: #9E9E9E;
+  background: #2196F3;
   color: white;
-  border-color: #9E9E9E;
+  border-color: #2196F3;
 }
 
 .tax-year-checkbox-btn svg {
@@ -146,7 +214,7 @@
 
 .tax-year-checkbox-btn:not(.selected) svg {
   fill: none;
-  stroke: #9E9E9E;
+  stroke: #2196F3;
   stroke-width: 2;
 }
 
@@ -157,21 +225,25 @@
 
 .select-all-tax-years-btn {
   padding: 8px 16px;
-  background: #9E9E9E;
+  background: #2196F3;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .select-all-tax-years-btn:hover {
-  background: #757575;
+  background: #1976D2;
+  box-shadow: 0 3px 6px rgba(33, 150, 243, 0.4);
+  transform: translateY(-1px);
 }
 
 .select-all-tax-years-btn svg {
@@ -234,11 +306,13 @@
 }
 
 .table-container {
-  background: white;
+  background: transparent;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: relative;
   overflow: hidden; /* Hide overflow on container */
+  border: 1px solid #ddd;
+  margin-top: 0;
 }
 
 .table-wrapper {
@@ -259,18 +333,19 @@
 }
 
 .tbody-scroll-container {
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: auto;
   max-height: calc(100vh - 400px); /* Adjust based on your header/controls height */
   position: relative;
   width: 100%;
   box-sizing: border-box;
+  background: transparent; /* Allow table rows to show through */
   /* Performance optimizations */
   will-change: scroll-position;
   transform: translateZ(0); /* Force GPU acceleration */
   /* Minimal scrollbar styling */
   scrollbar-width: thin; /* Firefox - thin scrollbar */
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* Firefox - thumb and track colors */
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* Firefox - visible thumb, transparent track */
 }
 
 .tbody-scroll-container table {
@@ -320,11 +395,12 @@
 /* Webkit browsers (Chrome, Safari, Opera) - minimal scrollbar */
 .tbody-scroll-container::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
+  height: 0px; /* Hide horizontal scrollbar */
 }
 
 .tbody-scroll-container::-webkit-scrollbar-track {
   background: transparent;
+  border: none;
 }
 
 .tbody-scroll-container::-webkit-scrollbar-thumb {
@@ -340,6 +416,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  background: white;
 }
 
 thead {
@@ -354,7 +431,7 @@ th {
   text-align: left;
   font-weight: 600;
   color: #555;
-  border-bottom: 2px solid #ddd;
+  border-bottom: 1px solid #ddd;
   background: #f5f5f5; /* Ensure background for sticky header */
 }
 
@@ -394,13 +471,14 @@ tbody tr.unpaid {
 }
 
 .paid-toggle {
-  padding: 6px 12px;
+  padding: 6px 14px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .paid-toggle.paid {
@@ -410,6 +488,8 @@ tbody tr.unpaid {
 
 .paid-toggle.paid:hover {
   background: #45a049;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
 .paid-toggle.unpaid {
@@ -419,6 +499,8 @@ tbody tr.unpaid {
 
 .paid-toggle.unpaid:hover {
   background: #f57c00;
+  box-shadow: 0 2px 4px rgba(255, 152, 0, 0.4);
+  transform: translateY(-1px);
 }
 
 .loading,
@@ -437,114 +519,187 @@ tbody tr.unpaid {
   background: #ffebee;
 }
 
-.admin-btn,
-.invoice-btn {
-  padding: 8px 16px;
-  border: 2px solid #ddd;
-  background: white;
-  color: #666;
-  border-radius: 4px;
+.admin-btn {
+  padding: 10px 18px;
+  border: none;
+  background: #424242;
+  color: white;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s;
   flex-shrink: 0;
   white-space: nowrap;
   position: relative;
+  box-sizing: border-box;
+  height: 40px;
 }
 
 .admin-btn:hover {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  background: #616161;
+}
+
+.admin-btn svg {
+  color: #00BCD4;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.admin-btn:hover svg {
+  color: #00BCD4;
+}
+
+.invoice-btn {
+  padding: 10px 18px;
+  border: none;
+  background: white;
+  color: #999;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+  position: relative;
+  box-sizing: border-box;
+  height: 40px;
 }
 
 .invoice-btn:hover {
-  border-color: #9C27B0;
-  color: #9C27B0;
+  background: #f5f5f5;
+  color: #666;
 }
 
-.admin-btn.active {
-  background: #4CAF50;
-  color: white;
-  border-color: #4CAF50;
-  padding: 8px 16px;
-  box-sizing: border-box;
+.invoice-btn svg {
+  color: #999;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.invoice-btn:hover svg {
+  color: #666;
 }
 
 .invoice-btn.active {
+  border: none;
   background: #9C27B0;
   color: white;
-  border-color: #9C27B0;
-  padding: 8px 16px;
-  box-sizing: border-box;
+}
+
+.invoice-btn.active svg {
+  color: white;
 }
 
 .calculator-btn {
-  padding: 8px 16px;
-  border: 2px solid #ddd;
+  padding: 10px 18px;
+  border: none;
   background: white;
-  color: #666;
-  border-radius: 4px;
+  color: #999;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s;
   flex-shrink: 0;
   white-space: nowrap;
   position: relative;
   box-sizing: border-box;
+  height: 40px;
 }
 
 .calculator-btn:hover {
-  border-color: #FF9800;
-  color: #FF9800;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.calculator-btn svg {
+  color: #999;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.calculator-btn:hover svg {
+  color: #666;
 }
 
 .calculator-btn.active {
+  border: none;
   background: #FF9800;
   color: white;
-  border-color: #FF9800;
-  padding: 8px 16px;
-  box-sizing: border-box;
 }
 
+.calculator-btn.active svg {
+  color: white;
+}
+
+.admin-btn.active {
+  background: #424242;
+}
+
+.admin-btn.active svg {
+  color: #00BCD4;
+}
+
+
+
 .tax-year-btn {
-  padding: 8px 16px;
-  border: 2px solid #ddd;
+  padding: 10px 18px;
+  border: none;
   background: white;
-  color: #666;
-  border-radius: 4px;
+  color: #999;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s;
   flex-shrink: 0;
   white-space: nowrap;
   position: relative;
   box-sizing: border-box;
+  height: 40px;
 }
 
 .tax-year-btn:hover {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.tax-year-btn svg {
+  color: #999;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.tax-year-btn:hover svg {
+  color: #666;
 }
 
 .tax-year-btn.active {
-  background: #9E9E9E;
+  background: #2196F3;
   color: white;
-  border-color: #9E9E9E;
-  padding: 8px 16px;
-  box-sizing: border-box;
-  font-weight: 600;
+  border: none;
+}
+
+.tax-year-btn.active svg {
+  color: white;
 }
 
 .invoice-controls {
@@ -565,16 +720,18 @@ tbody tr.unpaid {
 }
 
 .select-all-btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
+  border: none;
   background: #9C27B0;
   color: white;
-  border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  transition: all 0.2s;
 }
 
 .select-all-btn:hover {
@@ -897,7 +1054,7 @@ th.resizable:hover .resize-handle {
 .scroll-btn {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  border-radius: 12px;
   border: none;
   background: #2196F3;
   color: white;

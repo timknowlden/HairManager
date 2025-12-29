@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './EmailLogs.css';
 import { API_BASE } from '../config.js';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaWrench, FaTrash, FaSync } from 'react-icons/fa';
 
 function EmailLogs() {
   const { getAuthHeaders } = useAuth();
@@ -271,7 +271,7 @@ function EmailLogs() {
             className={`admin-btn ${adminMode ? 'active' : ''}`}
             title="Toggle admin mode"
           >
-            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
+            <FaWrench /> {adminMode ? 'Exit Admin' : 'Admin'}
           </button>
           {adminMode && selectedLogs.size > 0 && (
             <button
@@ -282,7 +282,9 @@ function EmailLogs() {
               <FaTrash /> Delete Selected ({selectedLogs.size})
             </button>
           )}
-          <button onClick={fetchLogs} className="refresh-btn">Refresh</button>
+          <button onClick={fetchLogs} className="refresh-btn" title="Refresh">
+            <FaSync />
+          </button>
         </div>
       </div>
 

@@ -130,11 +130,12 @@ function App() {
             <h1 className="business-name">{pageTitle}</h1>
             <nav className="tabs">
           <button
-            className={activeTab === 'entry' ? 'active' : ''}
+            className={`entry-btn ${activeTab === 'entry' ? 'active' : ''}`}
             onClick={() => setActiveTab('entry')}
           >
             <FaPlus /> New Entry
           </button>
+          <div className="nav-divider"></div>
           <button
             className={activeTab === 'list' ? 'active' : ''}
             onClick={() => setActiveTab('list')}

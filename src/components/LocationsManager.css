@@ -1,7 +1,10 @@
 .locations-manager {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .locations-header {
@@ -115,18 +118,21 @@ th.resizable:hover .resize-handle {
 
 .import-btn,
 .add-btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
   white-space: nowrap;
-  line-height: 1.4;
+  position: relative;
   box-sizing: border-box;
+  height: 40px;
 }
 
 .import-btn {
@@ -214,12 +220,13 @@ th.resizable:hover .resize-handle {
 .cancel-btn {
   padding: 12px 24px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 600;
   min-width: 120px;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .submit-btn {
@@ -229,15 +236,19 @@ th.resizable:hover .resize-handle {
 
 .submit-btn:hover {
   background: #45a049;
+  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
 .cancel-btn {
-  background: #ccc;
-  color: #333;
+  background: #9E9E9E;
+  color: white;
 }
 
 .cancel-btn:hover {
-  background: #bbb;
+  background: #757575;
+  box-shadow: 0 3px 6px rgba(158, 158, 158, 0.4);
+  transform: translateY(-1px);
 }
 
 .locations-table-container {
@@ -409,14 +420,18 @@ tbody tr:hover {
   background: #4CAF50;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
 }
 
 .import-confirm-btn:hover {
   background: #45a049;
+  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
 .postcode-lookup-group {
@@ -434,20 +449,24 @@ tbody tr:hover {
   background: #2196F3;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .lookup-btn:hover {
   background: #1976D2;
+  box-shadow: 0 3px 6px rgba(33, 150, 243, 0.4);
+  transform: translateY(-1px);
 }
 
 .lookup-btn:active {
   background: #1565C0;
+  transform: translateY(0);
 }
 
 .lookup-btn:disabled {

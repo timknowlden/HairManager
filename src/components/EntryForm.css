@@ -1,10 +1,10 @@
 .entry-form {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: visible;
 }
 
@@ -400,9 +400,9 @@ form button.submit-btn {
 .entry-form button.submit-btn:hover:not(:disabled),
 form .submit-btn:hover:not(:disabled),
 form button.submit-btn:hover:not(:disabled) {
-  background: #4CAF50 !important;
+  background: #45a049 !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
 }
 
 .submit-btn:disabled {

@@ -1,7 +1,10 @@
 .services-manager {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .services-header {
@@ -117,12 +120,21 @@ th.resizable:hover .resize-handle {
 
 .import-btn,
 .add-btn {
-  padding: 10px 20px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+  position: relative;
+  box-sizing: border-box;
+  height: 40px;
 }
 
 .import-btn {
@@ -206,10 +218,12 @@ th.resizable:hover .resize-handle {
 .cancel-btn {
   padding: 10px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .submit-btn {
@@ -219,15 +233,19 @@ th.resizable:hover .resize-handle {
 
 .submit-btn:hover {
   background: #45a049;
+  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
 .cancel-btn {
-  background: #ccc;
-  color: #333;
+  background: #9E9E9E;
+  color: white;
 }
 
 .cancel-btn:hover {
-  background: #bbb;
+  background: #757575;
+  box-shadow: 0 3px 6px rgba(158, 158, 158, 0.4);
+  transform: translateY(-1px);
 }
 
 .services-table-container {
