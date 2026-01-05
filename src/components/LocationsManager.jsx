@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './LocationsManager.css';
@@ -64,11 +64,22 @@ function LocationsManager() {
     notes: ''
   });
   const [currentEmailInput, setCurrentEmailInput] = useState(''); // For the email input field
+  const formRef = useRef(null); // Ref for the form container
 
   useEffect(() => {
     fetchAdminSettings();
     fetchLocations();
   }, []);
+
+  // Scroll to form when it opens
+  useEffect(() => {
+    if ((showAddForm || editingId) && formRef.current) {
+      // Use setTimeout to ensure the form is rendered before scrolling
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }, 150);
+    }
+  }, [showAddForm, editingId]);
 
   const fetchAdminSettings = async () => {
     try {
@@ -396,7 +407,7 @@ function LocationsManager() {
     });
     setCurrentEmailInput(''); // Clear the input field
     setEditingId(location.id);
-    setShowAddForm(true);
+    setShowAddForm(false); // Don't show add form when editing
   };
 
   const handleDelete = async (id) => {
@@ -818,9 +829,9 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
         </div>
       )}
 
-      {showAddForm && (
-        <div className="location-form-container">
-          <h3>{editingId ? 'Edit Location' : 'Add New Location'}</h3>
+      {showAddForm && !editingId && (
+        <div className="location-form-container" ref={formRef}>
+          <h3>Add New Location</h3>
           <form onSubmit={handleSubmit} className="location-form">
             <div className="form-row">
               <div className="form-group">
@@ -898,76 +909,6 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 />
               </div>
               <div className="form-group">
-                <label>Email Address(es)</label>
-                <div style={{ 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px', 
-                  padding: '8px',
-                  minHeight: '40px',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '6px',
-                  alignItems: 'center'
-                }}>
-                  {/* Display email tags */}
-                  {formData.email_address.map((email, index) => (
-                    <span
-                      key={index}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        background: '#e3f2fd',
-                        color: '#1976d2',
-                        padding: '4px 8px',
-                        borderRadius: '16px',
-                        fontSize: '13px'
-                      }}
-                    >
-                      {email}
-                      <button
-                        type="button"
-                        onClick={() => removeEmail(email)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#1976d2',
-                          cursor: 'pointer',
-                          padding: '0',
-                          marginLeft: '4px',
-                          fontSize: '16px',
-                          lineHeight: '1',
-                          fontWeight: 'bold'
-                        }}
-                        title="Remove email"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {/* Email input field */}
-                  <input
-                    type="email"
-                    value={currentEmailInput}
-                    onChange={(e) => setCurrentEmailInput(e.target.value)}
-                    onKeyDown={handleEmailKeyDown}
-                    onBlur={handleEmailBlur}
-                    placeholder={formData.email_address.length === 0 ? "Enter email and press Enter" : "Add another email"}
-                    style={{
-                      border: 'none',
-                      outline: 'none',
-                      flex: '1',
-                      minWidth: '150px',
-                      padding: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
-                <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  Enter an email and press Enter or click outside to add it
-                </p>
-              </div>
-              <div className="form-group">
                 <label>Phone</label>
                 <input
                   type="text"
@@ -976,6 +917,39 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   onChange={handleInputChange}
                 />
               </div>
+            </div>
+
+            <div className="form-group">
+              <label>Email Address(es)</label>
+              <div className="email-input-container">
+                {/* Display email tags */}
+                {formData.email_address.map((email, index) => (
+                  <span key={index} className="email-tag">
+                    {email}
+                    <button
+                      type="button"
+                      onClick={() => removeEmail(email)}
+                      className="email-tag-remove"
+                      title="Remove email"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {/* Email input field */}
+                <input
+                  type="email"
+                  value={currentEmailInput}
+                  onChange={(e) => setCurrentEmailInput(e.target.value)}
+                  onKeyDown={handleEmailKeyDown}
+                  onBlur={handleEmailBlur}
+                  placeholder={formData.email_address.length === 0 ? "Enter email and press Enter" : "Add another email"}
+                  className="email-input-field"
+                />
+              </div>
+              <p className="email-help-text">
+                Enter an email and press Enter or click outside to add it
+              </p>
             </div>
 
             <div className="form-group">
@@ -989,10 +963,10 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="submit-btn">
+              <button type="submit" className="location-submit-btn">
                 {editingId ? 'Update' : 'Add'} Location
               </button>
-              <button type="button" onClick={cancelForm} className="cancel-btn">
+              <button type="button" onClick={cancelForm} className="location-cancel-btn">
                 Cancel
               </button>
             </div>
@@ -1200,71 +1174,219 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
               </tr>
             ) : (
               filteredAndSortedLocations.map((loc) => (
-                <tr key={loc.id}>
-                  <td style={{ width: columnWidths.id }}>{loc.id}</td>
-                  <td style={{ width: columnWidths.location_name }}>{loc.location_name}</td>
-                  <td style={{ width: columnWidths.address }}>{loc.address}</td>
-                  <td style={{ width: columnWidths.city_town }}>{loc.city_town}</td>
-                  <td style={{ width: columnWidths.post_code }}>{loc.post_code}</td>
-                  <td style={{ width: columnWidths.distance }}>{loc.distance ? `${loc.distance} mi` : '-'}</td>
-                  <td style={{ width: columnWidths.contact_name }}>{loc.contact_name || '-'}</td>
-                  <td style={{ width: columnWidths.email_address }}>
-                    {loc.email_address && (Array.isArray(loc.email_address) ? loc.email_address.length > 0 : loc.email_address) ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {Array.isArray(loc.email_address) ? (
-                          loc.email_address.map((email, idx) => (
-                            <a key={idx} href={`mailto:${email}`} className="email-link" style={{ fontSize: '12px' }}>
-                              {email}
+                <React.Fragment key={loc.id}>
+                  <tr>
+                    <td style={{ width: columnWidths.id }}>{loc.id}</td>
+                    <td style={{ width: columnWidths.location_name }}>{loc.location_name}</td>
+                    <td style={{ width: columnWidths.address }}>{loc.address}</td>
+                    <td style={{ width: columnWidths.city_town }}>{loc.city_town}</td>
+                    <td style={{ width: columnWidths.post_code }}>{loc.post_code}</td>
+                    <td style={{ width: columnWidths.distance }}>{loc.distance ? `${loc.distance} mi` : '-'}</td>
+                    <td style={{ width: columnWidths.contact_name }}>{loc.contact_name || '-'}</td>
+                    <td style={{ width: columnWidths.email_address }}>
+                      {loc.email_address && (Array.isArray(loc.email_address) ? loc.email_address.length > 0 : loc.email_address) ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {Array.isArray(loc.email_address) ? (
+                            loc.email_address.map((email, idx) => (
+                              <a key={idx} href={`mailto:${email}`} className="email-link" style={{ fontSize: '12px' }}>
+                                {email}
+                              </a>
+                            ))
+                          ) : (
+                            <a href={`mailto:${loc.email_address}`} className="email-link">
+                              {loc.email_address}
                             </a>
-                          ))
-                        ) : (
-                          <a href={`mailto:${loc.email_address}`} className="email-link">
-                            {loc.email_address}
-                          </a>
-                        )}
-                        <button
-                          onClick={() => {
-                            const emails = Array.isArray(loc.email_address) ? loc.email_address : [loc.email_address];
-                            const mailtoLink = `mailto:${emails.join(',')}`;
-                            window.location.href = mailtoLink;
-                          }}
-                          style={{
-                            marginTop: '4px',
-                            padding: '4px 8px',
-                            fontSize: '11px',
-                            background: '#2196F3',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '3px',
-                            cursor: 'pointer'
-                          }}
-                          title="Open Email App"
-                        >
-                          📧 Open Email App
-                        </button>
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td style={{ width: columnWidths.phone }}>
-                    {loc.phone ? (
-                      <a href={`tel:${loc.phone.replace(/\s+/g, '')}`} className="phone-link">
-                        {loc.phone}
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="actions-cell" style={{ width: columnWidths.actions }}>
-                    <button onClick={() => handleEdit(loc)} className="edit-btn" title="Edit">
-                      <FaEdit />
-                    </button>
-                    <button onClick={() => handleDelete(loc.id)} className="delete-btn" title="Delete">
-                      <FaTrash />
-                    </button>
-                  </td>
-                </tr>
+                          )}
+                          <button
+                            onClick={() => {
+                              const emails = Array.isArray(loc.email_address) ? loc.email_address : [loc.email_address];
+                              const mailtoLink = `mailto:${emails.join(',')}`;
+                              window.location.href = mailtoLink;
+                            }}
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              fontSize: '11px',
+                              background: '#2196F3',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '3px',
+                              cursor: 'pointer'
+                            }}
+                            title="Open Email App"
+                          >
+                            📧 Open Email App
+                          </button>
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td style={{ width: columnWidths.phone }}>
+                      {loc.phone ? (
+                        <a href={`tel:${loc.phone.replace(/\s+/g, '')}`} className="phone-link">
+                          {loc.phone}
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="actions-cell" style={{ width: columnWidths.actions }}>
+                      <button onClick={() => handleEdit(loc)} className="edit-btn" title="Edit">
+                        <FaEdit />
+                      </button>
+                      <button onClick={() => handleDelete(loc.id)} className="delete-btn" title="Delete">
+                        <FaTrash />
+                      </button>
+                    </td>
+                  </tr>
+                  {editingId === loc.id && (
+                    <tr className="inline-editor-row">
+                      <td colSpan="10" className="inline-editor-cell">
+                        <div className="inline-editor-container" ref={formRef}>
+                          <h4>Edit Location</h4>
+                          <form onSubmit={handleSubmit} className="location-form">
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label>Post Code *</label>
+                                <div className="postcode-lookup-group">
+                                  <input
+                                    type="text"
+                                    name="post_code"
+                                    value={formData.post_code}
+                                    onChange={handleInputChange}
+                                    placeholder="e.g., NR7 8HE"
+                                    required
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={handlePostcodeLookup}
+                                    className="lookup-btn"
+                                    title="Calculate distance from home postcode and lookup town"
+                                  >
+                                    Lookup
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="form-group">
+                                <label>Place Name *</label>
+                                <input
+                                  type="text"
+                                  name="location_name"
+                                  value={formData.location_name}
+                                  onChange={handleInputChange}
+                                  required
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label>Distance (mi)</label>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  name="distance"
+                                  value={formData.distance}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label>Address</label>
+                                <input
+                                  type="text"
+                                  name="address"
+                                  value={formData.address}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label>City / Town</label>
+                                <input
+                                  type="text"
+                                  name="city_town"
+                                  value={formData.city_town}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="form-row">
+                              <div className="form-group">
+                                <label>Contact Name</label>
+                                <input
+                                  type="text"
+                                  name="contact_name"
+                                  value={formData.contact_name}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label>Phone</label>
+                                <input
+                                  type="text"
+                                  name="phone"
+                                  value={formData.phone}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="form-group">
+                              <label>Email Address(es)</label>
+                              <div className="email-input-container">
+                                {formData.email_address.map((email, index) => (
+                                  <span key={index} className="email-tag">
+                                    {email}
+                                    <button
+                                      type="button"
+                                      onClick={() => removeEmail(email)}
+                                      className="email-tag-remove"
+                                      title="Remove email"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                                <input
+                                  type="email"
+                                  value={currentEmailInput}
+                                  onChange={(e) => setCurrentEmailInput(e.target.value)}
+                                  onKeyDown={handleEmailKeyDown}
+                                  onBlur={handleEmailBlur}
+                                  placeholder={formData.email_address.length === 0 ? "Enter email and press Enter" : "Add another email"}
+                                  className="email-input-field"
+                                />
+                              </div>
+                              <p className="email-help-text">
+                                Enter an email and press Enter or click outside to add it
+                              </p>
+                            </div>
+
+                            <div className="form-group">
+                              <label>Notes</label>
+                              <textarea
+                                name="notes"
+                                value={formData.notes}
+                                onChange={handleInputChange}
+                                rows="3"
+                              />
+                            </div>
+
+                            <div className="form-actions">
+                              <button type="submit" className="location-submit-btn">
+                                Update Location
+                              </button>
+                              <button type="button" onClick={cancelForm} className="location-cancel-btn">
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))
             )}
           </tbody>

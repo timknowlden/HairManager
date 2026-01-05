@@ -215,6 +215,23 @@
   height: 40px;
 }
 
+/* Disable autofill styling from browser extensions */
+.invoice-email-input:-webkit-autofill,
+.invoice-email-input:-webkit-autofill:hover,
+.invoice-email-input:-webkit-autofill:focus,
+.invoice-email-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: #333 !important;
+  box-shadow: 0 0 0 30px white inset !important;
+}
+
+/* Prevent browser extensions from modifying this input */
+.invoice-email-input[data-lpignore="true"],
+.invoice-email-input[data-1p-ignore="true"],
+.invoice-email-input[data-bwignore="true"] {
+  /* Additional protection against password managers */
+}
+
 .invoice-email-input:focus {
   outline: none;
   border-color: #2196F3;
@@ -264,13 +281,37 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
+.invoice-pages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
 .invoice-page {
   width: 210mm;
-  min-height: 297mm;
+  min-height: 257mm;
+  max-height: 257mm;
+  height: 257mm;
   background: white;
   padding: 20mm;
   box-sizing: border-box;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  position: relative;
+}
+
+.invoice-page-break {
+  margin-top: 20px;
+  page-break-before: always;
+  break-before: page;
+}
+
+.invoice-page-number {
+  font-size: 10px;
+  color: #666;
+  margin-top: 8px;
+  text-align: right;
 }
 
 .invoice-header {
@@ -471,6 +512,33 @@
   border-bottom: 2px solid #74c9cb;
 }
 
+.invoice-subtotal-row {
+  background-color: #f0f0f0;
+  border-top: 1px solid #ddd;
+}
+
+.invoice-subtotal-row td {
+  color: #666 !important;
+  font-weight: 500;
+  font-size: 12px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.invoice-subtotal-row .subtotal-label {
+  text-align: right;
+  font-weight: 500;
+  font-size: 12px;
+  color: #666;
+}
+
+.invoice-subtotal-row .subtotal-amount {
+  text-align: right;
+  font-weight: 500;
+  font-size: 12px;
+  color: #666;
+}
+
 .invoice-footer {
   margin-top: 40px;
   padding-top: 20px;
@@ -515,81 +583,110 @@
   color: #666;
 }
 
-/* Print styles */
+/* Print styles are dynamically injected by JavaScript in Invoice.jsx */
+/* This prevents CSS specificity conflicts and ensures correct page sizing */
+
+/* Print Styles - Only show invoice pages when printing */
 @media print {
+  /* Set page size with proper margins */
   @page {
-    size: A4;
-    margin: 0;
+    size: A4 portrait;
+    margin: 10mm;
+    orphans: 3;
+    widows: 3;
   }
-
+  
+  /* Reset everything for print */
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Hide navigation, buttons, and custom email section */
+  .app-header,
+  .invoice-actions,
+  .custom-email-section {
+    display: none !important;
+  }
+  
+  /* Reset body and html for printing */
   html, body {
-    width: 210mm;
-    height: 297mm;
+    width: 100%;
+    height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow: visible;
   }
-
-  body * {
-    visibility: hidden;
-  }
-
+  
+  /* Reset container for printing */
   .invoice-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 210mm;
-    height: 297mm;
-    margin: 0;
+    width: 100%;
+    height: auto;
     padding: 0;
-    background: white;
-    visibility: visible;
-  }
-
-  .invoice-actions {
-    display: none !important;
-  }
-
-  .invoice-page {
-    position: relative;
-    box-shadow: none;
     margin: 0;
-    padding: 20mm;
-    width: 210mm;
-    height: 257mm;
-    max-height: 257mm;
+    background: transparent;
+    display: block;
+  }
+  
+  /* Each invoice page should be on its own printed page */
+  .invoice-page {
+    /* Remove inline margins that prevent page breaks */
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    
+    /* Fill the printable area */
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    
+    /* Padding for content */
+    padding: 15mm;
+    
+    /* Styling */
+    box-sizing: border-box;
     background: white;
-    overflow: hidden;
-    page-break-after: avoid !important;
-    page-break-inside: avoid !important;
-    visibility: visible;
+    box-shadow: none !important;
+    border: none !important;
+    
+    /* Ensure it's positioned correctly */
+    position: relative;
+    display: block;
+    
+    /* Prevent content from breaking inside the page */
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
-
-  .invoice-page * {
-    visibility: visible;
+  
+  /* Use page-break-before on pages after the first (more reliable than page-break-after) */
+  .invoice-page:not(:first-child) {
+    page-break-before: always;
+    break-before: page;
+    margin-top: 0 !important;
   }
-
-  .invoice-header {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+  
+  /* Ensure no page breaks after any page to prevent blank pages */
+  .invoice-page {
+    page-break-after: auto !important;
+    break-after: auto !important;
+    margin-bottom: 0 !important;
   }
-
-  .invoice-client-section {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+  
+  /* Prevent content from breaking across pages */
+  .invoice-header,
+  .invoice-client-section,
+  .invoice-services-table thead {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
-
-  .invoice-services-table {
-    margin-bottom: 15px;
+  
+  /* Allow table body to break if needed, but avoid breaking rows */
+  .invoice-services-table tbody tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
-
+  
+  /* Ensure footer stays together */
   .invoice-footer {
-    margin-top: 15px;
-    padding-top: 10px;
-  }
-
-  .invoice-loading {
-    display: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
-

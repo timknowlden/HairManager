@@ -789,12 +789,20 @@ tbody tr.unpaid {
 }
 
 .invoice-select-cell {
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
   text-align: center;
   padding: 12px;
   box-sizing: border-box;
+}
+
+.checkbox-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .invoice-checkbox,
@@ -802,6 +810,25 @@ tbody tr.unpaid {
   width: 18px;
   height: 18px;
   cursor: pointer;
+  flex-shrink: 0;
+}
+
+.selection-number {
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #9C27B0;
+  color: white;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 tbody tr.selected-for-invoice {

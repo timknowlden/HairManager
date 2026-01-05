@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import html2pdf from 'html2pdf.js';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { useAuth } from '../contexts/AuthContext';
 import './Invoice.css';
 
@@ -151,7 +153,19 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     });
   };
 
-  const handleExportPDF = () => {
+  // Split appointments into pages (12 per page for A4, leaving room for sub-total)
+  const APPOINTMENTS_PER_PAGE = 12;
+  const appointmentPages = useMemo(() => {
+    if (!invoiceData?.appointments) return [];
+    const pages = [];
+    const appointments = invoiceData.appointments;
+    for (let i = 0; i < appointments.length; i += APPOINTMENTS_PER_PAGE) {
+      pages.push(appointments.slice(i, i + APPOINTMENTS_PER_PAGE));
+    }
+    return pages;
+  }, [invoiceData?.appointments]);
+
+  const handleExportPDF = async () => {
     if (!invoiceRef.current || !invoiceData || !profileSettings) return;
 
     const element = invoiceRef.current;
@@ -159,65 +173,237 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     const locationName = locationDetails.name || 'Location';
     const filename = `Invoice_${invoiceData.invoiceNumber}_${businessName.replace(/\s+/g, '_')}_${locationName.replace(/\s+/g, '_')}.pdf`;
 
-    // Temporarily apply print-like constraints to the element
-    const originalStyles = {
-      width: element.style.width,
-      height: element.style.height,
-      maxHeight: element.style.maxHeight,
-      padding: element.style.padding,
-      margin: element.style.margin,
-      position: element.style.position
-    };
+    // Get all invoice pages (or use the element itself if it's the invoice page)
+    let pages = element.querySelectorAll('.invoice-page');
+    
+    // If no pages found inside, check if element itself is the invoice page
+    if (pages.length === 0 && element.classList.contains('invoice-page')) {
+      pages = [element];
+    } else if (pages.length === 0) {
+      alert('No invoice pages found');
+      return;
+    }
 
-    // Set exact dimensions for PDF capture
-    element.style.width = '210mm';
-    element.style.height = '257mm';
-    element.style.maxHeight = '257mm';
-    element.style.padding = '20mm';
-    element.style.margin = '0';
-    element.style.position = 'relative';
-    element.style.overflow = 'hidden';
-
-    const opt = {
-      margin: [0, 0, 0, 0],
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 794, // 210mm at 96 DPI ≈ 794px
-        height: 970, // 257mm at 96 DPI ≈ 970px
-        windowWidth: 794,
-        windowHeight: 970
-      },
-      jsPDF: { 
-        unit: 'mm', 
-        format: 'a4', 
+    try {
+      // Create new PDF using jsPDF
+      const pdf = new jsPDF({
+        unit: 'mm',
+        format: 'a4',
         orientation: 'portrait',
         compress: true
-      },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
+      });
 
-    html2pdf().set(opt).from(element).save().then(() => {
-      // Restore original styles (remove if empty to avoid CSS parsing errors)
-      if (originalStyles.width) element.style.width = originalStyles.width;
-      else element.style.removeProperty('width');
-      if (originalStyles.height) element.style.height = originalStyles.height;
-      else element.style.removeProperty('height');
-      if (originalStyles.maxHeight) element.style.maxHeight = originalStyles.maxHeight;
-      else element.style.removeProperty('max-height');
-      if (originalStyles.padding) element.style.padding = originalStyles.padding;
-      else element.style.removeProperty('padding');
-      if (originalStyles.margin) element.style.margin = originalStyles.margin;
-      else element.style.removeProperty('margin');
-      if (originalStyles.position) element.style.position = originalStyles.position;
-      else element.style.removeProperty('position');
-      if (originalStyles.overflow) element.style.overflow = originalStyles.overflow;
-      else element.style.removeProperty('overflow');
-    });
+      // Process each page and add to PDF
+      for (let i = 0; i < pages.length; i++) {
+        const pageElement = pages[i];
+        
+        // Add a new page for each invoice page (except the first)
+        if (i > 0) {
+          pdf.addPage();
+        }
+        
+        // Small delay to ensure page is fully rendered and CSS is applied
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Convert page to canvas
+        // Add options to handle CSS parsing errors
+        // Suppress browser extension errors (autofill/password managers) that interfere with html2canvas
+        const suppressExtensionErrors = () => {
+          const unhandledRejectionHandler = (event) => {
+            const error = event.reason;
+            const errorMessage = error?.message || error?.stack || error?.toString() || '';
+            const errorString = String(errorMessage);
+            if (
+              errorString.includes('bootstrap-autofill-overlay') ||
+              (errorString.includes('insertBefore') && errorString.includes('NotFoundError')) ||
+              (errorString.includes('Failed to execute') && errorString.includes('insertBefore')) ||
+              (errorString.includes('bootstrap-autofill') && errorString.includes('insertBefore'))
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              return false; // Suppress the error
+            }
+          };
+          
+          const errorHandler = (event) => {
+            const error = event.error || event;
+            const errorMessage = error?.message || error?.stack || error?.toString() || '';
+            const errorString = String(errorMessage);
+            if (
+              errorString.includes('bootstrap-autofill-overlay') ||
+              (errorString.includes('insertBefore') && errorString.includes('NotFoundError')) ||
+              (errorString.includes('Failed to execute') && errorString.includes('insertBefore')) ||
+              (errorString.includes('bootstrap-autofill') && errorString.includes('insertBefore'))
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              return true; // Suppress the error
+            }
+          };
+          
+          window.addEventListener('unhandledrejection', unhandledRejectionHandler);
+          window.addEventListener('error', errorHandler, true);
+          
+          return () => {
+            window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
+            window.removeEventListener('error', errorHandler, true);
+          };
+        };
+        
+        const cleanup = suppressExtensionErrors();
+        let canvas;
+        try {
+          canvas = await html2canvas(pageElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            allowTaint: true,
+            width: pageElement.offsetWidth,
+            height: pageElement.offsetHeight,
+            foreignObjectRendering: false, // Can help with CSS parsing issues
+            onclone: (clonedDoc) => {
+              // Fix any CSS issues in the cloned document
+              try {
+                // Remove any problematic CSS that might cause parsing errors
+                const allElements = clonedDoc.querySelectorAll('*');
+                allElements.forEach(el => {
+                  try {
+                    // Fix any invalid or incomplete CSS values
+                    const style = el.style;
+                    if (style) {
+                      // Ensure background color is valid
+                      if (style.backgroundColor === '' || style.backgroundColor === 'transparent' || style.backgroundColor === 'rgba(0, 0, 0, 0)') {
+                        style.backgroundColor = '#ffffff';
+                      }
+                      // Remove any CSS variables that might cause issues
+                      const bgImage = style.backgroundImage;
+                      if (bgImage && bgImage.includes('var(')) {
+                        style.backgroundImage = 'none';
+                      }
+                    }
+                  } catch (e) {
+                    // Ignore errors when accessing styles
+                  }
+                });
+              } catch (e) {
+                console.warn('Error in onclone callback:', e);
+            }
+          }
+        });
+        } catch (html2canvasError) {
+          // Clean up error suppression even on error
+          cleanup();
+          // Check if this is a browser extension error (common with autofill/password managers)
+          const isExtensionError = html2canvasError.message && (
+            html2canvasError.message.includes('insertBefore') ||
+            html2canvasError.message.includes('bootstrap-autofill') ||
+            html2canvasError.message.includes('NotFoundError')
+          );
+          
+          if (isExtensionError) {
+            // Browser extension errors are usually harmless - html2canvas often still works
+            console.warn('Browser extension interference detected (this is usually harmless):', html2canvasError.message);
+            // Try to continue anyway - sometimes html2canvas still succeeds despite the error
+            try {
+              // Wait a bit and retry
+              await new Promise(resolve => setTimeout(resolve, 200));
+              canvas = await html2canvas(pageElement, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                allowTaint: true,
+                width: pageElement.offsetWidth,
+                height: pageElement.offsetHeight,
+                foreignObjectRendering: false
+              });
+              cleanup();
+            } catch (retryError) {
+              // If retry also fails, try with simpler options
+              console.log('Retrying html2canvas with simpler options...');
+              try {
+                canvas = await html2canvas(pageElement, {
+                  scale: 1.5,
+                  useCORS: true,
+                  logging: false,
+                  backgroundColor: '#ffffff',
+                  allowTaint: true,
+                  ignoreElements: (element) => {
+                    // Ignore elements with problematic CSS
+                    return false;
+                  }
+                });
+                cleanup();
+              } catch (finalError) {
+                cleanup();
+                console.error('html2canvas retry also failed:', finalError);
+                throw new Error(`Failed to generate PDF page ${i + 1}: ${html2canvasError.message}. Please try again or contact support.`);
+              }
+            }
+          } else {
+            // Real error - log and retry
+            console.error('html2canvas error:', html2canvasError);
+            console.log('Retrying html2canvas with simpler options...');
+            try {
+              canvas = await html2canvas(pageElement, {
+                scale: 1.5,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                allowTaint: true,
+                ignoreElements: (element) => {
+                  // Ignore elements with problematic CSS
+                  return false;
+                }
+              });
+              cleanup();
+            } catch (retryError) {
+              cleanup();
+              console.error('html2canvas retry also failed:', retryError);
+              throw new Error(`Failed to generate PDF page ${i + 1}: ${html2canvasError.message}. Please try again or contact support.`);
+            }
+          }
+        }
+
+        // Calculate dimensions for A4
+        const imgWidth = 210; // A4 width in mm
+        const aspectRatio = canvas.width / canvas.height;
+        let finalWidth = imgWidth;
+        let finalHeight = imgWidth / aspectRatio;
+        
+        // Ensure image fits on one page
+        const maxPageHeight = 296.5;
+        if (finalHeight > maxPageHeight) {
+          const scale = maxPageHeight / finalHeight;
+          finalHeight = maxPageHeight;
+          finalWidth = imgWidth * scale;
+        }
+        
+        // Set page and Y position
+        const targetPage = i + 1;
+        pdf.setPage(targetPage);
+        
+        if (pdf.internal && pdf.internal.y !== undefined) {
+          pdf.internal.y = 0;
+        }
+        
+        // Add image to PDF
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, finalWidth, finalHeight, undefined, 'FAST');
+        
+        // Set Y position to bottom of image
+        if (pdf.internal && pdf.internal.y !== undefined) {
+          pdf.internal.y = finalHeight;
+        }
+      }
+
+      // Save the PDF
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF');
+      alert('Error exporting PDF: ' + error.message);
+    }
   };
 
   const handlePrint = () => {
@@ -250,17 +436,54 @@ function Invoice({ appointments: propsAppointments, onBack }) {
   };
 
   const handleEmailInvoice = async () => {
+    console.log('=== EMAIL INVOICE FUNCTION CALLED ===');
+    console.log('Button clicked - useCustomEmail:', useCustomEmail);
+    console.log('Button clicked - customEmail:', customEmail);
+    
     // Get all emails - use custom email if enabled, otherwise use location emails
     let allEmails = [];
     
-    if (useCustomEmail && customEmail.trim()) {
+    console.log('=== EMAIL INVOICE DEBUG ===');
+    console.log('useCustomEmail:', useCustomEmail);
+    console.log('customEmail:', customEmail);
+    console.log('customEmail.trim():', customEmail.trim());
+    console.log('locationDetails.email:', locationDetails.email);
+    console.log('locationDetails.emails:', locationDetails.emails);
+    
+    // Determine which emails to use
+    if (useCustomEmail) {
+      // Custom email mode - must have a value
+      if (!customEmail || !customEmail.trim()) {
+        alert('Please enter a custom email address');
+        console.error('Custom email enabled but no email provided');
+        return;
+      }
+      
       // Use custom email
+      console.log('Using custom email:', customEmail);
       allEmails = customEmail
         .split(/[;,]/)
         .map(e => e.trim())
         .filter(e => e && e.length > 0);
+      console.log('Parsed custom emails:', allEmails);
+      
+      if (allEmails.length === 0) {
+        alert('Please enter a valid custom email address');
+        console.error('Custom email provided but parsing resulted in empty array');
+        return;
+      }
+      
+      // Validate email format (basic validation)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const invalidEmails = allEmails.filter(email => !emailRegex.test(email));
+      if (invalidEmails.length > 0) {
+        alert(`Invalid email address(es): ${invalidEmails.join(', ')}\nPlease enter a valid email address.`);
+        console.error('Invalid email addresses:', invalidEmails);
+        return;
+      }
     } else {
       // Use location emails
+      console.log('Using location emails');
       allEmails = locationDetails.emails.length > 0 
         ? locationDetails.emails 
         : (locationDetails.email ? [locationDetails.email] : []);
@@ -278,7 +501,11 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           return [email];
         })
         .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
+      console.log('Parsed location emails:', allEmails);
     }
+    
+    console.log('Final allEmails to send to:', allEmails);
+    console.log('=== END EMAIL INVOICE DEBUG ===');
     
     if (allEmails.length === 0) {
       alert(useCustomEmail 
@@ -293,65 +520,237 @@ function Invoice({ appointments: propsAppointments, onBack }) {
     }
 
     try {
-      // Generate PDF first (using original working method)
+      // Generate PDF first (using same multi-page method as Export PDF)
       const element = invoiceRef.current;
       const businessName = profileSettings.business_name || profileSettings.name || 'HairManager';
       const locationName = locationDetails.name || 'Location';
       const filename = `Invoice_${invoiceData.invoiceNumber}_${businessName.replace(/\s+/g, '_')}_${locationName.replace(/\s+/g, '_')}.pdf`;
 
-      // Temporarily apply print-like constraints to the element
-      const originalStyles = {
-        width: element.style.width,
-        height: element.style.height,
-        maxHeight: element.style.maxHeight,
-        padding: element.style.padding,
-        margin: element.style.margin,
-        position: element.style.position
-      };
+      // Get all invoice pages (or use the element itself if it's the invoice page)
+      let pages = element.querySelectorAll('.invoice-page');
+      
+      // If no pages found inside, check if element itself is the invoice page
+      if (pages.length === 0 && element.classList.contains('invoice-page')) {
+        pages = [element];
+      } else if (pages.length === 0) {
+        alert('No invoice pages found');
+        return;
+      }
 
-      // Set exact dimensions for PDF capture
-      element.style.width = '210mm';
-      element.style.height = '257mm';
-      element.style.maxHeight = '257mm';
-      element.style.padding = '20mm';
-      element.style.margin = '0';
-      element.style.position = 'relative';
-      element.style.overflow = 'hidden';
+      // Create new PDF using jsPDF
+      const pdf = new jsPDF({
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+        compress: true
+      });
 
-      const opt = {
-        margin: [0, 0, 0, 0],
-        filename: filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: 794, // 210mm at 96 DPI ≈ 794px
-          height: 970, // 257mm at 96 DPI ≈ 970px
-          windowWidth: 794,
-          windowHeight: 970
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+      // Process each page and add to PDF
+      for (let i = 0; i < pages.length; i++) {
+        const pageElement = pages[i];
+        
+        // Add a new page for each invoice page (except the first)
+        if (i > 0) {
+          pdf.addPage();
+        }
+        
+        // Small delay to ensure page is fully rendered and CSS is applied
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Convert page to canvas
+        // Add options to handle CSS parsing errors
+        // Suppress browser extension errors (autofill/password managers) that interfere with html2canvas
+        const suppressExtensionErrors = () => {
+          const unhandledRejectionHandler = (event) => {
+            const error = event.reason;
+            const errorMessage = error?.message || error?.stack || error?.toString() || '';
+            const errorString = String(errorMessage);
+            if (
+              errorString.includes('bootstrap-autofill-overlay') ||
+              (errorString.includes('insertBefore') && errorString.includes('NotFoundError')) ||
+              (errorString.includes('Failed to execute') && errorString.includes('insertBefore')) ||
+              (errorString.includes('bootstrap-autofill') && errorString.includes('insertBefore'))
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              return false; // Suppress the error
+            }
+          };
+          
+          const errorHandler = (event) => {
+            const error = event.error || event;
+            const errorMessage = error?.message || error?.stack || error?.toString() || '';
+            const errorString = String(errorMessage);
+            if (
+              errorString.includes('bootstrap-autofill-overlay') ||
+              (errorString.includes('insertBefore') && errorString.includes('NotFoundError')) ||
+              (errorString.includes('Failed to execute') && errorString.includes('insertBefore')) ||
+              (errorString.includes('bootstrap-autofill') && errorString.includes('insertBefore'))
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+              return true; // Suppress the error
+            }
+          };
+          
+          window.addEventListener('unhandledrejection', unhandledRejectionHandler);
+          window.addEventListener('error', errorHandler, true);
+          
+          return () => {
+            window.removeEventListener('unhandledrejection', unhandledRejectionHandler);
+            window.removeEventListener('error', errorHandler, true);
+          };
+        };
+        
+        const cleanup = suppressExtensionErrors();
+        let canvas;
+        try {
+          canvas = await html2canvas(pageElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            allowTaint: true,
+            width: pageElement.offsetWidth,
+            height: pageElement.offsetHeight,
+            foreignObjectRendering: false, // Can help with CSS parsing issues
+            onclone: (clonedDoc) => {
+              // Fix any CSS issues in the cloned document
+              try {
+                // Remove any problematic CSS that might cause parsing errors
+                const allElements = clonedDoc.querySelectorAll('*');
+                allElements.forEach(el => {
+                  try {
+                    // Fix any invalid or incomplete CSS values
+                    const style = el.style;
+                    if (style) {
+                      // Ensure background color is valid
+                      if (style.backgroundColor === '' || style.backgroundColor === 'transparent' || style.backgroundColor === 'rgba(0, 0, 0, 0)') {
+                        style.backgroundColor = '#ffffff';
+                      }
+                      // Remove any CSS variables that might cause issues
+                      const bgImage = style.backgroundImage;
+                      if (bgImage && bgImage.includes('var(')) {
+                        style.backgroundImage = 'none';
+                      }
+                    }
+                  } catch (e) {
+                    // Ignore errors when accessing styles
+                  }
+                });
+              } catch (e) {
+                console.warn('Error in onclone callback:', e);
+            }
+          }
+        });
+        } catch (html2canvasError) {
+          // Clean up error suppression even on error
+          cleanup();
+          // Check if this is a browser extension error (common with autofill/password managers)
+          const isExtensionError = html2canvasError.message && (
+            html2canvasError.message.includes('insertBefore') ||
+            html2canvasError.message.includes('bootstrap-autofill') ||
+            html2canvasError.message.includes('NotFoundError')
+          );
+          
+          if (isExtensionError) {
+            // Browser extension errors are usually harmless - html2canvas often still works
+            console.warn('Browser extension interference detected (this is usually harmless):', html2canvasError.message);
+            // Try to continue anyway - sometimes html2canvas still succeeds despite the error
+            try {
+              // Wait a bit and retry
+              await new Promise(resolve => setTimeout(resolve, 200));
+              canvas = await html2canvas(pageElement, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                allowTaint: true,
+                width: pageElement.offsetWidth,
+                height: pageElement.offsetHeight,
+                foreignObjectRendering: false
+              });
+              cleanup();
+            } catch (retryError) {
+              // If retry also fails, try with simpler options
+              console.log('Retrying html2canvas with simpler options...');
+              try {
+                canvas = await html2canvas(pageElement, {
+                  scale: 1.5,
+                  useCORS: true,
+                  logging: false,
+                  backgroundColor: '#ffffff',
+                  allowTaint: true,
+                  ignoreElements: (element) => {
+                    // Ignore elements with problematic CSS
+                    return false;
+                  }
+                });
+                cleanup();
+              } catch (finalError) {
+                cleanup();
+                console.error('html2canvas retry also failed:', finalError);
+                throw new Error(`Failed to generate PDF page ${i + 1}: ${html2canvasError.message}. Please try again or contact support.`);
+              }
+            }
+          } else {
+            // Real error - log and retry
+            console.error('html2canvas error:', html2canvasError);
+            console.log('Retrying html2canvas with simpler options...');
+            try {
+              canvas = await html2canvas(pageElement, {
+                scale: 1.5,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                allowTaint: true,
+                ignoreElements: (element) => {
+                  // Ignore elements with problematic CSS
+                  return false;
+                }
+              });
+              cleanup();
+            } catch (retryError) {
+              cleanup();
+              console.error('html2canvas retry also failed:', retryError);
+              throw new Error(`Failed to generate PDF page ${i + 1}: ${html2canvasError.message}. Please try again or contact support.`);
+            }
+          }
+        }
+
+        // Calculate dimensions for A4
+        const imgWidth = 210; // A4 width in mm
+        const aspectRatio = canvas.width / canvas.height;
+        let finalWidth = imgWidth;
+        let finalHeight = imgWidth / aspectRatio;
+        
+        // Ensure image fits on one page
+        const maxPageHeight = 296.5;
+        if (finalHeight > maxPageHeight) {
+          const scale = maxPageHeight / finalHeight;
+          finalHeight = maxPageHeight;
+          finalWidth = imgWidth * scale;
+        }
+        
+        // Set page and Y position
+        const targetPage = i + 1;
+        pdf.setPage(targetPage);
+        
+        if (pdf.internal && pdf.internal.y !== undefined) {
+          pdf.internal.y = 0;
+        }
+        
+        // Add image to PDF
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, finalWidth, finalHeight, undefined, 'FAST');
+        
+        // Set Y position to bottom of image
+        if (pdf.internal && pdf.internal.y !== undefined) {
+          pdf.internal.y = finalHeight;
+        }
+      }
 
       // Generate PDF as blob
-      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-
-      // Restore original styles
-      element.style.width = originalStyles.width;
-      element.style.height = originalStyles.height;
-      element.style.maxHeight = originalStyles.maxHeight;
-      element.style.padding = originalStyles.padding;
-      element.style.margin = originalStyles.margin;
-      element.style.position = originalStyles.position;
-      element.style.overflow = '';
+      const pdfBlob = pdf.output('blob');
 
       // Convert blob to base64
       const reader = new FileReader();
@@ -527,6 +926,11 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         }
 
         // Send to backend - send to all emails
+        console.log('=== SENDING EMAIL REQUEST ===');
+        console.log('Sending to emails:', allEmails);
+        console.log('Invoice number:', invoiceData.invoiceNumber);
+        console.log('Using custom email:', useCustomEmail);
+        
         const response = await fetch(`${API_BASE}/invoice/send-email`, {
           method: 'POST',
           headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
@@ -558,9 +962,12 @@ function Invoice({ appointments: propsAppointments, onBack }) {
         });
 
         if (response.ok) {
-          alert('Invoice email sent successfully!');
+          const result = await response.json();
+          console.log('Email sent successfully:', result);
+          alert(`Invoice email sent successfully to: ${allEmails.join(', ')}`);
         } else {
           const error = await response.json();
+          console.error('Email send failed:', error);
           let errorMsg = `Failed to send email: ${error.error || 'Unknown error'}`;
           
           // Add suggestions if provided
@@ -571,6 +978,12 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           // Add details if available
           if (error.details && error.details !== error.error) {
             errorMsg += `\n\nDetails: ${error.details}`;
+          }
+          
+          // Add email addresses that were attempted
+          errorMsg += `\n\nAttempted to send to: ${allEmails.join(', ')}`;
+          if (useCustomEmail) {
+            errorMsg += '\n(Custom email mode)';
           }
           
           alert(errorMsg);
@@ -621,12 +1034,23 @@ function Invoice({ appointments: propsAppointments, onBack }) {
                 {useCustomEmail ? (
                   <div className="invoice-email-input-wrapper">
                     <input
-                      type="email"
+                      type="text"
+                      inputMode="email"
                       value={customEmail}
                       onChange={(e) => setCustomEmail(e.target.value)}
                       placeholder="@email.com"
                       className="invoice-email-input"
                       autoFocus
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      data-form-type="other"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      data-bwignore="true"
+                      name="custom-email-input"
+                      id="custom-email-input"
                     />
                   <button
                     type="button"
@@ -667,7 +1091,17 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           </div>
         </div>
       </div>
-      <div className="invoice-page" ref={invoiceRef}>
+      <div ref={invoiceRef}>
+        {appointmentPages.map((pageAppointments, pageIndex) => {
+          const isLastPage = pageIndex === appointmentPages.length - 1;
+          const totalPages = appointmentPages.length;
+          const pageNumber = pageIndex + 1;
+          
+          // Calculate sub-total for this page
+          const pageSubTotal = pageAppointments.reduce((sum, apt) => sum + (parseFloat(apt.price) || 0), 0);
+          
+          return (
+            <div key={pageIndex} className="invoice-page" style={{ marginBottom: pageIndex < totalPages - 1 ? '40px' : '0' }}>
         <div className="invoice-header">
           <div className="invoice-company-info">
             <div className="company-name">{businessName}</div>
@@ -684,17 +1118,20 @@ function Invoice({ appointments: propsAppointments, onBack }) {
               {profileSettings.email || ''} {profileSettings.email && profileSettings.website ? '|' : ''} {profileSettings.website ? `www.${profileSettings.website.replace(/^https?:\/\//, '').replace(/^www\./, '')}` : ''}
             </div>
           </div>
-          <div className="invoice-details">
-            <div className="invoice-title">INVOICE</div>
-            <div className="invoice-number-row">
-              <span className="invoice-label">INVOICE NUMBER</span>
-              <span className="invoice-value">{invoiceData.invoiceNumber}</span>
-            </div>
-            <div className="invoice-date-row">
-              <span className="invoice-label">INVOICE DATE</span>
-              <span className="invoice-value">{invoiceData.invoiceDate}</span>
-            </div>
-          </div>
+                <div className="invoice-details">
+                  <div className="invoice-title">INVOICE</div>
+                  <div className="invoice-number-row">
+                    <span className="invoice-label">INVOICE NUMBER</span>
+                    <span className="invoice-value">{invoiceData.invoiceNumber}</span>
+                  </div>
+                  <div className="invoice-date-row">
+                    <span className="invoice-label">INVOICE DATE</span>
+                    <span className="invoice-value">{invoiceData.invoiceDate}</span>
+                  </div>
+                  <div className="invoice-page-number" style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                    Page {pageNumber} of {totalPages}
+                  </div>
+                </div>
         </div>
 
         <div className="invoice-client-section">
@@ -718,7 +1155,7 @@ function Invoice({ appointments: propsAppointments, onBack }) {
             </tr>
           </thead>
           <tbody>
-            {invoiceData.appointments.map((apt, index) => (
+            {pageAppointments.map((apt, index) => (
               <tr key={apt.id || index}>
                 <td className="service-description-col">
                   {apt.client_name} - {apt.service}
@@ -727,30 +1164,41 @@ function Invoice({ appointments: propsAppointments, onBack }) {
                 <td className="service-amount-col">{formatCurrency(apt.price || 0)}</td>
               </tr>
             ))}
-            <tr className="invoice-total-row">
-              <td colSpan="2" className="total-label">Total</td>
-              <td className="total-amount">{formatCurrency(total)}</td>
+            <tr className="invoice-subtotal-row" style={{ fontWeight: 'bold' }}>
+              <td colSpan="2" className="subtotal-label">{isLastPage ? 'Total' : 'Page Sub-Total'}</td>
+              <td className="subtotal-amount">{formatCurrency(pageSubTotal)}</td>
             </tr>
+            {isLastPage && total !== pageSubTotal && (
+              <tr className="invoice-total-row">
+                <td colSpan="2" className="total-label">Grand Total</td>
+                <td className="total-amount">{formatCurrency(total)}</td>
+              </tr>
+            )}
           </tbody>
         </table>
 
-        <div className="invoice-footer">
-          <div className="payment-instructions">
-            <div>Make all checks payable to {businessName}</div>
-            <div>Payment is due within 30 days.</div>
-            <div className="bacs-details">
-              BACS: {profileSettings.bank_account_name || 'HairManager'} – 
-              account number: {profileSettings.account_number || ''} – 
-              sort code: {formatSortCode(profileSettings.sort_code || '')}
+        {isLastPage && (
+          <div className="invoice-footer">
+            <div className="payment-instructions">
+              <div>Make all checks payable to {businessName}</div>
+              <div>Payment is due within 30 days.</div>
+              <div className="bacs-details">
+                BACS: {profileSettings.bank_account_name || 'HairManager'} – 
+                account number: {profileSettings.account_number || ''} – 
+                sort code: {formatSortCode(profileSettings.sort_code || '')}
+              </div>
+              <div>Please use Invoice Number or Client Name as Reference</div>
+              <div className="contact-info">
+                If you have any questions concerning this invoice, contact<br />
+                {profileSettings.name || 'Katie Knowlden'} | {profileSettings.phone || ''} | {profileSettings.email || ''}
+              </div>
+              <div className="thank-you">Thank you for your business!</div>
             </div>
-            <div>Please use Invoice Number or Client Name as Reference</div>
-            <div className="contact-info">
-              If you have any questions concerning this invoice, contact<br />
-              {profileSettings.name || 'Katie Knowlden'} | {profileSettings.phone || ''} | {profileSettings.email || ''}
-            </div>
-            <div className="thank-you">Thank you for your business!</div>
           </div>
-        </div>
+        )}
+      </div>
+          );
+        })}
       </div>
     </div>
   );

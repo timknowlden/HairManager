@@ -246,10 +246,21 @@ router.post('/batch', (req, res) => {
           }
 
           const insertedAppointments = [];
-          let completed = 0;
           let hasError = false;
 
-          appointments.forEach((apt, index) => {
+          // Process appointments sequentially to preserve order
+          const processAppointment = (index) => {
+            if (hasError || index >= appointments.length) {
+              if (index === appointments.length && !hasError) {
+                res.status(201).json({
+                  message: `Successfully created ${insertedAppointments.length} appointments`,
+                  appointments: insertedAppointments
+                });
+              }
+              return;
+            }
+
+            const apt = appointments[index];
             const { client_name, service, type: aptType, price: aptPrice, paid: aptPaid, distance: aptDistance, payment_date: aptPaymentDate } = apt;
 
             // Lookup service details - must belong to user (unless type and price are provided)
@@ -294,60 +305,58 @@ router.post('/batch', (req, res) => {
                   appointmentDistance = distance;
                 }
 
-            // Insert appointment with user_id
-            db.run(
-              `INSERT INTO appointments 
-               (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                userId,
-                client_name,
-                service,
-                finalType,
-                date,
-                location,
-                finalPrice,
-                finalPaid,
-                appointmentDistance,
-                finalPaymentDate
-              ],
-              function(insertErr) {
-                if (hasError) return;
+                // Insert appointment with user_id
+                db.run(
+                  `INSERT INTO appointments 
+                   (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [
+                    userId,
+                    client_name,
+                    service,
+                    finalType,
+                    date,
+                    location,
+                    finalPrice,
+                    finalPaid,
+                    appointmentDistance,
+                    finalPaymentDate
+                  ],
+                  function(insertErr) {
+                    if (hasError) return;
 
-                if (insertErr) {
-                  console.error('Error inserting appointment:', insertErr);
-                  if (!hasError) {
-                    hasError = true;
-                    res.status(500).json({ error: insertErr.message });
+                    if (insertErr) {
+                      console.error('Error inserting appointment:', insertErr);
+                      if (!hasError) {
+                        hasError = true;
+                        res.status(500).json({ error: insertErr.message });
+                      }
+                      return;
+                    }
+
+                    insertedAppointments.push({
+                      id: this.lastID,
+                      client_name,
+                      service,
+                      type: finalType,
+                      date,
+                      location,
+                      price: finalPrice,
+                      paid: finalPaid,
+                      distance: appointmentDistance,
+                      payment_date: finalPaymentDate
+                    });
+
+                    // Process next appointment
+                    processAppointment(index + 1);
                   }
-                  return;
-                }
-
-                insertedAppointments.push({
-                  id: this.lastID,
-                  client_name,
-                  service,
-                  type: finalType,
-                  date,
-                  location,
-                  price: finalPrice,
-                  paid: finalPaid,
-                  distance: appointmentDistance,
-                  payment_date: finalPaymentDate
-                });
-
-                completed++;
-                if (completed === appointments.length) {
-                  res.status(201).json({
-                    message: `Successfully created ${insertedAppointments.length} appointments`,
-                    appointments: insertedAppointments
-                  });
-                }
+                );
               }
             );
-          }
-        );
-      });
+          };
+
+          // Start processing from index 0
+          processAppointment(0);
         }
       );
     }

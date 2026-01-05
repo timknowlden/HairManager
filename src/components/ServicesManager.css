@@ -214,35 +214,44 @@ th.resizable:hover .resize-handle {
   margin-top: 10px;
 }
 
-.submit-btn,
-.cancel-btn {
+.service-submit-btn,
+.service-cancel-btn {
   padding: 10px 20px;
+  margin: 0;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
+  height: 40px;
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
-.submit-btn {
+.service-submit-btn {
   background: #4CAF50;
   color: white;
 }
 
-.submit-btn:hover {
+.service-submit-btn:hover {
   background: #45a049;
   box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
   transform: translateY(-1px);
 }
 
-.cancel-btn {
+.service-cancel-btn {
   background: #9E9E9E;
   color: white;
 }
 
-.cancel-btn:hover {
+.service-cancel-btn:hover {
   background: #757575;
   box-shadow: 0 3px 6px rgba(158, 158, 158, 0.4);
   transform: translateY(-1px);

@@ -16,7 +16,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [error, setError] = useState(null);
   const [adminMode, setAdminMode] = useState(false);
   const [invoiceMode, setInvoiceMode] = useState(false);
-  const [selectedForInvoice, setSelectedForInvoice] = useState(new Set());
+  const [selectedForInvoice, setSelectedForInvoice] = useState([]); // Array to preserve order
   const [calculatorMode, setCalculatorMode] = useState(false);
   const [selectedForCalculator, setSelectedForCalculator] = useState(new Set());
   const [currency, setCurrency] = useState('GBP');
@@ -344,31 +344,35 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Invoice mode
   const handleInvoiceToggle = (id) => {
     setSelectedForInvoice(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
+      const index = prev.indexOf(id);
+      if (index !== -1) {
+        // Remove from array (preserves order of remaining items)
+        return prev.filter(item => item !== id);
       } else {
-        newSet.add(id);
+        // Add to end of array (preserves selection order)
+        return [...prev, id];
       }
-      return newSet;
     });
   };
 
   const handleSelectAllInvoices = () => {
-    if (selectedForInvoice.size === filteredAppointments.length) {
-      setSelectedForInvoice(new Set());
+    if (selectedForInvoice.length === filteredAppointments.length) {
+      setSelectedForInvoice([]);
     } else {
-      setSelectedForInvoice(new Set(filteredAppointments.map(a => a.id)));
+      setSelectedForInvoice(filteredAppointments.map(a => a.id));
     }
   };
 
   const handleCreateInvoice = () => {
-    if (selectedForInvoice.size === 0) {
+    if (selectedForInvoice.length === 0) {
       setError('Please select at least one appointment for the invoice');
       return;
     }
 
-    const selectedAppointments = filteredAppointments.filter(a => selectedForInvoice.has(a.id));
+    // Preserve selection order by mapping selected IDs to appointments in order
+    const selectedAppointments = selectedForInvoice
+      .map(id => filteredAppointments.find(a => a.id === id))
+      .filter(Boolean); // Remove any undefined entries
     
     console.log('Creating invoice with appointments:', selectedAppointments);
     console.log('onCreateInvoice callback:', onCreateInvoice);
@@ -778,7 +782,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               
               // Build array of column widths in order
               if (invoiceMode || calculatorMode) {
-                columnWidthArray.push(50); // Checkbox column
+                columnWidthArray.push(60); // Checkbox column (increased for selection number)
               }
               columnWidthArray.push(
                 columnWidths.id,
@@ -1026,18 +1030,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         <div className="invoice-controls">
           <div className="invoice-selection-info">
             <button onClick={handleSelectAllInvoices} className="select-all-btn">
-              <FaCheck /> {selectedForInvoice.size === filteredAppointments.length ? 'Deselect All' : 'Select All'}
+              <FaCheck /> {selectedForInvoice.length === filteredAppointments.length ? 'Deselect All' : 'Select All'}
             </button>
             <span className="selection-count">
-              {selectedForInvoice.size} appointment{selectedForInvoice.size !== 1 ? 's' : ''} selected
+              {selectedForInvoice.length} appointment{selectedForInvoice.length !== 1 ? 's' : ''} selected
             </span>
           </div>
           <button 
             onClick={handleCreateInvoice} 
             className="create-invoice-btn"
-            disabled={selectedForInvoice.size === 0}
+            disabled={selectedForInvoice.length === 0}
           >
-            <FaFileInvoice /> Create Invoice ({selectedForInvoice.size})
+            <FaFileInvoice /> Create Invoice ({selectedForInvoice.length})
           </button>
         </div>
       )}
@@ -1119,7 +1123,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   {(invoiceMode || calculatorMode) && <th className="invoice-select-header">
                     <input
                       type="checkbox"
-                      checked={(invoiceMode ? selectedForInvoice.size : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
+                      checked={(invoiceMode ? selectedForInvoice.length : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
                       onChange={invoiceMode ? handleSelectAllInvoices : handleSelectAllCalculator}
                       className="select-all-checkbox"
                     />
@@ -1364,15 +1368,22 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 const isNew = newAppointmentIdsSet.has(apt.id);
                 
                 return (
-                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.has(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
+                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
                     {(invoiceMode || calculatorMode) && (
                       <td className="invoice-select-cell">
-                        <input
-                          type="checkbox"
-                          checked={invoiceMode ? selectedForInvoice.has(apt.id) : selectedForCalculator.has(apt.id)}
-                          onChange={() => invoiceMode ? handleInvoiceToggle(apt.id) : handleCalculatorToggle(apt.id)}
-                          className="invoice-checkbox"
-                        />
+                        <div className="checkbox-wrapper">
+                          <input
+                            type="checkbox"
+                            checked={invoiceMode ? selectedForInvoice.includes(apt.id) : selectedForCalculator.has(apt.id)}
+                            onChange={() => invoiceMode ? handleInvoiceToggle(apt.id) : handleCalculatorToggle(apt.id)}
+                            className="invoice-checkbox"
+                          />
+                          {invoiceMode && selectedForInvoice.includes(apt.id) && (
+                            <span className="selection-number">
+                              {selectedForInvoice.indexOf(apt.id) + 1}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     )}
                     <td style={{ width: columnWidths.id }} className={`id-cell ${isNew ? 'new-id' : ''}`}>

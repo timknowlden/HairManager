@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { FaEdit, FaTrash } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './ServicesManager.css';
@@ -39,10 +39,21 @@ function ServicesManager() {
     type: 'Hair',
     price: ''
   });
+  const formRef = useRef(null); // Ref for the form container
 
   useEffect(() => {
     fetchServices();
   }, []);
+
+  // Scroll to form when it opens
+  useEffect(() => {
+    if (showAddForm && formRef.current) {
+      // Use setTimeout to ensure the form is rendered before scrolling
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [showAddForm]);
 
   const fetchServices = async () => {
     setLoading(true);
@@ -359,7 +370,7 @@ Hair wash 	Hair	£5.00`;
       {success && <div className="success-message">{success}</div>}
 
       {showAddForm && (
-        <div className="service-form-container">
+        <div className="service-form-container" ref={formRef}>
           <h3>{editingId ? 'Edit Service' : 'Add New Service'}</h3>
           <form onSubmit={handleSubmit} className="service-form">
             <div className="form-row">
@@ -399,10 +410,10 @@ Hair wash 	Hair	£5.00`;
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="submit-btn">
+              <button type="submit" className="service-submit-btn">
                 {editingId ? 'Update' : 'Add'} Service
               </button>
-              <button type="button" onClick={cancelForm} className="cancel-btn">
+              <button type="button" onClick={cancelForm} className="service-cancel-btn">
                 Cancel
               </button>
             </div>
