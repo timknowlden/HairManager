@@ -1,19 +1,19 @@
 .entry-form {
   max-width: 900px;
   margin: 0 auto;
-  padding: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: var(--space-lg);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   overflow: visible;
 }
 
 .entry-form h2 {
   margin-top: 0;
-  margin-bottom: 18px;
-  color: #333;
-  font-size: 24px;
-  font-weight: 600;
+  margin-bottom: var(--space-lg);
+  color: var(--color-text-primary);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
 }
 
 .form-header {
@@ -70,9 +70,9 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-  background: #fafafa;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-bg-secondary);
 }
 
 .location-select,
@@ -219,17 +219,17 @@
 }
 
 .appointment-row:hover {
-  border-color: #4CAF50;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px var(--color-primary-light);
 }
 
 .appointment-row:focus-within {
-  border-left-color: #4CAF50 !important;
-  border-right-color: #4CAF50 !important;
-  border-bottom-color: #4CAF50 !important;
-  border-top-color: #4CAF50 !important;
-  border-top: 2px solid #4CAF50 !important;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
+  border-left-color: var(--color-primary) !important;
+  border-right-color: var(--color-primary) !important;
+  border-bottom-color: var(--color-primary) !important;
+  border-top-color: var(--color-primary) !important;
+  border-top: 2px solid var(--color-primary) !important;
+  box-shadow: 0 2px 8px var(--color-primary-light);
 }
 
 .appointment-number {
@@ -239,11 +239,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #4CAF50;
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   border-radius: 50%;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
 }
 
 .appointment-client-name {
@@ -282,9 +282,9 @@
 
 .price-input:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-  background: #fafafa;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-bg-secondary);
 }
 
 .appointment-service select {
@@ -319,9 +319,9 @@
 
 .appointment-service select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-  background: #fafafa;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-bg-secondary);
 }
 
 .remove-btn {
@@ -329,20 +329,20 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  background: #f44336;
-  color: white;
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-base);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 }
 
 .remove-btn:hover:not(:disabled) {
-  background: #d32f2f;
+  background: var(--color-danger-hover);
   transform: scale(1.05);
 }
 
@@ -356,26 +356,26 @@
 .add-appointment-btn {
   width: 100%;
   padding: 14px;
-  background: #2196F3;
-  color: white;
+  background: var(--color-info);
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
-  margin-bottom: 20px;
+  gap: var(--space-sm);
+  transition: all var(--transition-normal);
+  box-shadow: 0 2px 4px var(--color-info-light);
+  margin-bottom: var(--space-lg);
 }
 
 .add-appointment-btn:hover {
-  background: #1976D2;
+  background: var(--color-info-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+  box-shadow: 0 4px 8px var(--color-info-light);
 }
 
 .entry-form .submit-btn,
@@ -384,25 +384,25 @@ form .submit-btn,
 form button.submit-btn {
   width: 100%;
   padding: 14px;
-  background: #4CAF50 !important;
-  color: white !important;
+  background: var(--color-primary) !important;
+  color: var(--color-text-inverse) !important;
   border: none !important;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 20px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  margin-top: var(--space-lg);
+  transition: all var(--transition-normal);
+  box-shadow: 0 2px 4px var(--color-primary-light);
 }
 
 .entry-form .submit-btn:hover:not(:disabled),
 .entry-form button.submit-btn:hover:not(:disabled),
 form .submit-btn:hover:not(:disabled),
 form button.submit-btn:hover:not(:disabled) {
-  background: #45a049 !important;
+  background: var(--color-primary-hover) !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 4px 8px var(--color-primary-light);
 }
 
 .submit-btn:disabled {
@@ -464,23 +464,23 @@ form button.submit-btn:hover:not(:disabled) {
 
 .autocomplete-input:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-  background: #fafafa;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-bg-secondary);
 }
 
 .autocomplete-suggestions {
   position: fixed !important;
   z-index: 99999 !important;
-  background: white;
-  border: 2px solid #4CAF50;
-  border-radius: 6px;
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-md);
   max-height: 200px;
   overflow-y: auto;
   margin: 0;
   padding: 0;
   list-style: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-lg);
   margin-top: 2px;
 }
 

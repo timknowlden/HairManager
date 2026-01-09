@@ -30,6 +30,7 @@ export function initDatabase(dbPath) {
         username TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         email TEXT,
+        is_super_admin INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `)

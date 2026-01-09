@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { initDatabase } from './database/init.js';
 import { migrateDatabase } from './database/migrate.js';
+import { ensureAdminUser } from './database/ensureAdmin.js';
 import appointmentsRoutes from './routes/appointments.js';
 import servicesRoutes from './routes/services.js';
 import locationsRoutes from './routes/locations.js';
@@ -551,9 +552,10 @@ const dataDir = process.env.NODE_ENV === 'production'
   : __dirname;
 const dbPath = join(dataDir, 'hairmanager.db');
 
-// Initialize database first, then migrate, then start server
+// Initialize database first, then migrate, then ensure admin user exists, then start server
 initDatabase(dbPath)
   .then(() => migrateDatabase(dbPath))
+  .then(() => ensureAdminUser(dbPath))
   .then(() => {
     // Create database connection after initialization
     const db = new sqlite3.Database(dbPath, (err) => {

@@ -1,10 +1,10 @@
 .financial-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: var(--space-lg);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .financial-header {

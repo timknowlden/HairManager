@@ -61,15 +61,27 @@ function migrateDatabase(customDbPath = null) {
         `));
       }
 
-      // Check if is_super_admin column exists in users table (for existing tables)
+      // Check if all required columns exist in users table (for existing tables)
       db.all("PRAGMA table_info(users)", [], (err, userColumns) => {
         if (err) {
           console.error('Error checking users table info:', err);
           // Continue anyway
         } else if (userColumns) {
           const userColumnNames = userColumns.map(col => col.name);
+          
+          // Ensure is_super_admin column exists
           if (!userColumnNames.includes('is_super_admin')) {
             migrations.push(runAsync(db, 'ALTER TABLE users ADD COLUMN is_super_admin INTEGER DEFAULT 0'));
+          }
+          
+          // Ensure email column exists (for older databases)
+          if (!userColumnNames.includes('email')) {
+            migrations.push(runAsync(db, 'ALTER TABLE users ADD COLUMN email TEXT'));
+          }
+          
+          // Ensure created_at column exists
+          if (!userColumnNames.includes('created_at')) {
+            migrations.push(runAsync(db, 'ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP'));
           }
         }
       });

@@ -1,7 +1,8 @@
 .super-admin-manager {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: var(--space-xl) var(--space-lg);
+  color: var(--color-text-primary);
 }
 
 /* Header */

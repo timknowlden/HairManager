@@ -1,15 +1,15 @@
 .appointments-list {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 30px;
+  padding: var(--space-lg);
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
   position: relative;
   min-height: 100%;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .appointments-header {

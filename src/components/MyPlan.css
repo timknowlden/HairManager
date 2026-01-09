@@ -1,7 +1,8 @@
 .my-plan-page {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 var(--space-lg);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .loading,

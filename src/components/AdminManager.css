@@ -1,10 +1,10 @@
 .admin-manager {
   max-width: 900px;
   margin: 0 auto;
-  padding: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: var(--space-lg);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .admin-header {
@@ -12,15 +12,15 @@
 }
 
 .admin-header h2 {
-  margin: 0 0 8px 0;
-  color: #333;
-  font-size: 28px;
+  margin: 0 0 var(--space-sm) 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-3xl);
 }
 
 .admin-subtitle {
   margin: 0;
-  color: #666;
-  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-base);
 }
 
 .form-section {
@@ -76,8 +76,8 @@
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #2196F3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
 }
 
 .field-help {
@@ -94,8 +94,8 @@
 }
 
 .submit-btn {
-  background-color: #2196F3;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
