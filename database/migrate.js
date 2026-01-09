@@ -55,10 +55,24 @@ function migrateDatabase(customDbPath = null) {
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             email TEXT,
+            is_super_admin INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
           )
         `));
       }
+
+      // Check if is_super_admin column exists in users table (for existing tables)
+      db.all("PRAGMA table_info(users)", [], (err, userColumns) => {
+        if (err) {
+          console.error('Error checking users table info:', err);
+          // Continue anyway
+        } else if (userColumns) {
+          const userColumnNames = userColumns.map(col => col.name);
+          if (!userColumnNames.includes('is_super_admin')) {
+            migrations.push(runAsync(db, 'ALTER TABLE users ADD COLUMN is_super_admin INTEGER DEFAULT 0'));
+          }
+        }
+      });
 
       // Check if columns exist and add them if they don't
       db.all("PRAGMA table_info(address_data)", [], (err, columns) => {
@@ -296,6 +310,102 @@ function migrateDatabase(customDbPath = null) {
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_processed_at ON webhook_events(processed_at)'));
               }
             });
+            
+            // Check and create subscription_plans table (must be created before user_subscriptions)
+            db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='subscription_plans'", [], (planErr, planTable) => {
+              if (planErr) {
+                console.error('Error checking for subscription_plans table:', planErr);
+                return;
+              }
+              
+              if (!planTable) {
+                console.log('[MIGRATION] Creating subscription_plans table');
+                db.run(`
+                  CREATE TABLE IF NOT EXISTS subscription_plans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    description TEXT,
+                    price_monthly REAL DEFAULT 0,
+                    price_yearly REAL DEFAULT 0,
+                    currency TEXT DEFAULT 'GBP',
+                    max_appointments INTEGER DEFAULT -1,
+                    max_locations INTEGER DEFAULT -1,
+                    max_services INTEGER DEFAULT -1,
+                    features TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    sort_order INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                  )
+                `, (createErr) => {
+                  if (createErr) {
+                    console.error('Error creating subscription_plans table:', createErr);
+                    return;
+                  }
+                  console.log('[MIGRATION] subscription_plans table created');
+                  
+                  // Insert default plans
+                  db.run(`
+                    INSERT OR IGNORE INTO subscription_plans (name, display_name, description, price_monthly, max_appointments, max_locations, max_services, features, sort_order) VALUES
+                    ('free', 'Free', 'Get started with basic features', 0, 50, 2, 10, '["Basic appointment tracking", "2 locations", "10 services", "Email support"]', 1),
+                    ('starter', 'Starter', 'Perfect for small businesses', 3.99, 500, 5, 25, '["Up to 500 appointments/month", "5 locations", "25 services", "Invoice generation", "Priority email support"]', 2),
+                    ('professional', 'Professional', 'For growing businesses', 9.99, -1, -1, -1, '["Unlimited appointments", "Unlimited locations", "Unlimited services", "Invoice generation", "Financial reports", "Priority support", "Data export"]', 3)
+                  `, (insertErr) => {
+                    if (insertErr) {
+                      console.error('Error inserting default plans:', insertErr);
+                    } else {
+                      console.log('[MIGRATION] Default subscription plans inserted');
+                    }
+                    
+                    // Now create user_subscriptions table
+                    createUserSubscriptionsTable(db);
+                  });
+                });
+              } else {
+                // subscription_plans exists, check for user_subscriptions
+                createUserSubscriptionsTable(db);
+              }
+            });
+            
+            function createUserSubscriptionsTable(db) {
+              db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='user_subscriptions'", [], (subErr, subTable) => {
+                if (subErr) {
+                  console.error('Error checking for user_subscriptions table:', subErr);
+                  return;
+                }
+                
+                if (!subTable) {
+                  console.log('[MIGRATION] Creating user_subscriptions table');
+                  db.run(`
+                    CREATE TABLE IF NOT EXISTS user_subscriptions (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER NOT NULL UNIQUE,
+                      plan_id INTEGER NOT NULL,
+                      status TEXT DEFAULT 'active',
+                      billing_cycle TEXT DEFAULT 'monthly',
+                      current_period_start TEXT,
+                      current_period_end TEXT,
+                      cancel_at_period_end INTEGER DEFAULT 0,
+                      stripe_customer_id TEXT,
+                      stripe_subscription_id TEXT,
+                      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                      FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
+                    )
+                  `, (createErr) => {
+                    if (createErr) {
+                      console.error('Error creating user_subscriptions table:', createErr);
+                    } else {
+                      console.log('[MIGRATION] user_subscriptions table created');
+                      db.run('CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id)');
+                      db.run('CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status ON user_subscriptions(status)');
+                    }
+                  });
+                }
+              });
+            }
             // Add email relay service fields
             if (!adminColumnNames.includes('use_email_relay')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN use_email_relay INTEGER DEFAULT 0'));

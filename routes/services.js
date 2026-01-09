@@ -1,6 +1,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkServiceLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -51,7 +52,7 @@ router.get('/:name', (req, res) => {
 });
 
 // Create new service
-router.post('/', (req, res) => {
+router.post('/', checkServiceLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { service_name, type, price } = req.body;

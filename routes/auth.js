@@ -78,14 +78,19 @@ router.post('/register', async (req, res) => {
           stmt.finalize();
 
           // Generate JWT token
-          const token = jwt.sign({ userId, username }, JWT_SECRET, { expiresIn: '7d' });
+          const token = jwt.sign({ 
+            userId, 
+            username,
+            is_super_admin: 0 // New users are not super admins by default
+          }, JWT_SECRET, { expiresIn: '7d' });
 
           res.json({
             token,
             user: {
               id: userId,
               username,
-              email
+              email,
+              is_super_admin: 0
             }
           });
         }
@@ -106,8 +111,8 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Find user
-  db.get('SELECT * FROM users WHERE username = ?', [username], async (err, user) => {
+  // Find user - explicitly select is_super_admin to ensure it's included
+  db.get('SELECT id, username, password_hash, email, is_super_admin, created_at FROM users WHERE username = ?', [username], async (err, user) => {
     if (err) {
       console.error('Error finding user:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -125,16 +130,39 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid username or password' });
       }
 
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+      // Ensure is_super_admin is properly converted
+      // Handle case where column might be undefined (fallback to 0)
+      const rawIsSuperAdmin = user.is_super_admin;
+      const isSuperAdmin = rawIsSuperAdmin === 1 || rawIsSuperAdmin === '1' || rawIsSuperAdmin === true ? 1 : 0;
+      
+      console.log('[AUTH /login] User from DB (full object):', user);
+      console.log('[AUTH /login] User from DB:', {
+        id: user.id,
+        username: user.username,
+        is_super_admin: rawIsSuperAdmin,
+        type: typeof rawIsSuperAdmin,
+        converted: isSuperAdmin
+      });
+      
+      // Generate JWT token (include is_super_admin for convenience, but we'll verify from DB)
+      const token = jwt.sign({ 
+        userId: user.id, 
+        username: user.username,
+        is_super_admin: isSuperAdmin
+      }, JWT_SECRET, { expiresIn: '7d' });
 
+      const responseUser = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        is_super_admin: isSuperAdmin
+      };
+      
+      console.log('[AUTH /login] Response user object being sent:', JSON.stringify(responseUser, null, 2));
+      
       res.json({
         token,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email
-        }
+        user: responseUser
       });
     } catch (error) {
       console.error('Error verifying password:', error);
@@ -155,7 +183,7 @@ router.get('/me', (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const db = req.app.locals.db;
 
-    db.get('SELECT id, username, email FROM users WHERE id = ?', [decoded.userId], (err, user) => {
+    db.get('SELECT id, username, email, is_super_admin FROM users WHERE id = ?', [decoded.userId], (err, user) => {
       if (err) {
         console.error('Error fetching user:', err);
         return res.status(500).json({ error: 'Database error' });
@@ -165,12 +193,29 @@ router.get('/me', (req, res) => {
         return res.status(401).json({ error: 'User not found' });
       }
 
+      // Debug: Log the full user object from database
+      console.log('[AUTH /me] Full user object from DB:', JSON.stringify(user, null, 2));
+      console.log('[AUTH /me] User keys:', Object.keys(user));
+      console.log('[AUTH /me] is_super_admin value:', user.is_super_admin);
+      console.log('[AUTH /me] is_super_admin type:', typeof user.is_super_admin);
+      
+      // Ensure is_super_admin is properly converted (SQLite returns 1/0 as integer)
+      const rawIsSuperAdmin = user.is_super_admin;
+      const isSuperAdmin = rawIsSuperAdmin === 1 || rawIsSuperAdmin === '1' || rawIsSuperAdmin === true ? 1 : 0;
+      
+      console.log('[AUTH /me] Returning is_super_admin:', isSuperAdmin);
+      
+      const responseUser = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        is_super_admin: isSuperAdmin
+      };
+      
+      console.log('[AUTH /me] Response user object:', JSON.stringify(responseUser, null, 2));
+      
       res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email
-        }
+        user: responseUser
       });
     });
   } catch (error) {

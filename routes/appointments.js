@@ -1,6 +1,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkAppointmentLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -192,7 +193,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Create multiple appointments (batch entry)
-router.post('/batch', (req, res) => {
+router.post('/batch', checkAppointmentLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { location, date, appointments } = req.body;

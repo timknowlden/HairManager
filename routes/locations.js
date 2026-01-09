@@ -1,6 +1,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkLocationLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -105,7 +106,7 @@ router.get('/:name', (req, res) => {
 });
 
 // Create new location
-router.post('/', (req, res) => {
+router.post('/', checkLocationLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { 
@@ -176,7 +177,7 @@ router.post('/', (req, res) => {
 });
 
 // Bulk import locations
-router.post('/bulk-import', (req, res) => {
+router.post('/bulk-import', checkLocationLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { locations } = req.body;

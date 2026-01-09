@@ -3,6 +3,61 @@
   background: #e5e5e5;
 }
 
+/* Impersonation Banner */
+.impersonation-banner {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  color: white;
+  padding: 10px 20px;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+.impersonation-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.impersonation-icon {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.impersonation-content span {
+  opacity: 0.95;
+}
+
+.impersonation-content strong {
+  font-weight: 600;
+}
+
+.return-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  margin-left: 8px;
+}
+
+.return-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
 .app-header {
   background: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);

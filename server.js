@@ -14,6 +14,8 @@ import invoiceRoutes from './routes/invoice.js';
 import authRoutes from './routes/auth.js';
 import financialRoutes from './routes/financial.js';
 import emailLogsRoutes from './routes/email-logs.js';
+import adminUsersRoutes from './routes/admin-users.js';
+import subscriptionsRoutes from './routes/subscriptions.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -592,6 +594,12 @@ initDatabase(dbPath)
       
       app.use('/api/email-logs', emailLogsRoutes);
       console.log('✓ Email logs routes registered');
+      
+      app.use('/api/admin/users', adminUsersRoutes);
+      console.log('✓ Admin users routes registered');
+      
+      app.use('/api/subscriptions', subscriptionsRoutes);
+      console.log('✓ Subscription routes registered');
       
       app.use('/api/financial', financialRoutes);
       console.log('✓ Financial routes registered');
