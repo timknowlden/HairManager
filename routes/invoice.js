@@ -1,5 +1,12 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
@@ -9,13 +16,35 @@ router.use(authenticateToken);
 // POST /api/invoice/send-email
 router.post('/send-email', async (req, res) => {
   try {
-    const { to, subject, body, pdfData, pdfFilename } = req.body;
+    const { to, subject, body, pdfData, pdfFilename, invoiceNumber } = req.body;
 
     // Handle both single email string and array of emails
-    const toEmails = Array.isArray(to) ? to : (to ? [to] : []);
+    // Also handle semicolon or comma-separated emails
+    let toEmails = [];
+    if (Array.isArray(to)) {
+      // Flatten array and split any strings that contain semicolons or commas
+      toEmails = to
+        .flatMap(email => {
+          if (typeof email === 'string' && email.trim()) {
+            // Split by semicolon or comma, then trim and filter
+            return email
+              .split(/[;,]/)
+              .map(e => e.trim())
+              .filter(e => e && e.length > 0);
+          }
+          return email ? [email] : [];
+        })
+        .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
+    } else if (typeof to === 'string' && to.trim()) {
+      // Split by semicolon or comma, then trim and filter
+      toEmails = to
+        .split(/[;,]/)
+        .map(e => e.trim())
+        .filter(e => e && e.length > 0);
+    }
     
-    if (toEmails.length === 0 || !subject || !pdfData) {
-      return res.status(400).json({ error: 'Missing required fields: to, subject, pdfData' });
+    if (toEmails.length === 0 || !pdfData) {
+      return res.status(400).json({ error: 'Missing required fields: to, pdfData' });
     }
 
     const db = req.app.locals.db;
@@ -40,6 +69,11 @@ router.post('/send-email', async (req, res) => {
       const fromEmail = profile.email_relay_from_email || profile.email;
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
       const ccEnabled = profile.email_relay_bcc_enabled === 1 || profile.email_relay_bcc_enabled === true; // Checkbox enables CC
+      // Use email_subject from profile if not provided in request, or use default
+      const emailSubject = subject || profile.email_subject || 'Invoice';
+      
+      // Build recipient list early so it's available in error handler
+      const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
 
       if (!apiKey) {
         return res.status(400).json({ 
@@ -94,9 +128,6 @@ router.post('/send-email', async (req, res) => {
         }
 
         // Build personalizations array for SendGrid v3 API
-        // Convert all recipient emails to SendGrid format
-        const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
-        
         const personalizations = [{
           to: toRecipients
         }];
@@ -115,7 +146,7 @@ router.post('/send-email', async (req, res) => {
             email: fromEmail,
             name: fromName
           },
-          subject: subject,
+          subject: emailSubject,
           content: [
             {
               type: 'text/plain',
@@ -136,12 +167,78 @@ router.post('/send-email', async (req, res) => {
           ]
         };
 
-        await sgMail.send(msg);
+        const result = await sgMail.send(msg);
         console.log('Email sent via SendGrid');
+        
+        // Extract SendGrid message ID from response
+        // SendGrid returns message ID in x-message-id header
+        // Format can be: "base.recvd-..." or just "base"
+        // We'll store the base part (before first dot) for better matching
+        let sendgridMessageId = result[0]?.headers?.['x-message-id'] || 
+                                result[0]?.body?.message_id || 
+                                null;
+        
+        // Extract base message ID (before first dot) for consistent matching
+        if (sendgridMessageId && sendgridMessageId.includes('.')) {
+          sendgridMessageId = sendgridMessageId.split('.')[0];
+        }
+        
+        console.log('SendGrid message ID extracted:', sendgridMessageId);
+        
+        // Save PDF to server
+        const invoicesDir = process.env.NODE_ENV === 'production' 
+          ? join(__dirname, '..', 'data', 'invoices')
+          : join(__dirname, '..', 'invoices');
+        
+        // Ensure invoices directory exists
+        if (!existsSync(invoicesDir)) {
+          await mkdir(invoicesDir, { recursive: true });
+        }
+        
+        // Generate filename: Invoice_{invoiceNumber}_{timestamp}.pdf
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const invoiceNum = invoiceNumber || 'unknown';
+        const pdfFile = `Invoice_${invoiceNum}_${timestamp}.pdf`;
+        const pdfPath = join(invoicesDir, pdfFile);
+        
+        // Save PDF file
+        await writeFile(pdfPath, pdfBuffer);
+        console.log('PDF saved to:', pdfPath);
+        
+        // Log email to database
+        const now = new Date().toISOString();
+        const db = req.app.locals.db;
+        for (const recipient of toRecipients) {
+          db.run(
+            `INSERT INTO email_logs 
+             (user_id, invoice_number, recipient_email, subject, status, sendgrid_message_id, pdf_file_path, sent_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              invoiceNum,
+              recipient.email,
+              emailSubject,
+              'sent', // Initial status
+              sendgridMessageId,
+              pdfPath,
+              now,
+              now
+            ],
+            function(err) {
+              if (err) {
+                console.error('Error logging email:', err);
+              } else {
+                console.log('Email logged with ID:', this.lastID);
+              }
+            }
+          );
+        }
+        
         return res.json({ 
           success: true, 
-          messageId: 'sendgrid',
-          method: 'SendGrid'
+          messageId: sendgridMessageId || 'sendgrid',
+          method: 'SendGrid',
+          pdfPath: pdfPath
         });
       } catch (relayError) {
         console.error('SendGrid error:', relayError);
@@ -188,6 +285,32 @@ router.post('/send-email', async (req, res) => {
             'SendGrid monitors IP reputation and works to resolve blocklist issues automatically',
             'If this persists, consider SendGrid\'s Dedicated IP option for better deliverability control, or contact SendGrid support'
           ];
+        }
+        
+        // Log failed email attempt
+        const now = new Date().toISOString();
+        const db = req.app.locals.db;
+        for (const recipient of toRecipients) {
+          db.run(
+            `INSERT INTO email_logs 
+             (user_id, invoice_number, recipient_email, subject, status, error_message, sent_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              invoiceNumber || 'unknown',
+              recipient.email,
+              emailSubject,
+              'failed',
+              errorMessage || 'Unknown error',
+              now,
+              now
+            ],
+            function(err) {
+              if (err) {
+                console.error('Error logging failed email:', err);
+              }
+            }
+          );
         }
         
         return res.status(500).json({ 

@@ -46,6 +46,12 @@ npm run dev
 
 The frontend will run on `http://localhost:5173` (or another port if 5173 is busy).
 
+**Note:** In development, you have two servers:
+- **Frontend (Vite)**: Port 5173 - serves the React app with hot reload
+- **Backend (Express)**: Port 3001 - serves the API and handles database operations
+
+In production (Docker), the frontend is built and served by Express on port 3001, so everything runs on a single port.
+
 ### Default Data
 
 The database is automatically initialized with:

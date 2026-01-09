@@ -1,10 +1,10 @@
 .entry-form {
   max-width: 900px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: visible;
 }
 
@@ -59,6 +59,7 @@
   box-sizing: border-box;
   transition: all 0.2s;
   background: white;
+  height: 43px;
 }
 
 .form-group input:hover,
@@ -77,6 +78,7 @@
 .location-select,
 .date-input {
   cursor: pointer;
+  height: 43px;
 }
 
 .appointments-section {
@@ -353,35 +355,38 @@
 
 .add-appointment-btn {
   width: 100%;
-  padding: 12px 18px;
+  padding: 14px;
   background: #2196F3;
   color: white;
-  border: 2px dashed #2196F3;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-  position: relative;
-  z-index: 0;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+  margin-bottom: 20px;
 }
 
 .add-appointment-btn:hover {
   background: #1976D2;
-  border-color: #1976D2;
+  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
 }
 
-.submit-btn {
+.entry-form .submit-btn,
+.entry-form button.submit-btn,
+form .submit-btn,
+form button.submit-btn {
   width: 100%;
   padding: 14px;
-  background: #4CAF50;
-  color: white;
-  border: none;
+  background: #4CAF50 !important;
+  color: white !important;
+  border: none !important;
   border-radius: 8px;
   cursor: pointer;
   font-size: 16px;
@@ -391,10 +396,13 @@
   box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
 }
 
-.submit-btn:hover:not(:disabled) {
-  background: #45a049;
+.entry-form .submit-btn:hover:not(:disabled),
+.entry-form button.submit-btn:hover:not(:disabled),
+form .submit-btn:hover:not(:disabled),
+form button.submit-btn:hover:not(:disabled) {
+  background: #45a049 !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
 }
 
 .submit-btn:disabled {
@@ -484,12 +492,38 @@
   transition: background 0.15s;
 }
 
-.autocomplete-suggestion:hover {
+.autocomplete-suggestion:hover,
+.autocomplete-suggestion.selected {
   background: #e8f5e9;
+  font-weight: 600;
 }
 
 .autocomplete-suggestion:last-child {
   border-bottom: none;
+}
+
+.autocomplete-suggestions-grouped {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.autocomplete-group-header {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  font-weight: 600;
+  font-size: 12px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e0e0e0;
+  cursor: default;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.autocomplete-group-header:hover {
+  background: #f5f5f5;
 }
 
 /* Responsive design */

@@ -3,6 +3,7 @@ import cors from 'cors';
 import sqlite3 from 'sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { readFileSync } from 'fs';
 import { initDatabase } from './database/init.js';
 import { migrateDatabase } from './database/migrate.js';
 import appointmentsRoutes from './routes/appointments.js';
@@ -12,6 +13,9 @@ import profileRoutes from './routes/profile.js';
 import invoiceRoutes from './routes/invoice.js';
 import authRoutes from './routes/auth.js';
 import financialRoutes from './routes/financial.js';
+import emailLogsRoutes from './routes/email-logs.js';
+import adminUsersRoutes from './routes/admin-users.js';
+import subscriptionsRoutes from './routes/subscriptions.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -549,7 +553,7 @@ const dbPath = join(dataDir, 'hairmanager.db');
 
 // Initialize database first, then migrate, then start server
 initDatabase(dbPath)
-  .then(() => migrateDatabase())
+  .then(() => migrateDatabase(dbPath))
   .then(() => {
     // Create database connection after initialization
     const db = new sqlite3.Database(dbPath, (err) => {
@@ -588,6 +592,15 @@ initDatabase(dbPath)
       app.use('/api/invoice', invoiceRoutes);
       console.log('✓ Invoice routes registered');
       
+      app.use('/api/email-logs', emailLogsRoutes);
+      console.log('✓ Email logs routes registered');
+      
+      app.use('/api/admin/users', adminUsersRoutes);
+      console.log('✓ Admin users routes registered');
+      
+      app.use('/api/subscriptions', subscriptionsRoutes);
+      console.log('✓ Subscription routes registered');
+      
       app.use('/api/financial', financialRoutes);
       console.log('✓ Financial routes registered');
     } catch (err) {
@@ -608,11 +621,24 @@ initDatabase(dbPath)
     app.use(express.static(distPath));
 
     // Serve index.html for all non-API routes (SPA routing)
-    app.get('*', (req, res) => {
-      if (!req.path.startsWith('/api')) {
+    // Express 5: Use app.use with a catch-all middleware instead of app.get('*')
+    app.use((req, res, next) => {
+      if (!req.path.startsWith('/api') && req.method === 'GET') {
         res.sendFile(join(distPath, 'index.html'));
+      } else {
+        next();
       }
     });
+
+    // Read and log version
+    try {
+      const packageJson = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8'));
+      console.log(`\n╔════════════════════════════════════════╗`);
+      console.log(`║  HairManager v${packageJson.version}                    ║`);
+      console.log(`╚════════════════════════════════════════╝`);
+    } catch (err) {
+      console.log('\n[Warning] Could not read version from package.json');
+    }
 
     app.listen(PORT, () => {
       console.log(`\nServer running on http://localhost:${PORT}`);

@@ -34,6 +34,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -44,11 +51,13 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=v${{ steps.package-version.outputs.version }},enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.version=${{ steps.package-version.outputs.version }}
+            version=${{ steps.package-version.outputs.version }}
 
       - name: Build and push to GitHub Container Registry
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -56,50 +65,61 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.package-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Log in to Docker Hub (if configured)
-        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+      - name: Check Docker Hub secrets
+        id: check-dockerhub
+        run: |
+          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Docker Hub secrets not configured, skipping Docker Hub push"
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.check-dockerhub.outputs.configured == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push to Docker Hub (if configured)
-        if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+      - name: Copy image to Docker Hub
+        if: steps.check-dockerhub.outputs.configured == 'true'
         continue-on-error: true
         run: |
-          echo "✅ Docker Hub secrets found!"
-          echo "Username: ${{ secrets.DOCKERHUB_USERNAME }}"
+          echo "✅ Copying image from GHCR to Docker Hub..."
+          # Use the first tag from metadata (which will be the branch name like 'main')
+          # Extract the first tag from the metadata output
+          GHCR_TAGS="${{ steps.meta.outputs.tags }}"
+          FIRST_TAG=$(echo "${GHCR_TAGS}" | head -n1 | tr -d ' ')
+          VERSION="${{ steps.package-version.outputs.version }}"
           
-          # Construct the GHCR image tag (latest)
-          GHCR_IMAGE="ghcr.io/${{ github.repository }}:latest"
-          DOCKERHUB_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
+          # Use the first tag as source (e.g., ghcr.io/owner/hairmanager:main)
+          GHCR_IMAGE="${FIRST_TAG}"
+          DOCKERHUB_IMAGE_LATEST="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:latest"
+          DOCKERHUB_IMAGE_VERSION="${{ secrets.DOCKERHUB_USERNAME }}/hairmanager:v${VERSION}"
           
-          echo "Pulling image from GHCR: ${GHCR_IMAGE}"
-          docker pull ${GHCR_IMAGE}
+          echo "Source: ${GHCR_IMAGE}"
+          echo "Target (latest): ${DOCKERHUB_IMAGE_LATEST}"
+          echo "Target (version): ${DOCKERHUB_IMAGE_VERSION}"
+          echo "Version: ${VERSION}"
+          
+          # Use buildx imagetools to copy the image with both tags
+          # This preserves all labels including version labels
+          docker buildx imagetools create --tag ${DOCKERHUB_IMAGE_LATEST} --tag ${DOCKERHUB_IMAGE_VERSION} ${GHCR_IMAGE}
           
           if [ $? -ne 0 ]; then
-            echo "❌ Failed to pull image from GHCR"
+            echo "❌ Failed to copy image to Docker Hub"
             exit 1
           fi
           
-          echo "Tagging image for Docker Hub..."
-          docker tag ${GHCR_IMAGE} ${DOCKERHUB_IMAGE}
+          # Verify labels were copied correctly
+          echo "Verifying labels on Docker Hub image..."
+          docker buildx imagetools inspect ${DOCKERHUB_IMAGE_LATEST} --format '{{json .}}' | jq -r '.Manifest.Labels // {}' || echo "Could not verify labels (this is OK if jq is not available)"
           
-          if [ $? -ne 0 ]; then
-            echo "❌ Docker tag failed"
-            exit 1
-          fi
-          
-          echo "Pushing to Docker Hub..."
-          docker push ${DOCKERHUB_IMAGE}
-          
-          if [ $? -ne 0 ]; then
-            echo "❌ Docker push failed"
-            exit 1
-          fi
-          
-          echo "✅ Successfully pushed to Docker Hub: ${DOCKERHUB_IMAGE}"
+          echo "✅ Successfully copied image to Docker Hub: ${DOCKERHUB_IMAGE_LATEST} and ${DOCKERHUB_IMAGE_VERSION}"
 

@@ -1,7 +1,10 @@
 .locations-manager {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 30px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .locations-header {
@@ -115,18 +118,21 @@ th.resizable:hover .resize-handle {
 
 .import-btn,
 .add-btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 4px;
+  border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
   white-space: nowrap;
-  line-height: 1.4;
+  position: relative;
   box-sizing: border-box;
+  height: 40px;
 }
 
 .import-btn {
@@ -153,23 +159,27 @@ th.resizable:hover .resize-handle {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
 }
 
 .location-form-container h3 {
   margin-top: 0;
+  margin-bottom: 15px;
   color: #333;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .location-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
 }
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
 }
 
 .form-group {
@@ -185,59 +195,80 @@ th.resizable:hover .resize-handle {
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
   font-family: inherit;
+  transition: all 0.2s;
+  background: white;
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .form-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 10px;
   justify-content: flex-end;
-  align-items: center;
-  padding-top: 15px;
-  border-top: 1px solid #e0e0e0;
+  align-items: stretch;
+  flex-wrap: nowrap;
 }
 
-.submit-btn,
-.cancel-btn {
-  padding: 12px 24px;
+.location-submit-btn,
+.location-cancel-btn {
+  padding: 10px 20px;
+  margin: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  min-width: 120px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  height: 40px;
   transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
-.submit-btn {
+.location-submit-btn {
   background: #4CAF50;
   color: white;
 }
 
-.submit-btn:hover {
+.location-submit-btn:hover {
   background: #45a049;
+  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
-.cancel-btn {
-  background: #ccc;
-  color: #333;
+.location-cancel-btn {
+  background: #9E9E9E;
+  color: white;
 }
 
-.cancel-btn:hover {
-  background: #bbb;
+.location-cancel-btn:hover {
+  background: #757575;
+  box-shadow: 0 3px 6px rgba(158, 158, 158, 0.4);
+  transform: translateY(-1px);
 }
 
 .locations-table-container {
@@ -409,14 +440,18 @@ tbody tr:hover {
   background: #4CAF50;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
 }
 
 .import-confirm-btn:hover {
   background: #45a049;
+  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  transform: translateY(-1px);
 }
 
 .postcode-lookup-group {
@@ -434,20 +469,24 @@ tbody tr:hover {
   background: #2196F3;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .lookup-btn:hover {
   background: #1976D2;
+  box-shadow: 0 3px 6px rgba(33, 150, 243, 0.4);
+  transform: translateY(-1px);
 }
 
 .lookup-btn:active {
   background: #1565C0;
+  transform: translateY(0);
 }
 
 .lookup-btn:disabled {
@@ -502,5 +541,106 @@ tbody tr:hover {
 .phone-link:hover {
   color: #1976D2;
   text-decoration: underline;
+}
+
+/* Email address input container */
+.email-input-container {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: white;
+  transition: all 0.2s;
+}
+
+.email-input-container:focus-within {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.email-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.email-tag-remove {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.email-tag-remove:hover {
+  background: rgba(25, 118, 210, 0.1);
+  color: #1565c0;
+}
+
+.email-input-field {
+  border: none;
+  outline: none;
+  flex: 1;
+  min-width: 150px;
+  padding: 6px 8px;
+  font-size: 14px;
+  background: transparent;
+}
+
+.email-input-field::placeholder {
+  color: #999;
+}
+
+.email-help-text {
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* Inline editor row styles */
+.inline-editor-row {
+  background: #f9f9f9;
+}
+
+.inline-editor-cell {
+  padding: 0 !important;
+  border-top: 2px solid #4CAF50;
+  border-bottom: 2px solid #4CAF50;
+}
+
+.inline-editor-container {
+  padding: 20px;
+  background: white;
+  margin: 0;
+}
+
+.inline-editor-container h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 16px;
+  font-weight: 600;
 }
 

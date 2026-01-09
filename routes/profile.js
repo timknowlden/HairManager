@@ -1,7 +1,13 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import nodemailer from 'nodemailer';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { authenticateToken } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
@@ -170,7 +176,8 @@ router.put('/', (req, res) => {
     email_relay_api_key,
     email_relay_from_email,
     email_relay_from_name,
-    email_relay_bcc_enabled
+    email_relay_bcc_enabled,
+    email_subject
   } = req.body;
 
       const userId = req.userId;
@@ -248,7 +255,7 @@ router.put('/', (req, res) => {
                  sort_code = ?, account_number = ?, home_address = ?, 
                  home_postcode = ?, currency = ?, google_maps_api_key = ?, email_password = ?, 
                  email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
-                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, postcode_resync_needed = ?, updated_at = ?
+                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, email_subject = ?, postcode_resync_needed = ?, updated_at = ?
                  WHERE id = ? AND user_id = ?`,
                 [
                   name || '',
@@ -268,6 +275,7 @@ router.put('/', (req, res) => {
                   email_relay_from_email || '',
                   email_relay_from_name || '',
                   bccEnabled,
+                  email_subject || '',
                   postcodeResyncNeeded,
                   now,
                   existing.id,
@@ -302,8 +310,8 @@ router.put('/', (req, res) => {
            (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
             home_address, home_postcode, currency, google_maps_api_key, email_password, 
             email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
-            email_relay_bcc_enabled, postcode_resync_needed, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            email_relay_bcc_enabled, email_subject, postcode_resync_needed, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userId,
             name || '',
@@ -323,6 +331,7 @@ router.put('/', (req, res) => {
             email_relay_from_email || '',
             email_relay_from_name || '',
             bccEnabled,
+            email_subject || '',
             0, // postcode_resync_needed defaults to 0 for new records
             now,
             now
@@ -368,6 +377,207 @@ router.post('/clear-postcode-resync', (req, res) => {
       res.json({ message: 'Postcode resync flag cleared' });
     }
   );
+});
+
+// Export profile settings to JSON
+router.get('/export/json', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  
+  if (!db) {
+    res.status(500).json({ error: 'Database connection not available' });
+    return;
+  }
+
+  db.get(
+    'SELECT * FROM admin_settings WHERE user_id = ?',
+    [userId],
+    (err, row) => {
+      if (err) {
+        console.error('Error fetching profile settings:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      if (!row) {
+        res.status(404).json({ error: 'Profile settings not found' });
+        return;
+      }
+      
+      // Export all fields except sensitive password
+      const exportData = {
+        name: row.name || '',
+        phone: row.phone || '',
+        email: row.email || '',
+        business_name: row.business_name || '',
+        bank_account_name: row.bank_account_name || '',
+        sort_code: row.sort_code || '',
+        account_number: row.account_number || '',
+        home_address: row.home_address || '',
+        home_postcode: row.home_postcode || '',
+        currency: row.currency || 'GBP',
+        google_maps_api_key: row.google_maps_api_key || '',
+        email_relay_service: row.email_relay_service || 'sendgrid',
+        email_relay_api_key: row.email_relay_api_key || '',
+        email_relay_from_email: row.email_relay_from_email || '',
+        email_relay_from_name: row.email_relay_from_name || '',
+        email_relay_bcc_enabled: row.email_relay_bcc_enabled === 1 || row.email_relay_bcc_enabled === '1',
+        email_signature: row.email_signature || '',
+        default_email_content: row.default_email_content || '',
+        // Note: email_password is intentionally excluded for security
+      };
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="profile-settings-${new Date().toISOString().split('T')[0]}.json"`);
+      res.json(exportData);
+    }
+  );
+});
+
+// Import profile settings from JSON
+router.post('/import/json', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const importData = req.body;
+  
+  if (!db) {
+    res.status(500).json({ error: 'Database connection not available' });
+    return;
+  }
+
+  if (!importData || typeof importData !== 'object') {
+    res.status(400).json({ error: 'Invalid import data' });
+    return;
+  }
+
+  // Check if settings already exist
+  db.get(
+    'SELECT id FROM admin_settings WHERE user_id = ?',
+    [userId],
+    (err, existing) => {
+      if (err) {
+        console.error('Error checking existing settings:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const bccEnabled = importData.email_relay_bcc_enabled === true || importData.email_relay_bcc_enabled === 1 || importData.email_relay_bcc_enabled === '1' ? 1 : 0;
+
+      if (existing) {
+        // Update existing settings (preserve sensitive fields)
+        db.get('SELECT email_password, email_relay_api_key FROM admin_settings WHERE id = ?', [existing.id], (pwdErr, pwdRow) => {
+          if (pwdErr) {
+            console.error('Error fetching current password/API key:', pwdErr);
+            res.status(500).json({ error: pwdErr.message });
+            return;
+          }
+
+          // Only update API key if a new value is provided (not empty)
+          const finalEmailRelayApiKey = importData.email_relay_api_key && importData.email_relay_api_key.trim() !== '' 
+            ? importData.email_relay_api_key 
+            : (pwdRow?.email_relay_api_key || '');
+
+          db.run(
+            `UPDATE admin_settings SET 
+             name = ?, phone = ?, email = ?, business_name = ?, bank_account_name = ?, 
+             sort_code = ?, account_number = ?, home_address = ?, 
+             home_postcode = ?, currency = ?, google_maps_api_key = ?, 
+             email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
+             email_relay_from_name = ?, email_relay_bcc_enabled = ?, 
+             email_signature = ?, default_email_content = ?, updated_at = ?
+             WHERE id = ? AND user_id = ?`,
+            [
+              importData.name || '',
+              importData.phone || '',
+              importData.email || '',
+              importData.business_name || '',
+              importData.bank_account_name || '',
+              importData.sort_code || '',
+              importData.account_number || '',
+              importData.home_address || '',
+              importData.home_postcode || '',
+              importData.currency || 'GBP',
+              importData.google_maps_api_key || '',
+              importData.email_relay_service || 'sendgrid',
+              finalEmailRelayApiKey,
+              importData.email_relay_from_email || '',
+              importData.email_relay_from_name || '',
+              bccEnabled,
+              importData.email_signature || '',
+              importData.default_email_content || '',
+              now,
+              existing.id,
+              userId
+            ],
+            function(updateErr) {
+              if (updateErr) {
+                console.error('Error updating profile settings:', updateErr);
+                res.status(500).json({ error: updateErr.message });
+                return;
+              }
+              res.json({ message: 'Profile settings imported successfully' });
+            }
+          );
+        });
+      } else {
+        // Create new settings
+        db.run(
+          `INSERT INTO admin_settings 
+           (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
+            home_address, home_postcode, currency, google_maps_api_key, 
+            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
+            email_relay_bcc_enabled, email_signature, default_email_content, 
+            postcode_resync_needed, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            importData.name || '',
+            importData.phone || '',
+            importData.email || '',
+            importData.business_name || '',
+            importData.bank_account_name || '',
+            importData.sort_code || '',
+            importData.account_number || '',
+            importData.home_address || '',
+            importData.home_postcode || '',
+            importData.currency || 'GBP',
+            importData.google_maps_api_key || '',
+            importData.email_relay_service || 'sendgrid',
+            importData.email_relay_api_key || '',
+            importData.email_relay_from_email || '',
+            importData.email_relay_from_name || '',
+            bccEnabled,
+            importData.email_signature || '',
+            importData.default_email_content || '',
+            0, // postcode_resync_needed defaults to 0
+            now,
+            now
+          ],
+          function(insertErr) {
+            if (insertErr) {
+              console.error('Error creating profile settings:', insertErr);
+              res.status(500).json({ error: insertErr.message });
+              return;
+            }
+            res.json({ message: 'Profile settings imported successfully' });
+          }
+        );
+      }
+    }
+  );
+});
+
+// Get application version
+router.get('/version', (req, res) => {
+  try {
+    const packagePath = join(__dirname, '..', 'package.json');
+    const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+    res.json({ version: packageJson.version });
+  } catch (err) {
+    console.error('Error reading version:', err);
+    res.json({ version: 'unknown' });
+  }
 });
 
 export default router;

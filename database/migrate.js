@@ -5,7 +5,12 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = join(__dirname, '..', 'hairmanager.db');
+// Use data directory in production (Docker), or current directory in development
+// This matches the logic in server.js
+const dataDir = process.env.NODE_ENV === 'production' 
+  ? join(__dirname, '..', 'data') 
+  : join(__dirname, '..');
+const dbPath = join(dataDir, 'hairmanager.db');
 
 const runAsync = (db, sql, params = []) => {
   return new Promise((resolve, reject) => {
@@ -16,9 +21,10 @@ const runAsync = (db, sql, params = []) => {
   });
 };
 
-function migrateDatabase() {
+function migrateDatabase(customDbPath = null) {
   return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(dbPath, (err) => {
+    const pathToUse = customDbPath || dbPath;
+    const db = new sqlite3.Database(pathToUse, (err) => {
       if (err) {
         console.error('Error opening database:', err);
         reject(err);
@@ -49,10 +55,24 @@ function migrateDatabase() {
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             email TEXT,
+            is_super_admin INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
           )
         `));
       }
+
+      // Check if is_super_admin column exists in users table (for existing tables)
+      db.all("PRAGMA table_info(users)", [], (err, userColumns) => {
+        if (err) {
+          console.error('Error checking users table info:', err);
+          // Continue anyway
+        } else if (userColumns) {
+          const userColumnNames = userColumns.map(col => col.name);
+          if (!userColumnNames.includes('is_super_admin')) {
+            migrations.push(runAsync(db, 'ALTER TABLE users ADD COLUMN is_super_admin INTEGER DEFAULT 0'));
+          }
+        }
+      });
 
       // Check if columns exist and add them if they don't
       db.all("PRAGMA table_info(address_data)", [], (err, columns) => {
@@ -215,6 +235,176 @@ function migrateDatabase() {
             }
             if (!adminColumnNames.includes('email_relay_bcc_enabled')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_bcc_enabled INTEGER DEFAULT 0'));
+            }
+            if (!adminColumnNames.includes('email_subject')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_subject TEXT'));
+            }
+            
+            // Check if email_logs table exists
+            db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='email_logs'", [], (emailLogsErr, emailLogsTables) => {
+              if (emailLogsErr) {
+                console.error('Error checking for email_logs table:', emailLogsErr);
+                return;
+              }
+              
+              if (emailLogsTables.length === 0) {
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS email_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    invoice_number TEXT,
+                    recipient_email TEXT NOT NULL,
+                    subject TEXT,
+                    status TEXT DEFAULT 'pending',
+                    sendgrid_message_id TEXT,
+                    sendgrid_event_id TEXT,
+                    error_message TEXT,
+                    pdf_file_path TEXT,
+                    webhook_event_data TEXT,
+                    sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_user_id ON email_logs(user_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sendgrid_message_id ON email_logs(sendgrid_message_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_status ON email_logs(status)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_email_logs_sent_at ON email_logs(sent_at)'));
+                
+                // Add webhook_event_data column if it doesn't exist
+                // This needs to be done synchronously to ensure it runs
+                db.all("PRAGMA table_info(email_logs)", [], (err, columns) => {
+                  if (!err && columns) {
+                    const hasWebhookData = columns.some(col => col.name === 'webhook_event_data');
+                    if (!hasWebhookData) {
+                      console.log('[MIGRATION] Adding webhook_event_data column to email_logs table');
+                      db.run('ALTER TABLE email_logs ADD COLUMN webhook_event_data TEXT', (alterErr) => {
+                        if (alterErr) {
+                          console.error('[MIGRATION] Error adding webhook_event_data column:', alterErr);
+                        } else {
+                          console.log('[MIGRATION] Successfully added webhook_event_data column');
+                        }
+                      });
+                    }
+                  }
+                });
+                
+                // Create webhook_events table to store all webhook events in order
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS webhook_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email_log_id INTEGER,
+                    user_id INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    sendgrid_message_id TEXT,
+                    sendgrid_event_id TEXT,
+                    raw_event_data TEXT NOT NULL,
+                    processed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    event_timestamp INTEGER,
+                    FOREIGN KEY (email_log_id) REFERENCES email_logs(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_email_log_id ON webhook_events(email_log_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_sendgrid_message_id ON webhook_events(sendgrid_message_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_webhook_events_processed_at ON webhook_events(processed_at)'));
+              }
+            });
+            
+            // Check and create subscription_plans table (must be created before user_subscriptions)
+            db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='subscription_plans'", [], (planErr, planTable) => {
+              if (planErr) {
+                console.error('Error checking for subscription_plans table:', planErr);
+                return;
+              }
+              
+              if (!planTable) {
+                console.log('[MIGRATION] Creating subscription_plans table');
+                db.run(`
+                  CREATE TABLE IF NOT EXISTS subscription_plans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
+                    description TEXT,
+                    price_monthly REAL DEFAULT 0,
+                    price_yearly REAL DEFAULT 0,
+                    currency TEXT DEFAULT 'GBP',
+                    max_appointments INTEGER DEFAULT -1,
+                    max_locations INTEGER DEFAULT -1,
+                    max_services INTEGER DEFAULT -1,
+                    features TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    sort_order INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                  )
+                `, (createErr) => {
+                  if (createErr) {
+                    console.error('Error creating subscription_plans table:', createErr);
+                    return;
+                  }
+                  console.log('[MIGRATION] subscription_plans table created');
+                  
+                  // Insert default plans
+                  db.run(`
+                    INSERT OR IGNORE INTO subscription_plans (name, display_name, description, price_monthly, max_appointments, max_locations, max_services, features, sort_order) VALUES
+                    ('free', 'Free', 'Get started with basic features', 0, 50, 2, 10, '["Basic appointment tracking", "2 locations", "10 services", "Email support"]', 1),
+                    ('starter', 'Starter', 'Perfect for small businesses', 3.99, 500, 5, 25, '["Up to 500 appointments/month", "5 locations", "25 services", "Invoice generation", "Priority email support"]', 2),
+                    ('professional', 'Professional', 'For growing businesses', 9.99, -1, -1, -1, '["Unlimited appointments", "Unlimited locations", "Unlimited services", "Invoice generation", "Financial reports", "Priority support", "Data export"]', 3)
+                  `, (insertErr) => {
+                    if (insertErr) {
+                      console.error('Error inserting default plans:', insertErr);
+                    } else {
+                      console.log('[MIGRATION] Default subscription plans inserted');
+                    }
+                    
+                    // Now create user_subscriptions table
+                    createUserSubscriptionsTable(db);
+                  });
+                });
+              } else {
+                // subscription_plans exists, check for user_subscriptions
+                createUserSubscriptionsTable(db);
+              }
+            });
+            
+            function createUserSubscriptionsTable(db) {
+              db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='user_subscriptions'", [], (subErr, subTable) => {
+                if (subErr) {
+                  console.error('Error checking for user_subscriptions table:', subErr);
+                  return;
+                }
+                
+                if (!subTable) {
+                  console.log('[MIGRATION] Creating user_subscriptions table');
+                  db.run(`
+                    CREATE TABLE IF NOT EXISTS user_subscriptions (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER NOT NULL UNIQUE,
+                      plan_id INTEGER NOT NULL,
+                      status TEXT DEFAULT 'active',
+                      billing_cycle TEXT DEFAULT 'monthly',
+                      current_period_start TEXT,
+                      current_period_end TEXT,
+                      cancel_at_period_end INTEGER DEFAULT 0,
+                      stripe_customer_id TEXT,
+                      stripe_subscription_id TEXT,
+                      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                      FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
+                    )
+                  `, (createErr) => {
+                    if (createErr) {
+                      console.error('Error creating user_subscriptions table:', createErr);
+                    } else {
+                      console.log('[MIGRATION] user_subscriptions table created');
+                      db.run('CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id)');
+                      db.run('CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status ON user_subscriptions(status)');
+                    }
+                  });
+                }
+              });
             }
             // Add email relay service fields
             if (!adminColumnNames.includes('use_email_relay')) {

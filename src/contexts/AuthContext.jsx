@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { API_BASE } from '../config.js';
 
 const AuthContext = createContext(null);
 
@@ -9,8 +10,6 @@ export const useAuth = () => {
   }
   return context;
 };
-
-const API_BASE = 'http://localhost:3001/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -36,6 +35,12 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('User data from /auth/me:', data.user);
+        console.log('is_super_admin value:', data.user?.is_super_admin);
+        console.log('is_super_admin type:', typeof data.user?.is_super_admin);
+        console.log('Is Super Admin? (=== 1):', data.user?.is_super_admin === 1);
+        console.log('Is Super Admin? (== 1):', data.user?.is_super_admin == 1);
+        console.log('Is Super Admin? (=== true):', data.user?.is_super_admin === true);
         setUser(data.user);
       } else {
         // Token is invalid, clear it
@@ -65,6 +70,9 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[LOGIN] Response data:', data);
+        console.log('[LOGIN] User object:', data.user);
+        console.log('[LOGIN] is_super_admin:', data.user?.is_super_admin);
         localStorage.setItem('token', data.token);
         setToken(data.token);
         setUser(data.user);
@@ -131,6 +139,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     isAuthenticated: !!user,
+    isSuperAdmin: user?.is_super_admin === 1 || user?.is_super_admin === '1' || user?.is_super_admin === true,
     getAuthHeaders
   };
 

@@ -1,4 +1,6 @@
 name: hairmanager
+volumes:
+  hairmanager_data:
 services:
   app:
     cpu_shares: 1024
@@ -12,14 +14,14 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-    image: timknowlden/hairmanager:latest
+    image: ghcr.io/timknowlden/hairmanager:latest
     pull_policy: always
     labels:
       icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
     restart: unless-stopped
     volumes:
-      - type: bind
-        source: /media/nvme/AppData/hairmanager
+      - type: volume
+        source: hairmanager_data
         target: /app/data
     ports:
       - "3001:3001"

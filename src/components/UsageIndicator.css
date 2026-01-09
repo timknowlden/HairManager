@@ -1,0 +1,183 @@
+.usage-indicator {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.usage-indicator .usage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.usage-indicator .plan-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-indicator .crown-icon {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.usage-indicator .plan-name {
+  font-weight: 600;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+
+.usage-indicator .upgrade-link {
+  color: #10b981;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  transition: all 0.2s;
+}
+
+.usage-indicator .upgrade-link:hover {
+  background: #dcfce7;
+}
+
+.usage-indicator .usage-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usage-indicator .usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.usage-indicator .usage-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.usage-indicator .usage-icon {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.usage-indicator .usage-label {
+  color: #6b7280;
+  flex: 1;
+}
+
+.usage-indicator .usage-count {
+  font-weight: 600;
+  color: #374151;
+}
+
+.usage-indicator .usage-bar {
+  height: 6px;
+  background: #f3f4f6;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.usage-indicator .usage-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.usage-indicator .usage-item.near-limit .usage-bar-fill {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+.usage-indicator .usage-item.at-limit .usage-bar-fill {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+}
+
+.usage-indicator .usage-item.near-limit .usage-count {
+  color: #d97706;
+}
+
+.usage-indicator .usage-item.at-limit .usage-count {
+  color: #dc2626;
+}
+
+.usage-indicator .unlimited-badge {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.usage-indicator .limit-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  background: #fef2f2;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+.usage-indicator .limit-warning svg {
+  flex-shrink: 0;
+}
+
+/* Compact mode */
+.usage-indicator.compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border-radius: 20px;
+  font-size: 12px;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.usage-indicator.compact .plan-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.usage-indicator.compact .plan-name svg {
+  color: #f59e0b;
+  font-size: 11px;
+}
+
+.usage-indicator.compact .warning-icon {
+  color: #f59e0b;
+  font-size: 12px;
+}
+
+.usage-indicator.compact.near-limit {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.usage-indicator.compact.at-limit {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.usage-indicator.compact.at-limit .warning-icon {
+  color: #dc2626;
+}

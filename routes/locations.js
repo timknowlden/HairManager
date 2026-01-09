@@ -1,6 +1,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkLocationLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -105,7 +106,7 @@ router.get('/:name', (req, res) => {
 });
 
 // Create new location
-router.post('/', (req, res) => {
+router.post('/', checkLocationLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { 
@@ -176,7 +177,7 @@ router.post('/', (req, res) => {
 });
 
 // Bulk import locations
-router.post('/bulk-import', (req, res) => {
+router.post('/bulk-import', checkLocationLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { locations } = req.body;
@@ -308,6 +309,67 @@ router.delete('/:id', (req, res) => {
         return;
       }
       res.json({ message: 'Location deleted successfully' });
+    }
+  );
+});
+
+// Export locations as CSV
+router.get('/export/csv', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  
+  db.all(
+    'SELECT * FROM address_data WHERE user_id = ? ORDER BY id ASC',
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Error fetching locations:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // CSV header
+      const headers = ['location_name', 'address', 'city_town', 'post_code', 'distance', 'contact_name', 'email_address'];
+      let csv = headers.join(',') + '\n';
+      
+      // CSV rows
+      rows.forEach(row => {
+        const emailArray = parseEmails(row.email_address);
+        const emailStr = emailArray.join(';');
+        const values = [
+          `"${(row.location_name || '').replace(/"/g, '""')}"`,
+          `"${(row.address || '').replace(/"/g, '""')}"`,
+          `"${(row.city_town || '').replace(/"/g, '""')}"`,
+          `"${(row.post_code || '').replace(/"/g, '""')}"`,
+          row.distance || '',
+          `"${(row.contact_name || '').replace(/"/g, '""')}"`,
+          `"${emailStr.replace(/"/g, '""')}"`
+        ];
+        csv += values.join(',') + '\n';
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="locations-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    }
+  );
+});
+
+// Bulk delete all locations
+router.delete('/bulk/all', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.run(
+    'DELETE FROM address_data WHERE user_id = ?',
+    [userId],
+    function(err) {
+      if (err) {
+        console.error('Error deleting locations:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ message: `Successfully deleted ${this.changes} locations` });
     }
   );
 });

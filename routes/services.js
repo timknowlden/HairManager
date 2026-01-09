@@ -1,6 +1,7 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkServiceLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
@@ -51,7 +52,7 @@ router.get('/:name', (req, res) => {
 });
 
 // Create new service
-router.post('/', (req, res) => {
+router.post('/', checkServiceLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { service_name, type, price } = req.body;
@@ -125,6 +126,61 @@ router.delete('/:id', (req, res) => {
         return;
       }
       res.json({ message: 'Service deleted successfully' });
+    }
+  );
+});
+
+// Export services as CSV
+router.get('/export/csv', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  
+  db.all(
+    'SELECT * FROM services WHERE user_id = ? ORDER BY type, service_name',
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Error fetching services:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // CSV header
+      const headers = ['service_name', 'type', 'price'];
+      let csv = headers.join(',') + '\n';
+      
+      // CSV rows
+      rows.forEach(row => {
+        const values = [
+          `"${(row.service_name || '').replace(/"/g, '""')}"`,
+          `"${(row.type || '').replace(/"/g, '""')}"`,
+          row.price || 0
+        ];
+        csv += values.join(',') + '\n';
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="services-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    }
+  );
+});
+
+// Bulk delete all services
+router.delete('/bulk/all', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.run(
+    'DELETE FROM services WHERE user_id = ?',
+    [userId],
+    function(err) {
+      if (err) {
+        console.error('Error deleting services:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ message: `Successfully deleted ${this.changes} services` });
     }
   );
 });

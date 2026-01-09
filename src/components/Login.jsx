@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './Login.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
+
+const REMEMBER_ME_KEY = 'rememberedCredentials';
 
 function Login() {
   const [isLogin, setIsLogin] = useState(true);
@@ -17,7 +19,23 @@ function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { login, register } = useAuth();
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(REMEMBER_ME_KEY);
+      if (saved) {
+        const credentials = JSON.parse(saved);
+        setUsername(credentials.username || '');
+        setPassword(credentials.password || '');
+        setRememberMe(true);
+      }
+    } catch (err) {
+      console.error('Error loading saved credentials:', err);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +47,18 @@ function Login() {
       const result = await login(username, password);
       if (!result.success) {
         setError(result.error);
+      } else {
+        // Save credentials if remember me is checked
+        if (rememberMe) {
+          try {
+            localStorage.setItem(REMEMBER_ME_KEY, JSON.stringify({ username, password }));
+          } catch (err) {
+            console.error('Error saving credentials:', err);
+          }
+        } else {
+          // Clear saved credentials if remember me is unchecked
+          localStorage.removeItem(REMEMBER_ME_KEY);
+        }
       }
     } else {
       if (!username || !password) {
@@ -263,6 +293,19 @@ function Login() {
               required
             />
           </div>
+
+          {isLogin && (
+            <div className="form-group remember-me-group">
+              <label className="remember-me-label">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                Remember me
+              </label>
+            </div>
+          )}
 
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">{success}</div>}

@@ -1,19 +1,22 @@
-import { useState, useEffect, useMemo } from 'react';
-import { FaEdit, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator } from 'react-icons/fa';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import { FaWrench, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare, FaSync, FaCalendarAlt } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';
 
-const API_BASE = 'http://localhost:3001/api';
+import { API_BASE } from '../config.js';
 
 function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }) {
   const { getAuthHeaders } = useAuth();
+  const tableContainerRef = useRef(null);
+  const headerTableRef = useRef(null);
+  const [scrollPosition, setScrollPosition] = useState({ top: true, bottom: false });
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [adminMode, setAdminMode] = useState(false);
   const [invoiceMode, setInvoiceMode] = useState(false);
-  const [selectedForInvoice, setSelectedForInvoice] = useState(new Set());
+  const [selectedForInvoice, setSelectedForInvoice] = useState([]); // Array to preserve order
   const [calculatorMode, setCalculatorMode] = useState(false);
   const [selectedForCalculator, setSelectedForCalculator] = useState(new Set());
   const [currency, setCurrency] = useState('GBP');
@@ -53,6 +56,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     paid: '',
     payment_date: ''
   });
+
+  // Tax year filter: Set of selected tax years (empty set = all)
+  const [taxYearMode, setTaxYearMode] = useState(false);
+  const [selectedTaxYears, setSelectedTaxYears] = useState(new Set());
+  
+  // Initialize with most recent tax year selected
+  const [taxYearInitialized, setTaxYearInitialized] = useState(false);
 
   // Sort state - default to ID ascending (1 at top)
   const [sortConfig, setSortConfig] = useState({ column: 'id', direction: 'asc' });
@@ -94,6 +104,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     // Clear new appointment IDs when manually refreshing
     setNewAppointmentIdsSet(new Set());
     try {
+      const startTime = performance.now();
       const response = await fetch(`${API_BASE}/appointments`, {
         headers: getAuthHeaders()
       });
@@ -101,7 +112,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error('Failed to fetch appointments');
       }
       const data = await response.json();
-      setAppointments(data);
+      const fetchTime = performance.now() - startTime;
+      console.log(`[Frontend] Fetched ${data.length || 0} appointments in ${fetchTime.toFixed(2)}ms`);
+      
+      // Handle both old format (array) and new format (object with appointments array)
+      const appointmentsData = Array.isArray(data) ? data : (data.appointments || data);
+      setAppointments(appointmentsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -109,7 +125,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   };
 
-  const handleTogglePaid = async (id, currentPaidStatus) => {
+  const handleTogglePaid = async (id, currentPaidStatus, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     try {
       const endpoint = currentPaidStatus 
         ? `${API_BASE}/appointments/${id}/unpay`
@@ -124,9 +145,21 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error('Failed to update payment status');
       }
 
-      fetchAppointments();
+      // Update local state instead of refetching to prevent page movement
+      setAppointments(prev => prev.map(apt => {
+        if (apt.id === id) {
+          return {
+            ...apt,
+            paid: currentPaidStatus ? 0 : 1,
+            payment_date: currentPaidStatus ? null : new Date().toISOString()
+          };
+        }
+        return apt;
+      }));
     } catch (err) {
       setError(err.message);
+      // If update fails, refetch to ensure consistency
+      fetchAppointments();
     }
   };
 
@@ -311,31 +344,35 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Invoice mode
   const handleInvoiceToggle = (id) => {
     setSelectedForInvoice(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
+      const index = prev.indexOf(id);
+      if (index !== -1) {
+        // Remove from array (preserves order of remaining items)
+        return prev.filter(item => item !== id);
       } else {
-        newSet.add(id);
+        // Add to end of array (preserves selection order)
+        return [...prev, id];
       }
-      return newSet;
     });
   };
 
   const handleSelectAllInvoices = () => {
-    if (selectedForInvoice.size === filteredAppointments.length) {
-      setSelectedForInvoice(new Set());
+    if (selectedForInvoice.length === filteredAppointments.length) {
+      setSelectedForInvoice([]);
     } else {
-      setSelectedForInvoice(new Set(filteredAppointments.map(a => a.id)));
+      setSelectedForInvoice(filteredAppointments.map(a => a.id));
     }
   };
 
   const handleCreateInvoice = () => {
-    if (selectedForInvoice.size === 0) {
+    if (selectedForInvoice.length === 0) {
       setError('Please select at least one appointment for the invoice');
       return;
     }
 
-    const selectedAppointments = filteredAppointments.filter(a => selectedForInvoice.has(a.id));
+    // Preserve selection order by mapping selected IDs to appointments in order
+    const selectedAppointments = selectedForInvoice
+      .map(id => filteredAppointments.find(a => a.id === id))
+      .filter(Boolean); // Remove any undefined entries
     
     console.log('Creating invoice with appointments:', selectedAppointments);
     console.log('onCreateInvoice callback:', onCreateInvoice);
@@ -369,19 +406,50 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const toggleInvoiceMode = () => {
     if (invoiceMode) {
       setSelectedForInvoice(new Set());
+      setInvoiceMode(false);
+    } else {
+      // Close other modes when opening invoice
+      setCalculatorMode(false);
+      setTaxYearMode(false);
+      if (calculatorMode) {
+        setSelectedForCalculator(new Set());
+      }
+      setInvoiceMode(true);
     }
-    setInvoiceMode(!invoiceMode);
     setAdminMode(false); // Disable admin mode when enabling invoice
-    setCalculatorMode(false); // Disable calculator mode when enabling invoice
   };
 
   const toggleCalculatorMode = () => {
     if (calculatorMode) {
       setSelectedForCalculator(new Set());
+      setCalculatorMode(false);
+    } else {
+      // Close other modes when opening calculator
+      setInvoiceMode(false);
+      setTaxYearMode(false);
+      if (invoiceMode) {
+        setSelectedForInvoice(new Set());
+      }
+      setCalculatorMode(true);
     }
-    setCalculatorMode(!calculatorMode);
     setAdminMode(false); // Disable admin mode when enabling calculator
-    setInvoiceMode(false); // Disable invoice mode when enabling calculator
+  };
+
+  const toggleTaxYearMode = () => {
+    if (taxYearMode) {
+      setTaxYearMode(false);
+    } else {
+      // Close other modes when opening tax year
+      setInvoiceMode(false);
+      setCalculatorMode(false);
+      if (invoiceMode) {
+        setSelectedForInvoice(new Set());
+      }
+      if (calculatorMode) {
+        setSelectedForCalculator(new Set());
+      }
+      setTaxYearMode(true);
+    }
   };
 
   // Calculator mode
@@ -398,7 +466,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
 
-  const formatDate = (dateString) => {
+  // Memoized date formatter
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', {
@@ -406,7 +475,56 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       month: '2-digit',
       year: 'numeric'
     });
+  }, []);
+
+  // Get UK tax year from a date (tax year runs from 6 April to 5 April)
+  const getTaxYear = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11
+    const day = date.getDate();
+    
+    // If date is on or after 6 April, it's in the tax year starting that year
+    // Otherwise, it's in the tax year starting the previous year
+    if (month > 4 || (month === 4 && day >= 6)) {
+      return `${year}-${(year + 1).toString().slice(-2)}`;
+    } else {
+      return `${year - 1}-${year.toString().slice(-2)}`;
+    }
   };
+
+  // Get available tax years from appointments
+  const availableTaxYears = useMemo(() => {
+    const taxYears = new Set();
+    appointments.forEach(apt => {
+      const taxYear = getTaxYear(apt.date);
+      if (taxYear) taxYears.add(taxYear);
+    });
+    return Array.from(taxYears).sort().reverse(); // Most recent first
+  }, [appointments]);
+
+  // Initialize selected tax years with the most recent one when appointments are loaded
+  useEffect(() => {
+    if (!taxYearInitialized && availableTaxYears.length > 0 && appointments.length > 0) {
+      const mostRecentTaxYear = availableTaxYears[0]; // First one is most recent
+      setSelectedTaxYears(new Set([mostRecentTaxYear]));
+      setTaxYearInitialized(true);
+    }
+  }, [availableTaxYears, appointments.length, taxYearInitialized]);
+
+  // Get current tax year
+  const currentTaxYear = useMemo(() => {
+    return getTaxYear(new Date().toISOString().split('T')[0]);
+  }, []);
+
+  // Get previous tax year
+  const previousTaxYear = useMemo(() => {
+    if (!currentTaxYear) return null;
+    const [startYear] = currentTaxYear.split('-');
+    const prevStart = parseInt(startYear) - 1;
+    return `${prevStart}-${startYear.slice(-2)}`;
+  }, [currentTaxYear]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-GB', {
@@ -485,6 +603,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [adminMode]);
 
+
   // Handle column sorting
   const handleSort = (column) => {
     let direction = 'asc';
@@ -526,6 +645,12 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Filter appointments based on filter state
   const filteredAppointments = useMemo(() => {
     let filtered = appointments.filter(apt => {
+      // Tax year filter - if tax years are selected, filter by them
+      if (selectedTaxYears.size > 0) {
+        const aptTaxYear = getTaxYear(apt.date);
+        if (!selectedTaxYears.has(aptTaxYear)) return false;
+      }
+
       // ID filter
       if (filters.id && apt.id.toString() !== filters.id) return false;
       
@@ -580,7 +705,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     filtered = sortData(filtered, sortColumn, sortDirection);
 
     return filtered;
-  }, [appointments, filters, sortConfig]);
+  }, [appointments, filters, sortConfig, selectedTaxYears]);
 
   // Calculate totals for selected appointments (must be after filteredAppointments)
   const calculateTotals = useMemo(() => {
@@ -594,6 +719,221 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       .reduce((sum, apt) => sum + (parseFloat(apt.price) || 0), 0);
     return { total, paid, unpaid };
   }, [filteredAppointments, selectedForCalculator]);
+
+  // Throttle scroll handler for better performance
+  const scrollTimeoutRef = useRef(null);
+  const handleScroll = useCallback((e) => {
+    if (scrollTimeoutRef.current) {
+      return; // Skip if already scheduled
+    }
+    scrollTimeoutRef.current = requestAnimationFrame(() => {
+      const container = e.target;
+      const isAtTop = container.scrollTop === 0;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
+      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+      scrollTimeoutRef.current = null;
+    });
+  }, []);
+
+  // Initialize scroll position on mount and when filtered appointments change
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      const container = tableContainerRef.current;
+      const isAtTop = container.scrollTop === 0;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 1;
+      setScrollPosition({ top: isAtTop, bottom: isAtBottom });
+    }
+  }, [filteredAppointments]);
+
+  // Sync header table width with body table (accounting for scrollbar)
+  useEffect(() => {
+    const syncTableWidths = () => {
+      if (tableContainerRef.current && headerTableRef.current) {
+        const bodyTable = tableContainerRef.current.querySelector('table');
+        const headerTable = headerTableRef.current;
+        const bodyContainer = tableContainerRef.current;
+        
+        if (bodyTable && headerTable && bodyContainer) {
+          // Get the table-wrapper element (parent of headerTable)
+          const tableWrapper = headerTable.parentElement;
+          
+          if (!tableWrapper) return;
+          
+          // Calculate scrollbar width
+          const scrollbarWidth = bodyContainer.offsetWidth - bodyContainer.clientWidth;
+          
+          // Get the main header row (first tr in thead, not the filter row)
+          const mainHeaderRow = headerTable.querySelector('thead tr:first-child');
+          const bodyFirstRow = bodyTable.querySelector('tbody tr:first-child');
+          
+          if (mainHeaderRow && bodyFirstRow) {
+            const headerCells = mainHeaderRow.querySelectorAll('th');
+            const bodyCells = bodyFirstRow.querySelectorAll('td');
+            
+            // Only sync if we have matching column counts
+            if (headerCells.length === bodyCells.length) {
+              // Get the table-wrapper's width (this is the actual available width)
+              const tableWrapperWidth = tableWrapper.offsetWidth;
+              
+              // Calculate total width needed based on columnWidths state
+              // Account for invoice/calculator checkbox column if present
+              let totalWidth = 0;
+              const columnWidthArray = [];
+              
+              // Build array of column widths in order
+              if (invoiceMode || calculatorMode) {
+                columnWidthArray.push(60); // Checkbox column (increased for selection number)
+              }
+              columnWidthArray.push(
+                columnWidths.id,
+                columnWidths.date,
+                columnWidths.client_name,
+                columnWidths.service,
+                columnWidths.type,
+                columnWidths.location,
+                columnWidths.price,
+                columnWidths.distance,
+                columnWidths.paid,
+                columnWidths.payment_date
+              );
+              if (adminMode) {
+                columnWidthArray.push(columnWidths.actions);
+              }
+              
+              // Calculate total
+              columnWidthArray.forEach(w => totalWidth += w);
+              
+              // Set table width to table-wrapper width to fill available space
+              const tableWidth = tableWrapperWidth;
+              
+              // Set both tables to container width
+              headerTable.style.width = `${tableWidth}px`;
+              headerTable.style.minWidth = `${tableWidth}px`;
+              headerTable.style.maxWidth = `${tableWidth}px`;
+              bodyTable.style.width = `${tableWidth}px`;
+              bodyTable.style.minWidth = `${tableWidth}px`;
+              bodyTable.style.maxWidth = `${tableWidth}px`;
+              
+              // Calculate remaining space
+              const remainingSpace = tableWidth - totalWidth;
+              
+              // Find indices of Client Name, Service, and Location columns
+              // These are the columns that should expand to fill remaining space
+              let clientNameIndex = -1;
+              let serviceIndex = -1;
+              let locationIndex = -1;
+              
+              // Account for checkbox column offset if present
+              const checkboxOffset = (invoiceMode || calculatorMode) ? 1 : 0;
+              clientNameIndex = 2 + checkboxOffset; // ID, Date, then Client Name
+              serviceIndex = 3 + checkboxOffset;    // ID, Date, Client Name, then Service
+              locationIndex = 5 + checkboxOffset;   // ID, Date, Client Name, Service, Type, then Location
+              
+              // Distribute remaining space equally among the three columns
+              const spacePerColumn = remainingSpace > 0 ? Math.floor(remainingSpace / 3) : 0;
+              
+              // Apply exact widths from columnWidthArray to all cells
+              // Client Name, Service, and Location get additional space
+              headerCells.forEach((headerCell, index) => {
+                if (columnWidthArray[index] !== undefined) {
+                  let width = columnWidthArray[index];
+                  // Add space to Client Name, Service, or Location columns
+                  if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                    width += spacePerColumn;
+                  }
+                  headerCell.style.width = `${width}px`;
+                  headerCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
+                  headerCell.style.maxWidth = `${width}px`;
+                }
+              });
+              
+              bodyCells.forEach((bodyCell, index) => {
+                if (columnWidthArray[index] !== undefined) {
+                  let width = columnWidthArray[index];
+                  // Add space to Client Name, Service, or Location columns
+                  if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                    width += spacePerColumn;
+                  }
+                  bodyCell.style.width = `${width}px`;
+                  bodyCell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
+                  bodyCell.style.maxWidth = `${width}px`;
+                }
+              });
+              
+              // Apply widths to all body rows
+              const allBodyRows = bodyTable.querySelectorAll('tbody tr');
+              allBodyRows.forEach((row) => {
+                const rowCells = row.querySelectorAll('td');
+                rowCells.forEach((cell, index) => {
+                  if (columnWidthArray[index] !== undefined) {
+                    let width = columnWidthArray[index];
+                    // Add space to Client Name, Service, or Location columns
+                    if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                      width += spacePerColumn;
+                    }
+                    cell.style.width = `${width}px`;
+                    cell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
+                    cell.style.maxWidth = `${width}px`;
+                  }
+                });
+              });
+              
+              // Apply widths to all header rows (including filter row)
+              const allHeaderRows = headerTable.querySelectorAll('thead tr');
+              allHeaderRows.forEach((row, rowIndex) => {
+                const rowCells = row.querySelectorAll('th');
+                rowCells.forEach((cell, index) => {
+                  if (columnWidthArray[index] !== undefined) {
+                    let width = columnWidthArray[index];
+                    // Add space to Client Name, Service, or Location columns
+                    if (index === clientNameIndex || index === serviceIndex || index === locationIndex) {
+                      width += spacePerColumn;
+                    }
+                    cell.style.width = `${width}px`;
+                    cell.style.minWidth = `${columnWidthArray[index]}px`; // Min is the original width
+                    cell.style.maxWidth = `${width}px`;
+                  }
+                });
+              });
+              
+              // Also sync the filter row's admin mode cell if it exists
+              const filterRow = headerTable.querySelector('thead tr:last-child');
+              if (filterRow && adminMode) {
+                const filterAdminCell = filterRow.querySelector('th:last-child');
+                if (filterAdminCell) {
+                  const mainHeaderAdminCell = mainHeaderRow.querySelector('th:last-child');
+                  if (mainHeaderAdminCell) {
+                    const adminWidth = mainHeaderAdminCell.offsetWidth;
+                    filterAdminCell.style.width = `${adminWidth}px`;
+                    filterAdminCell.style.minWidth = `${adminWidth}px`;
+                    filterAdminCell.style.maxWidth = `${adminWidth}px`;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    // Sync on mount and when admin mode changes
+    syncTableWidths();
+    
+    // Also sync on window resize
+    window.addEventListener('resize', syncTableWidths);
+    
+    // Use multiple delays to ensure DOM is fully updated
+    const timeoutId = setTimeout(syncTableWidths, 50);
+    const timeoutId2 = setTimeout(syncTableWidths, 150);
+    const timeoutId3 = setTimeout(syncTableWidths, 300);
+    
+    return () => {
+      window.removeEventListener('resize', syncTableWidths);
+      clearTimeout(timeoutId);
+      clearTimeout(timeoutId2);
+      clearTimeout(timeoutId3);
+    };
+  }, [adminMode, filteredAppointments.length, columnWidths, invoiceMode, calculatorMode]);
 
   // Update handleSelectAllCalculator to use filteredAppointments
   const handleSelectAllCalculator = () => {
@@ -639,15 +979,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   return (
     <div className="appointments-list">
       <div className="appointments-header">
-        <h2>Appointments</h2>
+        <div className="header-title-section">
+          <div className="title-group">
+            <h2>Appointments</h2>
+            <p className="appointment-count-text">Showing {filteredAppointments.length} of {appointments.length} appointments</p>
+          </div>
+        </div>
         <div className="header-actions">
-          <button 
-            onClick={toggleAdminMode} 
-            className={`admin-btn ${adminMode ? 'active' : ''}`}
-            title="Toggle admin editing mode"
-          >
-            <FaEdit /> {adminMode ? 'Exit Admin' : 'Admin'}
-          </button>
           <button 
             onClick={toggleInvoiceMode} 
             className={`invoice-btn ${invoiceMode ? 'active' : ''}`}
@@ -662,14 +1000,29 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
           >
             <FaCalculator /> {calculatorMode ? 'Exit Calculator' : 'Calculator'}
           </button>
+          <button 
+            onClick={toggleAdminMode} 
+            className={`admin-btn ${adminMode ? 'active' : ''}`}
+            title="Toggle admin editing mode"
+          >
+            <FaWrench /> {adminMode ? 'Exit Admin' : 'Admin'}
+          </button>
+          <button onClick={fetchAppointments} className="refresh-btn" title="Refresh">
+            <FaSync />
+          </button>
+          <div className="nav-divider"></div>
+          <button 
+            onClick={toggleTaxYearMode} 
+            className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
+            title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
+          >
+            <FaCalendarAlt /> {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
+          </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="clear-filters-btn">
-              Clear Filters
+              <FaTimes /> Clear Filters
             </button>
           )}
-          <button onClick={fetchAppointments} className="refresh-btn">
-            Refresh
-          </button>
         </div>
       </div>
 
@@ -677,18 +1030,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         <div className="invoice-controls">
           <div className="invoice-selection-info">
             <button onClick={handleSelectAllInvoices} className="select-all-btn">
-              <FaCheck /> {selectedForInvoice.size === filteredAppointments.length ? 'Deselect All' : 'Select All'}
+              <FaCheck /> {selectedForInvoice.length === filteredAppointments.length ? 'Deselect All' : 'Select All'}
             </button>
             <span className="selection-count">
-              {selectedForInvoice.size} appointment{selectedForInvoice.size !== 1 ? 's' : ''} selected
+              {selectedForInvoice.length} appointment{selectedForInvoice.length !== 1 ? 's' : ''} selected
             </span>
           </div>
           <button 
             onClick={handleCreateInvoice} 
             className="create-invoice-btn"
-            disabled={selectedForInvoice.size === 0}
+            disabled={selectedForInvoice.length === 0}
           >
-            <FaFileInvoice /> Create Invoice ({selectedForInvoice.size})
+            <FaFileInvoice /> Create Invoice ({selectedForInvoice.length})
           </button>
         </div>
       )}
@@ -720,35 +1073,72 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         </div>
       )}
 
+      {taxYearMode && (
+        <div className="tax-year-controls">
+          <div className="tax-year-selection-info">
+            <div className="tax-year-checkboxes">
+              {availableTaxYears.map(taxYear => (
+                <button
+                  key={taxYear}
+                  type="button"
+                  className={`tax-year-checkbox-btn ${selectedTaxYears.has(taxYear) ? 'selected' : ''}`}
+                  onClick={() => {
+                    const newSet = new Set(selectedTaxYears);
+                    if (selectedTaxYears.has(taxYear)) {
+                      newSet.delete(taxYear);
+                    } else {
+                      newSet.add(taxYear);
+                    }
+                    setSelectedTaxYears(newSet);
+                  }}
+                >
+                  {selectedTaxYears.has(taxYear) ? <FaCheck /> : <FaSquare />} {taxYear}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => {
+                if (selectedTaxYears.size === availableTaxYears.length) {
+                  setSelectedTaxYears(new Set());
+                } else {
+                  setSelectedTaxYears(new Set(availableTaxYears));
+                }
+              }}
+              className="select-all-tax-years-btn"
+            >
+              {selectedTaxYears.size === availableTaxYears.length ? <FaCheck /> : <FaSquare />} {selectedTaxYears.size === availableTaxYears.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {appointments.length === 0 ? (
         <div className="no-appointments">No appointments found</div>
       ) : (
         <div className="table-container">
-          <div className="filter-info">
-            Showing {filteredAppointments.length} of {appointments.length} appointments
-          </div>
-          <table>
-            <thead>
-              <tr>
-                {(invoiceMode || calculatorMode) && <th className="invoice-select-header">
-                  <input
-                    type="checkbox"
-                    checked={(invoiceMode ? selectedForInvoice.size : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
-                    onChange={invoiceMode ? handleSelectAllInvoices : handleSelectAllCalculator}
-                    className="select-all-checkbox"
-                  />
-                </th>}
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('id')}
-                  style={{ width: columnWidths.id, position: 'relative' }}
-                >
-                  ID {sortConfig.column === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'id')}
-                  ></div>
-                </th>
+          <div className="table-wrapper">
+            <table ref={headerTableRef}>
+              <thead>
+                <tr>
+                  {(invoiceMode || calculatorMode) && <th className="invoice-select-header">
+                    <input
+                      type="checkbox"
+                      checked={(invoiceMode ? selectedForInvoice.length : selectedForCalculator.size) === filteredAppointments.length && filteredAppointments.length > 0}
+                      onChange={invoiceMode ? handleSelectAllInvoices : handleSelectAllCalculator}
+                      className="select-all-checkbox"
+                    />
+                  </th>}
+                  <th 
+                    className="sortable resizable" 
+                    onClick={() => handleSort('id')}
+                    style={{ width: columnWidths.id, position: 'relative' }}
+                  >
+                    ID {sortConfig.column === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'id')}
+                    ></div>
+                  </th>
                 <th 
                   className="sortable resizable" 
                   onClick={() => handleSort('date')}
@@ -961,25 +1351,39 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     className="filter-input"
                   />
                 </th>
-                {adminMode && <th></th>}
+                {adminMode && <th style={{ width: columnWidths.actions }}></th>}
               </tr>
             </thead>
-            <tbody>
+          </table>
+          <div 
+            className="tbody-scroll-container" 
+            ref={tableContainerRef}
+            onScroll={handleScroll}
+          >
+            <table>
+              <tbody>
               {filteredAppointments.map((apt) => {
                 const isEditing = editingCell?.rowId === apt.id;
                 const hasChanges = editValues[apt.id] && Object.keys(editValues[apt.id]).length > 0;
                 const isNew = newAppointmentIdsSet.has(apt.id);
                 
                 return (
-                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.has(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
+                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
                     {(invoiceMode || calculatorMode) && (
                       <td className="invoice-select-cell">
-                        <input
-                          type="checkbox"
-                          checked={invoiceMode ? selectedForInvoice.has(apt.id) : selectedForCalculator.has(apt.id)}
-                          onChange={() => invoiceMode ? handleInvoiceToggle(apt.id) : handleCalculatorToggle(apt.id)}
-                          className="invoice-checkbox"
-                        />
+                        <div className="checkbox-wrapper">
+                          <input
+                            type="checkbox"
+                            checked={invoiceMode ? selectedForInvoice.includes(apt.id) : selectedForCalculator.has(apt.id)}
+                            onChange={() => invoiceMode ? handleInvoiceToggle(apt.id) : handleCalculatorToggle(apt.id)}
+                            className="invoice-checkbox"
+                          />
+                          {invoiceMode && selectedForInvoice.includes(apt.id) && (
+                            <span className="selection-number">
+                              {selectedForInvoice.indexOf(apt.id) + 1}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     )}
                     <td style={{ width: columnWidths.id }} className={`id-cell ${isNew ? 'new-id' : ''}`}>
@@ -1154,7 +1558,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     <td style={{ width: columnWidths.paid }}>
                       <button
                         className={`paid-toggle ${apt.paid ? 'paid' : 'unpaid'}`}
-                        onClick={() => handleTogglePaid(apt.id, apt.paid)}
+                        onClick={(e) => handleTogglePaid(apt.id, apt.paid, e)}
                       >
                         {apt.paid ? '✓ Paid' : 'Unpaid'}
                       </button>
@@ -1192,11 +1596,38 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-          {filteredAppointments.length === 0 && appointments.length > 0 && (
-            <div className="no-results">No appointments match the current filters</div>
-          )}
+              </tbody>
+            </table>
+            {filteredAppointments.length === 0 && appointments.length > 0 && (
+              <div className="no-results">No appointments match the current filters</div>
+            )}
+          </div>
+          {/* Scroll to top/bottom buttons */}
+          <div className="scroll-buttons">
+            <button
+              className="scroll-btn scroll-to-top"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to top"
+            >
+              <FaArrowUp />
+            </button>
+            <button
+              className="scroll-btn scroll-to-bottom"
+              onClick={() => {
+                if (tableContainerRef.current) {
+                  tableContainerRef.current.scrollTo({ top: tableContainerRef.current.scrollHeight, behavior: 'smooth' });
+                }
+              }}
+              title="Scroll to bottom"
+            >
+              <FaArrowDown />
+            </button>
+          </div>
+          </div>
         </div>
       )}
     </div>

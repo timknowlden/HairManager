@@ -1,29 +1,58 @@
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import { authenticateToken } from '../middleware/auth.js';
+import { checkAppointmentLimit } from '../middleware/subscriptionLimits.js';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
 
-// Get all appointments for the logged-in user
+// Get all appointments for the logged-in user (with optional pagination)
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
+  const limit = parseInt(req.query.limit) || null;
+  const offset = parseInt(req.query.offset) || 0;
   
-  db.all(
-    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id DESC',
-    [userId],
-    (err, rows) => {
-      if (err) {
-        console.error('Error fetching appointments:', err);
-        res.status(500).json({ error: err.message });
-        return;
-      }
+  const startTime = Date.now();
+  let query = 'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC';
+  const params = [userId];
+  
+  if (limit !== null) {
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+  }
+  
+  db.all(query, params, (err, rows) => {
+    const queryTime = Date.now() - startTime;
+    console.log(`[Appointments Query] Fetched ${rows?.length || 0} appointments in ${queryTime}ms`);
+    
+    if (err) {
+      console.error('Error fetching appointments:', err);
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    // If pagination is used, also get total count
+    if (limit !== null) {
+      db.get('SELECT COUNT(*) as total FROM appointments WHERE user_id = ?', [userId], (countErr, countRow) => {
+        if (countErr) {
+          console.error('Error fetching appointment count:', countErr);
+          res.json(rows); // Return rows even if count fails
+          return;
+        }
+        res.json({
+          appointments: rows,
+          total: countRow.total,
+          limit: limit,
+          offset: offset
+        });
+      });
+    } else {
       res.json(rows);
     }
-  );
+  });
 });
 
 // Test route to verify PUT is working
@@ -164,7 +193,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Create multiple appointments (batch entry)
-router.post('/batch', (req, res) => {
+router.post('/batch', checkAppointmentLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const { location, date, appointments } = req.body;
@@ -186,92 +215,151 @@ router.post('/batch', (req, res) => {
       }
 
       const distance = locationRow ? locationRow.distance : null;
-      const insertedAppointments = [];
-      let completed = 0;
-      let hasError = false;
+      
+      // Check if there are already appointments for this location/date combination
+      // Only the first appointment (by ID) for a location/date should have distance
+      db.all(
+        'SELECT id, distance FROM appointments WHERE location = ? AND date = ? AND user_id = ? ORDER BY id ASC',
+        [location, date, userId],
+        (checkErr, existingAppointments) => {
+          if (checkErr) {
+            console.error('Error checking existing appointments:', checkErr);
+            res.status(500).json({ error: checkErr.message });
+            return;
+          }
 
-      appointments.forEach((apt, index) => {
-        const { client_name, service } = apt;
-
-        // Lookup service details - must belong to user
-        db.get(
-          'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
-          [service, userId],
-          (serviceErr, serviceRow) => {
-            if (hasError) return;
-
-            if (serviceErr) {
-              console.error('Error fetching service:', serviceErr);
-              if (!hasError) {
-                hasError = true;
-                res.status(500).json({ error: serviceErr.message });
-              }
-              return;
-            }
-
-            if (!serviceRow) {
-              if (!hasError) {
-                hasError = true;
-                res.status(400).json({ error: `Service "${service}" not found` });
-              }
-              return;
-            }
-
-            // Only add distance to the first appointment
-            const appointmentDistance = index === 0 ? distance : null;
-
-            // Insert appointment with user_id
+          // Find if any existing appointment has distance
+          const hasExistingDistance = existingAppointments && existingAppointments.some(apt => apt.distance !== null && apt.distance !== undefined);
+          
+          // If there are existing appointments but none have distance, update the first one
+          if (existingAppointments && existingAppointments.length > 0 && !hasExistingDistance && distance !== null) {
+            const firstAppointmentId = existingAppointments[0].id;
             db.run(
-              `INSERT INTO appointments 
-               (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL)`,
-              [
-                userId,
-                client_name,
-                service,
-                serviceRow.type,
-                date,
-                location,
-                serviceRow.price,
-                appointmentDistance
-              ],
-              function(insertErr) {
-                if (hasError) return;
-
-                if (insertErr) {
-                  console.error('Error inserting appointment:', insertErr);
-                  if (!hasError) {
-                    hasError = true;
-                    res.status(500).json({ error: insertErr.message });
-                  }
-                  return;
-                }
-
-                insertedAppointments.push({
-                  id: this.lastID,
-                  client_name,
-                  service,
-                  type: serviceRow.type,
-                  date,
-                  location,
-                  price: serviceRow.price,
-                  paid: 0,
-                  distance: appointmentDistance,
-                  payment_date: null
-                });
-
-                completed++;
-                if (completed === appointments.length) {
-                  res.status(201).json({
-                    message: `Successfully created ${insertedAppointments.length} appointments`,
-                    appointments: insertedAppointments
-                  });
+              'UPDATE appointments SET distance = ? WHERE id = ? AND user_id = ?',
+              [distance, firstAppointmentId, userId],
+              (updateErr) => {
+                if (updateErr) {
+                  console.error('Error updating existing appointment distance:', updateErr);
+                  // Continue anyway, don't fail the request
                 }
               }
             );
           }
-        );
-      });
+
+          const insertedAppointments = [];
+          let hasError = false;
+
+          // Process appointments sequentially to preserve order
+          const processAppointment = (index) => {
+            if (hasError || index >= appointments.length) {
+              if (index === appointments.length && !hasError) {
+                res.status(201).json({
+                  message: `Successfully created ${insertedAppointments.length} appointments`,
+                  appointments: insertedAppointments
+                });
+              }
+              return;
+            }
+
+            const apt = appointments[index];
+            const { client_name, service, type: aptType, price: aptPrice, paid: aptPaid, distance: aptDistance, payment_date: aptPaymentDate } = apt;
+
+            // Lookup service details - must belong to user (unless type and price are provided)
+            db.get(
+              'SELECT type, price FROM services WHERE service_name = ? AND user_id = ?',
+              [service, userId],
+              (serviceErr, serviceRow) => {
+                if (hasError) return;
+
+                // If service not found and no type/price provided, error
+                if (serviceErr) {
+                  console.error('Error fetching service:', serviceErr);
+                  if (!hasError) {
+                    hasError = true;
+                    res.status(500).json({ error: serviceErr.message });
+                  }
+                  return;
+                }
+
+                if (!serviceRow && (!aptType || aptPrice === null || aptPrice === undefined)) {
+                  if (!hasError) {
+                    hasError = true;
+                    res.status(400).json({ error: `Service "${service}" not found. Provide type and price in CSV if service doesn't exist.` });
+                  }
+                  return;
+                }
+
+                // Use provided values or fall back to service lookup
+                const finalType = aptType || (serviceRow ? serviceRow.type : 'Hair');
+                const finalPrice = (aptPrice !== null && aptPrice !== undefined) ? aptPrice : (serviceRow ? serviceRow.price : 0);
+                const finalPaid = (aptPaid !== null && aptPaid !== undefined) ? aptPaid : 0;
+                const finalPaymentDate = aptPaymentDate || null;
+
+                // Distance handling: use provided distance, or location distance, or null
+                // Only add location distance to the first appointment if no existing appointment has distance for this location/date
+                let appointmentDistance = null;
+                if (aptDistance !== null && aptDistance !== undefined) {
+                  // Use provided distance
+                  appointmentDistance = aptDistance;
+                } else if (!hasExistingDistance && existingAppointments.length === 0 && index === 0 && distance !== null) {
+                  // Use location distance for first appointment if no existing distance
+                  appointmentDistance = distance;
+                }
+
+                // Insert appointment with user_id
+                db.run(
+                  `INSERT INTO appointments 
+                   (user_id, client_name, service, type, date, location, price, paid, distance, payment_date)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [
+                    userId,
+                    client_name,
+                    service,
+                    finalType,
+                    date,
+                    location,
+                    finalPrice,
+                    finalPaid,
+                    appointmentDistance,
+                    finalPaymentDate
+                  ],
+                  function(insertErr) {
+                    if (hasError) return;
+
+                    if (insertErr) {
+                      console.error('Error inserting appointment:', insertErr);
+                      if (!hasError) {
+                        hasError = true;
+                        res.status(500).json({ error: insertErr.message });
+                      }
+                      return;
+                    }
+
+                    insertedAppointments.push({
+                      id: this.lastID,
+                      client_name,
+                      service,
+                      type: finalType,
+                      date,
+                      location,
+                      price: finalPrice,
+                      paid: finalPaid,
+                      distance: appointmentDistance,
+                      payment_date: finalPaymentDate
+                    });
+
+                    // Process next appointment
+                    processAppointment(index + 1);
+                  }
+                );
+              }
+            );
+          };
+
+          // Start processing from index 0
+          processAppointment(0);
+        }
+      );
     }
   );
 });
@@ -370,6 +458,128 @@ router.delete('/:id', (req, res) => {
       res.json({ message: 'Appointment deleted successfully' });
     }
   );
+});
+
+// Export appointments as CSV
+router.get('/export/csv', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  
+  db.all(
+    'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC',
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Error fetching appointments:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // CSV header
+      const headers = ['date', 'client_name', 'service', 'type', 'location', 'price', 'paid', 'distance', 'payment_date'];
+      let csv = headers.join(',') + '\n';
+      
+      // CSV rows
+      rows.forEach(row => {
+        const values = [
+          row.date || '',
+          `"${(row.client_name || '').replace(/"/g, '""')}"`,
+          `"${(row.service || '').replace(/"/g, '""')}"`,
+          `"${(row.type || '').replace(/"/g, '""')}"`,
+          `"${(row.location || '').replace(/"/g, '""')}"`,
+          row.price || 0,
+          row.paid || 0,
+          row.distance || '',
+          row.payment_date || ''
+        ];
+        csv += values.join(',') + '\n';
+      });
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="appointments-export-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csv);
+    }
+  );
+});
+
+// Bulk delete all appointments
+router.delete('/bulk/all', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.run(
+    'DELETE FROM appointments WHERE user_id = ?',
+    [userId],
+    function(err) {
+      if (err) {
+        console.error('Error deleting appointments:', err);
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // Reset the sequence to 0 so new appointments start at ID 1
+      db.run("DELETE FROM sqlite_sequence WHERE name = 'appointments'", (seqErr) => {
+        if (seqErr) {
+          console.error('Error resetting sequence:', seqErr);
+          // Don't fail the request if sequence reset fails
+        }
+        res.json({ 
+          message: `Successfully deleted ${this.changes} appointments`,
+          sequenceReset: !seqErr
+        });
+      });
+    }
+  );
+});
+
+// Reset appointments ID sequence
+router.post('/reset-sequence', (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const userId = req.userId;
+
+    if (!db) {
+      console.error('Database not available');
+      return res.status(500).json({ error: 'Database connection not available' });
+    }
+
+    // Check if there are any appointments
+    db.get(
+      'SELECT COUNT(*) as count FROM appointments WHERE user_id = ?',
+      [userId],
+      (err, row) => {
+        if (err) {
+          console.error('Error checking appointments:', err);
+          return res.status(500).json({ error: err.message });
+        }
+
+        if (!row) {
+          console.error('No row returned from count query');
+          return res.status(500).json({ error: 'Database query failed' });
+        }
+
+        if (row.count > 0) {
+          return res.status(400).json({ 
+            error: 'Cannot reset sequence while appointments exist. Delete all appointments first.' 
+          });
+        }
+
+        // Reset the sequence to 0
+        db.run("DELETE FROM sqlite_sequence WHERE name = 'appointments'", (seqErr) => {
+          if (seqErr) {
+            console.error('Error resetting sequence:', seqErr);
+            return res.status(500).json({ error: seqErr.message });
+          }
+          res.json({ 
+            message: 'Appointments ID sequence reset successfully. New appointments will start at ID 1.'
+          });
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Unexpected error in reset-sequence:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;

@@ -55,36 +55,72 @@ This option builds the image locally in ZimaOS (slower but no Docker Hub needed)
 
 ## Quick Import Steps (Option 1 - Recommended)
 
-1. **Prepare your files on ZimaOS**:
-   - Copy the entire HairManager project folder to your ZimaOS server
-   - Or clone it: `git clone https://github.com/timknowlden/HairManager.git`
-   - Navigate to the folder: `cd HairManager`
+### Step 1: Verify the image is available
 
-2. **Create the data directory** (if it doesn't exist):
+**For GitHub Container Registry (Recommended):**
+- Check: https://github.com/timknowlden/HairManager/pkgs/container/hairmanager
+- If it's private, make it public:
+  - Click "Package settings" (gear icon)
+  - Scroll to "Danger Zone"
+  - Click "Change visibility" → "Public"
+
+**For Docker Hub (if you configured secrets):**
+- Check: https://hub.docker.com/r/timknowlden/hairmanager
+- Make sure it's public (Docker Hub free tier allows 1 private repo)
+
+### Step 2: Import into ZimaOS
+
+1. **Open ZimaOS Docker management interface**
+
+2. **Click "Import"** (or the import button)
+
+3. **Select the "Docker Compose" tab**
+
+4. **Choose your compose file:**
+   - **For GitHub Container Registry** (recommended): Use `docker-compose.image.ghcr.yml`
+   - **For Docker Hub**: Use `docker-compose.image.yml`
+   
+   Upload or drag-and-drop the file
+
+5. **Click "Submit"**
+
+   ZimaOS will:
+   - Pull the pre-built image from the registry
+   - Create the container
+   - Set up port 3001
+   - Mount the data volume for database persistence
+
+### Step 3: Create data directory (if needed)
+
+If the container fails to start due to missing data directory:
+
+1. **SSH into your ZimaOS server** (or use terminal in ZimaOS)
+2. **Navigate to where ZimaOS stores Docker volumes** (usually `/var/lib/docker/volumes/` or similar)
+3. **Create the data directory:**
    ```bash
+   mkdir -p /path/to/hairmanager/data
+   chmod 755 /path/to/hairmanager/data
+   ```
+
+   Or, if you're using bind mounts, create it in the project directory:
+   ```bash
+   cd /path/to/HairManager
    mkdir -p data
+   chmod 755 data
    ```
 
-3. **Copy your database** (if you have one):
-   ```bash
-   cp hairmanager.db data/hairmanager.db
-   ```
+### Step 4: Access the application
 
-4. **Import the Docker Compose file in ZimaOS**:
-   - Open ZimaOS Docker management interface
-   - Click "Import" or the import button
-   - Select the "Docker Compose" tab
-   - Upload or drag-and-drop the `docker-compose.yml` file
-   - Click "Submit"
+Once the container is running:
+- Open: `http://your-zimaos-ip:3001`
+- Or use the ZimaOS web UI link if configured
 
-5. **Configure in ZimaOS** (if needed):
-   - The application will be imported as "hairmanager"
-   - You can customize the title, icon, and other settings in the ZimaOS interface
-   - The port 3001 will be automatically configured
+### Step 5: First-time setup
 
-6. **Access the application**:
-   - Open your browser and navigate to: `http://your-zimaos-ip:3001`
-   - Or use the ZimaOS web UI link if configured
+1. **Register a new user account** (or use existing credentials if you imported a database)
+2. **Configure your profile settings**
+3. **Set up SendGrid email settings** (if you want to use email invoices)
+4. **Start using HairManager!**
 
 ## Important Notes
 
