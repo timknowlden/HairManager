@@ -2,16 +2,19 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: var(--space-xl) var(--space-lg);
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  color: var(--color-text-primary);
 }
 
 .services-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  background: var(--color-bg-primary);
+  padding: 24px 28px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .header-actions {
@@ -115,7 +118,10 @@ th.resizable:hover .resize-handle {
 
 .services-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--color-text-primary);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .header-buttons {
@@ -161,16 +167,19 @@ th.resizable:hover .resize-handle {
 }
 
 .service-form-container {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  background: var(--color-bg-primary);
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 24px;
+  border: 1px solid var(--color-border);
 }
 
 .service-form-container h3 {
   margin-top: 0;
-  color: #333;
+  color: var(--color-text-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
 }
 
 .service-form {
@@ -263,10 +272,11 @@ th.resizable:hover .resize-handle {
 }
 
 .services-table-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   overflow-x: auto;
+  border: 1px solid var(--color-border);
 }
 
 table {
@@ -275,26 +285,33 @@ table {
 }
 
 thead {
-  background: #f5f5f5;
+  background: var(--color-bg-secondary);
 }
 
 th {
-  padding: 12px;
+  padding: 14px 16px;
   text-align: left;
-  font-weight: 600;
-  color: #555;
-  border-bottom: 2px solid #ddd;
-  font-size: 14px;
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 td {
-  padding: 12px;
-  border-bottom: 1px solid #eee;
-  font-size: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+}
+
+tbody tr {
+  transition: background-color var(--transition-fast);
 }
 
 tbody tr:hover {
-  background: #f9f9f9;
+  background: var(--color-bg-secondary);
 }
 
 .edit-btn,

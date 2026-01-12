@@ -9,33 +9,39 @@
 .my-plan-page .error {
   text-align: center;
   padding: 60px;
-  color: #6b7280;
-  font-size: 15px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
 }
 
 /* Header */
 .my-plan-page .plan-header {
   margin-bottom: 32px;
+  background: var(--color-bg-primary);
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .my-plan-page .plan-title-section h2 {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
   margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
 }
 
 .my-plan-page .plan-title-section .crown {
-  color: #f59e0b;
+  color: var(--color-accent);
 }
 
 .my-plan-page .plan-title-section p {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 /* Current Plan Card */

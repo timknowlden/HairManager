@@ -8,20 +8,25 @@
 /* Header */
 .super-admin-manager .super-admin-header {
   margin-bottom: 32px;
+  background: var(--color-bg-primary);
+  padding: 28px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .super-admin-manager .super-admin-header h2 {
-  margin: 0 0 6px 0;
-  color: #1a1a2e;
+  margin: 0 0 8px 0;
+  color: var(--color-text-primary);
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 
 .super-admin-manager .admin-subtitle {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 /* Admin Tabs */
