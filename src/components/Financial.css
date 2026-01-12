@@ -352,16 +352,20 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   background-color: var(--color-primary);
   border-radius: var(--radius-sm);
   color: white;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+  padding: 0;
   transition: all 0.2s ease;
   border: none;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 .expand-button:hover {
