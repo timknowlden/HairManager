@@ -1203,16 +1203,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                               const mailtoLink = `mailto:${emails.join(',')}`;
                               window.location.href = mailtoLink;
                             }}
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              fontSize: '11px',
-                              background: '#2196F3',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '3px',
-                              cursor: 'pointer'
-                            }}
+                            className="email-action-btn"
                             title="Open Email App"
                           >
                             📧 Open Email App

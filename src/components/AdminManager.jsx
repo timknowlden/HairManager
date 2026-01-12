@@ -1109,55 +1109,29 @@ function AdminManager({ onSettingsSaved }) {
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
       {postcodeChangedAfterSave && (
-        <div className="warning-message" style={{
-              backgroundColor: '#fff3cd',
-              border: '1px solid #ffc107',
-              borderLeft: '4px solid #ffc107',
-              padding: '12px 16px',
-              borderRadius: '4px',
-              marginBottom: '20px',
-              color: '#856404'
-            }}>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>⚠️ Warning:</strong> {previousPostcode ? `The postcode has been changed from "${previousPostcode}" to "${formData.home_postcode}".` : 'The postcode has been changed.'} You will need to resync locations to recalculate distances from the new home postcode.
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="button"
-                  onClick={handleResyncDistances}
-                  disabled={resyncing}
-                  style={{
-                    backgroundColor: '#ffc107',
-                    color: '#856404',
-                    border: '1px solid #ffc107',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: resyncing ? 'not-allowed' : 'pointer',
-                    fontWeight: '600',
-                    fontSize: '14px'
-                  }}
-                >
-                  {resyncing ? 'Resyncing...' : 'Resync Location Distances'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDismissWarning}
-                  disabled={resyncing}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: '#856404',
-                    border: '1px solid #856404',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: resyncing ? 'not-allowed' : 'pointer',
-                    fontWeight: '600',
-                    fontSize: '14px'
-                  }}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
+        <div className="warning-message">
+          <div className="warning-message-content">
+            <strong>⚠️ Warning:</strong> {previousPostcode ? `The postcode has been changed from "${previousPostcode}" to "${formData.home_postcode}".` : 'The postcode has been changed.'} You will need to resync locations to recalculate distances from the new home postcode.
+          </div>
+          <div className="warning-message-actions">
+            <button
+              type="button"
+              onClick={handleResyncDistances}
+              disabled={resyncing}
+              className="resync-btn"
+            >
+              {resyncing ? 'Resyncing...' : 'Resync Location Distances'}
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissWarning}
+              disabled={resyncing}
+              className="dismiss-btn"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="admin-form">
@@ -1202,34 +1176,19 @@ function AdminManager({ onSettingsSaved }) {
             </div>
             <div className="form-group">
               <label htmlFor="newUsername">Username</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+              <div className="input-with-button">
                 <input
                   type="text"
                   id="newUsername"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder={user?.username || 'Current username'}
-                  style={{ flex: 1 }}
                 />
                 <button
                   type="button"
                   onClick={handleUpdateUsername}
                   disabled={updatingUsername || !newUsername.trim() || newUsername.trim() === user?.username}
-                  style={{
-                    padding: '0 15px',
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: (updatingUsername || !newUsername.trim() || newUsername.trim() === user?.username) ? 'not-allowed' : 'pointer',
-                    fontSize: '16px',
-                    height: '100%',
-                    alignSelf: 'stretch',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '50px'
-                  }}
+                  className="inline-save-btn"
                   title="Update username"
                 >
                   {updatingUsername ? '...' : <FaSave />}
@@ -1251,7 +1210,7 @@ function AdminManager({ onSettingsSaved }) {
             </div>
             <div className="form-group">
               <label htmlFor="confirmPassword">Confirm New Password</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+              <div className="input-with-button">
                 <input
                   type="password"
                   id="confirmPassword"
@@ -1259,27 +1218,12 @@ function AdminManager({ onSettingsSaved }) {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   minLength={6}
-                  style={{ flex: 1 }}
                 />
                 <button
                   type="button"
                   onClick={handleUpdatePassword}
                   disabled={updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
-                  style={{
-                    padding: '0 15px',
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: (updatingPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6) ? 'not-allowed' : 'pointer',
-                    fontSize: '16px',
-                    height: '100%',
-                    alignSelf: 'stretch',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '50px'
-                  }}
+                  className="inline-save-btn"
                   title="Update password"
                 >
                   {updatingPassword ? '...' : <FaSave />}
@@ -1288,7 +1232,7 @@ function AdminManager({ onSettingsSaved }) {
             </div>
           </div>
           {newPassword && confirmPassword && newPassword !== confirmPassword && (
-            <div style={{ color: '#dc3545', marginTop: '-15px', marginBottom: '15px', fontSize: '14px' }}>
+            <div className="password-mismatch">
               Passwords do not match
             </div>
           )}

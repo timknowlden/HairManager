@@ -373,6 +373,26 @@ tbody tr:hover {
   transform: translateY(-1px);
 }
 
+.email-action-btn {
+  margin-top: 4px;
+  padding: 6px 10px;
+  font-size: var(--text-xs);
+  background: var(--gradient-info);
+  color: var(--color-text-inverse);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition-base);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.email-action-btn:hover {
+  box-shadow: var(--shadow-glow-info);
+  transform: translateY(-1px);
+}
+
 .no-data {
   text-align: center;
   padding: 40px;
