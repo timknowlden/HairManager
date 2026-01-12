@@ -714,14 +714,15 @@ tbody tr.unpaid {
 }
 
 .invoice-controls {
-  background: var(--color-purple-light);
+  background: rgba(156, 39, 176, 0.08);
   padding: 15px 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
   border: 2px solid var(--color-purple);
+  box-shadow: var(--shadow-sm);
 }
 
 .invoice-selection-info {

@@ -44,6 +44,10 @@
   --color-warning-hover: #d97706;
   --color-warning-light: rgba(245, 158, 11, 0.1);
   
+  --color-purple: #9C27B0;
+  --color-purple-hover: #7B1FA2;
+  --color-purple-light: rgba(156, 39, 176, 0.1);
+  
   --color-danger: #ef4444;
   --color-danger-hover: #dc2626;
   --color-danger-light: rgba(239, 68, 68, 0.1);
