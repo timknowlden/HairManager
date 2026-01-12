@@ -77,39 +77,39 @@
 
 /* Financial Year Section - Teal/Green */
 .financial-table thead {
-  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%);
-  color: white;
+  background: var(--gradient-cyan);
+  color: var(--color-text-inverse);
 }
 
 /* Calendar Year Section - Blue */
 .calendar-year-section .financial-table thead {
-  background: linear-gradient(135deg, #6b9bd1 0%, #5a8bc4 100%);
+  background: var(--gradient-info);
 }
 
 .calendar-year-section .financial-year-row {
-  background: linear-gradient(135deg, #e8f0f6 0%, #d4e4f0 100%) !important;
+  background: var(--color-info-light) !important;
 }
 
 .calendar-year-section .financial-year-row:hover {
-  background: linear-gradient(135deg, #d4e4f0 0%, #c0d8e8 100%) !important;
+  background: var(--color-info-light) !important;
 }
 
 .calendar-year-section .expand-button {
-  background-color: #6b9bd1;
+  background-color: var(--color-info);
 }
 
 .calendar-year-section .expand-button:hover {
-  background-color: #5a8bc4;
+  background-color: var(--color-info-hover);
 }
 
 .calendar-year-section .month-total-row {
-  border-top: 2px solid #6b9bd1;
+  border-top: 2px solid var(--color-info);
 }
 
 .calendar-year-section .grand-total-row,
 .calendar-year-grand-total {
-  background: linear-gradient(135deg, #6b9bd1 0%, #5a8bc4 100%) !important;
-  color: white !important;
+  background: var(--gradient-info) !important;
+  color: var(--color-text-inverse) !important;
 }
 
 /* Location Section - Purple */
@@ -126,40 +126,40 @@
   font-weight: var(--font-bold);
   text-align: center;
   padding-bottom: 15px;
-  border-bottom: 2px solid #9b7bb8;
+  border-bottom: 2px solid var(--color-purple);
 }
 
 .location-table thead {
-  background: linear-gradient(135deg, #9b7bb8 0%, #8a6aa7 100%);
+  background: var(--gradient-purple);
 }
 
 .location-table tbody tr:hover {
-  background-color: #f5f0f9 !important;
+  background-color: var(--color-purple-light) !important;
 }
 
 .location-table .financial-year-row {
-  background: linear-gradient(135deg, #f0e8f5 0%, #e8d8f0 100%) !important;
+  background: var(--color-purple-light) !important;
 }
 
 .location-table .financial-year-row:hover {
-  background: linear-gradient(135deg, #e8d8f0 0%, #e0c8eb 100%) !important;
+  background: var(--color-purple-light) !important;
 }
 
 .location-table .expand-button {
-  background-color: #9b7bb8;
+  background-color: var(--color-purple);
 }
 
 .location-table .expand-button:hover {
-  background-color: #8a6aa7;
+  background-color: var(--color-purple-hover);
 }
 
 .location-table .month-total-row {
-  border-top: 2px solid #9b7bb8;
+  border-top: 2px solid var(--color-purple);
 }
 
 .location-table .grand-total-row,
 .location-grand-total {
-  background: linear-gradient(135deg, #9b7bb8 0%, #8a6aa7 100%) !important;
+  background: var(--gradient-purple) !important;
 }
 
 /* Service Type Section - Orange */
@@ -176,40 +176,40 @@
   font-weight: var(--font-bold);
   text-align: center;
   padding-bottom: 15px;
-  border-bottom: 2px solid #e89f5e;
+  border-bottom: 2px solid var(--color-warning);
 }
 
 .service-type-table thead {
-  background: linear-gradient(135deg, #e89f5e 0%, #d78f4e 100%);
+  background: var(--gradient-warning);
 }
 
 .service-type-table tbody tr:hover {
-  background-color: #fef5ed !important;
+  background-color: var(--color-warning-light) !important;
 }
 
 .service-type-table .financial-year-row {
-  background: linear-gradient(135deg, #fef0e0 0%, #fce8d0 100%) !important;
+  background: var(--color-warning-light) !important;
 }
 
 .service-type-table .financial-year-row:hover {
-  background: linear-gradient(135deg, #fce8d0 0%, #fae0c0 100%) !important;
+  background: var(--color-warning-light) !important;
 }
 
 .service-type-table .expand-button {
-  background-color: #e89f5e;
+  background-color: var(--color-warning);
 }
 
 .service-type-table .expand-button:hover {
-  background-color: #d78f4e;
+  background-color: var(--color-warning-hover);
 }
 
 .service-type-table .month-total-row {
-  border-top: 2px solid #e89f5e;
+  border-top: 2px solid var(--color-warning);
 }
 
 .service-type-table .grand-total-row,
 .service-type-grand-total {
-  background: linear-gradient(135deg, #e89f5e 0%, #d78f4e 100%) !important;
+  background: var(--gradient-warning) !important;
 }
 
 /* Service Name Section - Pink */
@@ -226,40 +226,40 @@
   font-weight: var(--font-bold);
   text-align: center;
   padding-bottom: 15px;
-  border-bottom: 2px solid #e67a9e;
+  border-bottom: 2px solid var(--color-danger);
 }
 
 .service-name-table thead {
-  background: linear-gradient(135deg, #e67a9e 0%, #d56a8e 100%);
+  background: var(--gradient-danger);
 }
 
 .service-name-table tbody tr:hover {
-  background-color: #fef0f5 !important;
+  background-color: var(--color-danger-light) !important;
 }
 
 .service-name-table .financial-year-row {
-  background: linear-gradient(135deg, #fce8ed 0%, #f8d8e3 100%) !important;
+  background: var(--color-danger-light) !important;
 }
 
 .service-name-table .financial-year-row:hover {
-  background: linear-gradient(135deg, #f8d8e3 0%, #f4c8d9 100%) !important;
+  background: var(--color-danger-light) !important;
 }
 
 .service-name-table .expand-button {
-  background-color: #e67a9e;
+  background-color: var(--color-danger);
 }
 
 .service-name-table .expand-button:hover {
-  background-color: #d56a8e;
+  background-color: var(--color-danger-hover);
 }
 
 .service-name-table .month-total-row {
-  border-top: 2px solid #e67a9e;
+  border-top: 2px solid var(--color-danger);
 }
 
 .service-name-table .grand-total-row,
 .service-name-grand-total {
-  background: linear-gradient(135deg, #e67a9e 0%, #d56a8e 100%) !important;
+  background: var(--gradient-danger) !important;
 }
 
 .financial-table th {
@@ -292,13 +292,13 @@
 }
 
 .financial-year-row {
-  background: linear-gradient(135deg, #e8f5f6 0%, #d4eef0 100%) !important;
-  font-weight: 600;
+  background: var(--color-bg-secondary) !important;
+  font-weight: var(--font-semibold);
   font-size: 1.05em;
 }
 
 .financial-year-row:hover {
-  background: linear-gradient(135deg, #d4eef0 0%, #c0e5e8 100%) !important;
+  background: var(--color-bg-tertiary) !important;
 }
 
 .month-row {
@@ -306,7 +306,7 @@
 }
 
 .month-row:hover {
-  background-color: #f9f9f9 !important;
+  background-color: var(--color-bg-secondary) !important;
 }
 
 .month-row td:first-child {
@@ -315,9 +315,9 @@
 }
 
 .month-total-row {
-  background-color: #f0f7f8 !important;
-  font-weight: 600;
-  border-top: 2px solid #74c9cb;
+  background-color: var(--color-bg-secondary) !important;
+  font-weight: var(--font-semibold);
+  border-top: 2px solid var(--color-primary);
 }
 
 .month-total-row td:first-child {
@@ -325,22 +325,22 @@
 }
 
 .grand-total-row {
-  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%) !important;
-  color: white !important;
+  background: var(--gradient-cyan) !important;
+  color: var(--color-text-inverse) !important;
   font-weight: bold;
   font-size: 1.1em;
 }
 
 /* Override grand total colors for each section */
 .financial-year-table .grand-total-row {
-  background: linear-gradient(135deg, #74c9cb 0%, #5ab5b7 100%) !important;
+  background: var(--gradient-cyan) !important;
 }
 
 .amount-cell {
   text-align: right;
   font-family: 'Courier New', 'Consolas', monospace;
-  font-weight: 500;
-  color: #2c3e50;
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
 }
 
 .grand-total-row .amount-cell {
@@ -354,8 +354,8 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  background-color: #74c9cb;
-  border-radius: 4px;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-sm);
   color: white;
   font-weight: bold;
   font-size: 16px;
@@ -365,7 +365,7 @@
 }
 
 .expand-button:hover {
-  background-color: #5ab5b7;
+  background-color: var(--color-primary-dark);
   transform: scale(1.1);
 }
 
@@ -381,7 +381,7 @@
   font-weight: var(--font-bold);
   text-align: center;
   padding-bottom: 15px;
-  border-bottom: 2px solid #74c9cb;
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .calendar-year-section {
@@ -397,12 +397,12 @@
   font-weight: var(--font-bold);
   text-align: center;
   padding-bottom: 15px;
-  border-bottom: 2px solid #74c9cb;
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .error-message {
-  background: #fef2f2;
-  color: #991b1b;
+  background: var(--color-danger-light);
+  color: var(--color-danger-hover);
   padding: var(--space-md) var(--space-lg);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-lg);
