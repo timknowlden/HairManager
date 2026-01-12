@@ -28,9 +28,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: #fef2f2;
+  background: var(--color-bg-primary);
   color: var(--color-danger);
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
@@ -39,7 +39,8 @@
 }
 
 .services-manager .clear-filters-btn:hover {
-  background: #fee2e2;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-danger);
 }
 
 .filter-info {
@@ -89,7 +90,7 @@ th.sortable {
 }
 
 th.sortable:hover {
-  background: #e8e8e8;
+  background: var(--color-bg-tertiary);
 }
 
 th.resizable {
@@ -108,12 +109,12 @@ th.resizable {
 }
 
 .resize-handle:hover {
-  background: #2196F3;
+  background: var(--color-info);
   opacity: 0.5;
 }
 
 th.resizable:hover .resize-handle {
-  background: #2196F3;
+  background: var(--color-info);
   opacity: 0.3;
 }
 
@@ -377,19 +378,19 @@ tbody tr:hover {
 
 .error-message {
   padding: 12px;
-  background: #ffebee;
-  color: #c62828;
-  border-radius: 4px;
+  background: var(--color-danger-light);
+  color: var(--color-danger-hover);
+  border-radius: var(--radius-sm);
   margin-bottom: 15px;
-  border-left: 4px solid #c62828;
+  border-left: 4px solid var(--color-danger);
 }
 
 .success-message {
   padding: 12px;
-  background: #e8f5e9;
-  color: #2e7d32;
-  border-radius: 4px;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border-radius: var(--radius-sm);
   margin-bottom: 15px;
-  border-left: 4px solid #2e7d32;
+  border-left: 4px solid var(--color-success);
 }
 
