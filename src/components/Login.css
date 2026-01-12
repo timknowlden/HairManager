@@ -92,7 +92,7 @@
 }
 
 .login-box .error-message {
-  background: #fef2f2;
+  background: var(--color-danger-light);
   color: var(--color-danger);
   padding: var(--space-md);
   border-radius: var(--radius-md);
@@ -102,7 +102,7 @@
 }
 
 .login-box .success-message {
-  background: #f0fdf4;
+  background: var(--color-success-light);
   color: var(--color-success);
   padding: var(--space-md);
   border-radius: var(--radius-md);
