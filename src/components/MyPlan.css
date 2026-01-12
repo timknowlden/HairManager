@@ -1,7 +1,7 @@
 .my-plan-page {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 var(--space-lg);
+  padding: var(--space-xl) var(--space-lg);
   color: var(--color-text-primary);
 }
 
@@ -249,6 +249,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
+  align-items: stretch;
 }
 
 .my-plan-page .plan-option {
@@ -258,6 +259,9 @@
   padding: 28px;
   position: relative;
   transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .my-plan-page .plan-option:hover {
@@ -287,6 +291,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  z-index: 1;
 }
 
 .my-plan-page .plan-option .current-badge {
@@ -296,12 +301,15 @@
   transform: translateX(-50%);
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 6px 16px;
+  padding: 6px 20px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  z-index: 2;
+  min-width: 120px;
+  text-align: center;
 }
 
 .my-plan-page .plan-option h4 {
@@ -370,6 +378,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-grow: 1;
 }
 
 .my-plan-page .plan-features li {
@@ -398,6 +407,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  margin-top: auto;
 }
 
 .my-plan-page .plan-action-btn.current {

@@ -38,8 +38,8 @@ export function ensureAdminUser(dbPath) {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123!';
     const adminEmail = process.env.ADMIN_EMAIL || null;
 
-    // Check if admin user already exists
-    getAsync(db, 'SELECT id, username, is_super_admin FROM users WHERE username = ?', [adminUsername])
+    // Check if admin user already exists (case-insensitive)
+    getAsync(db, 'SELECT id, username, is_super_admin FROM users WHERE LOWER(username) = LOWER(?)', [adminUsername])
       .then(async (existingUser) => {
         if (existingUser) {
           // User exists - check if they're a super admin

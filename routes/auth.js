@@ -15,8 +15,8 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Check if user already exists
-  db.get('SELECT id FROM users WHERE username = ?', [username], async (err, existingUser) => {
+  // Check if user already exists (case-insensitive)
+  db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [username], async (err, existingUser) => {
     if (err) {
       console.error('Error checking for existing user:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -111,8 +111,8 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Find user - explicitly select is_super_admin to ensure it's included
-  db.get('SELECT id, username, password_hash, email, is_super_admin, created_at FROM users WHERE username = ?', [username], async (err, user) => {
+  // Find user - case-insensitive username lookup
+  db.get('SELECT id, username, password_hash, email, is_super_admin, created_at FROM users WHERE LOWER(username) = LOWER(?)', [username], async (err, user) => {
     if (err) {
       console.error('Error finding user:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -144,26 +144,43 @@ router.post('/login', async (req, res) => {
         converted: isSuperAdmin
       });
       
-      // Generate JWT token (include is_super_admin for convenience, but we'll verify from DB)
-      const token = jwt.sign({ 
-        userId: user.id, 
-        username: user.username,
-        is_super_admin: isSuperAdmin
-      }, JWT_SECRET, { expiresIn: '7d' });
+      // Get user's subscription plan name for immediate access
+      db.get(
+        `SELECT sp.name as plan_name
+         FROM user_subscriptions us
+         JOIN subscription_plans sp ON us.plan_id = sp.id
+         WHERE us.user_id = ? AND (us.status = 'active' OR us.status IS NULL)
+         LIMIT 1`,
+        [user.id],
+        (planErr, subscription) => {
+          let planName = 'free';
+          if (!planErr && subscription && subscription.plan_name) {
+            planName = subscription.plan_name;
+          }
 
-      const responseUser = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        is_super_admin: isSuperAdmin
-      };
-      
-      console.log('[AUTH /login] Response user object being sent:', JSON.stringify(responseUser, null, 2));
-      
-      res.json({
-        token,
-        user: responseUser
-      });
+          // Generate JWT token (include is_super_admin for convenience, but we'll verify from DB)
+          const token = jwt.sign({ 
+            userId: user.id, 
+            username: user.username,
+            is_super_admin: isSuperAdmin
+          }, JWT_SECRET, { expiresIn: '7d' });
+
+          const responseUser = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            is_super_admin: isSuperAdmin,
+            plan_name: planName
+          };
+          
+          console.log('[AUTH /login] Response user object being sent:', JSON.stringify(responseUser, null, 2));
+          
+          res.json({
+            token,
+            user: responseUser
+          });
+        }
+      );
     } catch (error) {
       console.error('Error verifying password:', error);
       res.status(500).json({ error: 'Error verifying password' });
@@ -205,18 +222,35 @@ router.get('/me', (req, res) => {
       
       console.log('[AUTH /me] Returning is_super_admin:', isSuperAdmin);
       
-      const responseUser = {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        is_super_admin: isSuperAdmin
-      };
-      
-      console.log('[AUTH /me] Response user object:', JSON.stringify(responseUser, null, 2));
-      
-      res.json({
-        user: responseUser
-      });
+      // Get user's subscription plan name for immediate access
+      db.get(
+        `SELECT sp.name as plan_name
+         FROM user_subscriptions us
+         JOIN subscription_plans sp ON us.plan_id = sp.id
+         WHERE us.user_id = ? AND (us.status = 'active' OR us.status IS NULL)
+         LIMIT 1`,
+        [user.id],
+        (planErr, subscription) => {
+          let planName = 'free';
+          if (!planErr && subscription && subscription.plan_name) {
+            planName = subscription.plan_name;
+          }
+
+          const responseUser = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            is_super_admin: isSuperAdmin,
+            plan_name: planName
+          };
+          
+          console.log('[AUTH /me] Response user object:', JSON.stringify(responseUser, null, 2));
+          
+          res.json({
+            user: responseUser
+          });
+        }
+      );
     });
   } catch (error) {
     return res.status(401).json({ error: 'Invalid token' });

@@ -1,9 +1,9 @@
 .email-logs {
-  padding: var(--space-lg);
+  padding: var(--space-xl) var(--space-lg);
   max-width: 1400px;
   margin: 0 auto;
   background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
 }
 

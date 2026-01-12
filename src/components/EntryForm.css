@@ -1,9 +1,9 @@
 .entry-form {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: var(--space-lg);
+  padding: var(--space-xl) var(--space-lg);
   background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
   overflow: visible;
 }

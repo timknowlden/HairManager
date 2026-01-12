@@ -1,9 +1,9 @@
 .financial-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: var(--space-lg);
+  padding: var(--space-xl) var(--space-lg);
   background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
 }
 
@@ -15,16 +15,17 @@
 }
 
 .financial-header h2 {
-  margin: 0 0 10px 0;
-  color: #333;
-  font-size: 2.2em;
-  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #1a1a2e;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .financial-subtitle {
   margin: 0;
-  color: #666;
-  font-size: 1.1em;
+  color: #6b7280;
+  font-size: 14px;
 }
 
 .financial-filters {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope, FaUserShield, FaArrowLeft, FaEye, FaCrown } from 'react-icons/fa';
 import { useAuth } from './contexts/AuthContext';
 import EntryForm from './components/EntryForm';
@@ -17,9 +18,28 @@ import './App.css';
 import { API_BASE } from './config.js';
 
 function App() {
+      const navigate = useNavigate();
+      const location = useLocation();
       const { isAuthenticated, loading, user, logout, getAuthHeaders, isSuperAdmin } = useAuth();
       const [impersonation, setImpersonation] = useState(null);
       const [userPlan, setUserPlan] = useState(null);
+      const [isLoadingPlan, setIsLoadingPlan] = useState(true);
+      
+      // Map URL paths to tab names
+      const pathToTab = {
+        '/entry': 'entry',
+        '/appointments': 'list',
+        '/locations': 'locations',
+        '/services': 'services',
+        '/financial': 'financial',
+        '/super-admin': 'super-admin',
+        '/invoice': 'invoice',
+        '/email-logs': 'email-logs',
+        '/my-plan': 'my-plan'
+      };
+      
+      // Get active tab from URL
+      const activeTab = pathToTab[location.pathname] || 'list';
       
       // Check for impersonation data on mount
       useEffect(() => {
@@ -32,24 +52,56 @@ function App() {
       // Fetch user's subscription plan
       useEffect(() => {
         const fetchUserPlan = async () => {
-          if (!isAuthenticated) return;
+          if (!isAuthenticated) {
+            setUserPlan(null);
+            setIsLoadingPlan(false);
+            return;
+          }
+          setIsLoadingPlan(true);
           try {
             const response = await fetch(`${API_BASE}/subscriptions/usage`, {
               headers: getAuthHeaders()
             });
             if (response.ok) {
               const data = await response.json();
-              setUserPlan(data.plan);
+              console.log('[App.jsx] Subscription usage data:', data);
+              console.log('[App.jsx] Plan data:', data.plan);
+              if (data.plan) {
+                setUserPlan(data.plan);
+              } else {
+                console.warn('[App.jsx] No plan data in response');
+                setUserPlan(null);
+              }
+            } else {
+              const errorText = await response.text();
+              console.error('[App.jsx] Failed to fetch subscription usage:', response.status, response.statusText, errorText);
+              setUserPlan(null);
             }
           } catch (err) {
-            console.error('Error fetching user plan:', err);
+            console.error('[App.jsx] Error fetching user plan:', err);
+            setUserPlan(null);
+          } finally {
+            setIsLoadingPlan(false);
           }
         };
         fetchUserPlan();
       }, [isAuthenticated]);
 
-      // Check if user has access to paid features
-      const hasPaidPlan = userPlan && userPlan.name !== 'Free';
+      // Check if user has access to paid features (case-insensitive check)
+      // First check user object from auth (available immediately), then fall back to userPlan
+      const planName = user?.plan_name || (userPlan && userPlan.name) || 'free';
+      const hasPaidPlan = planName && planName.toLowerCase() !== 'free';
+      
+      // Debug logging
+      useEffect(() => {
+        console.log('[App.jsx] User object:', user);
+        console.log('[App.jsx] Plan name from user:', user?.plan_name);
+        console.log('[App.jsx] User plan state:', userPlan);
+        console.log('[App.jsx] Final plan name:', planName);
+        console.log('[App.jsx] Has paid plan?', hasPaidPlan);
+        console.log('[App.jsx] Is super admin?', isSuperAdmin);
+        console.log('[App.jsx] Will show Financial tab?', hasPaidPlan || isSuperAdmin);
+      }, [user, userPlan, planName, hasPaidPlan, isSuperAdmin]);
       
       // Return to original admin account
       const returnToAdmin = () => {
@@ -75,7 +127,14 @@ function App() {
           console.log('isSuperAdmin:', isSuperAdmin);
         }
       }, [user, isSuperAdmin]);
-      const [activeTab, setActiveTab] = useState('list');
+      
+      // Redirect to /appointments if on root path
+      useEffect(() => {
+        if (isAuthenticated && location.pathname === '/') {
+          navigate('/appointments', { replace: true });
+        }
+      }, [isAuthenticated, location.pathname, navigate]);
+      
       const [refreshTrigger, setRefreshTrigger] = useState(0);
       const [newAppointmentIds, setNewAppointmentIds] = useState(null);
       const [pageTitle, setPageTitle] = useState("HairManager");
@@ -92,10 +151,10 @@ function App() {
 
       // Refetch profile settings when Profile tab becomes active
       useEffect(() => {
-        if (activeTab === 'admin' && isAuthenticated) {
+        if (location.pathname === '/admin' && isAuthenticated) {
           fetchProfileSettings();
         }
-      }, [activeTab, isAuthenticated]);
+      }, [location.pathname, isAuthenticated]);
 
       // Close profile menu when clicking outside
       useEffect(() => {
@@ -172,14 +231,14 @@ function App() {
       const handleAppointmentsAdded = (newIds) => {
         setNewAppointmentIds(newIds);
         setRefreshTrigger(prev => prev + 1);
-        setActiveTab('list');
+        navigate('/appointments');
       };
 
       const handleCreateInvoice = (appointments) => {
         console.log('handleCreateInvoice called with appointments:', appointments);
         setInvoiceAppointments(appointments);
-        setActiveTab('invoice');
-        console.log('Active tab set to invoice');
+        navigate('/invoice');
+        console.log('Navigated to invoice');
       };
 
   return (
@@ -204,33 +263,36 @@ function App() {
             <nav className="tabs">
           <button
             className={`entry-btn ${activeTab === 'entry' ? 'active' : ''}`}
-            onClick={() => setActiveTab('entry')}
+            onClick={() => navigate('/entry')}
           >
             <FaPlus /> New Entry
           </button>
           <div className="nav-divider"></div>
           <button
             className={activeTab === 'list' ? 'active' : ''}
-            onClick={() => setActiveTab('list')}
+            onClick={() => navigate('/appointments')}
           >
             <FaList /> View Appointments
           </button>
           <button
             className={activeTab === 'locations' ? 'active' : ''}
-            onClick={() => setActiveTab('locations')}
+            onClick={() => navigate('/locations')}
           >
             <FaMapMarkerAlt /> Locations
           </button>
           <button
             className={activeTab === 'services' ? 'active' : ''}
-            onClick={() => setActiveTab('services')}
+            onClick={() => navigate('/services')}
           >
             <FaCut /> Services
           </button>
-          {(hasPaidPlan || isSuperAdmin) && (
+          {(isSuperAdmin || hasPaidPlan) && (
             <button
               className={activeTab === 'financial' ? 'active' : ''}
-              onClick={() => setActiveTab('financial')}
+              onClick={() => navigate('/financial')}
+              style={{
+                animation: 'fadeIn 0.3s ease-in'
+              }}
             >
               <FaChartLine /> Financial
             </button>
@@ -239,9 +301,13 @@ function App() {
             <>
               <div className="nav-divider"></div>
               <button
-                className={activeTab === 'super-admin' ? 'active' : ''}
-                onClick={() => setActiveTab('super-admin')}
-                style={{ backgroundColor: isSuperAdmin ? '#ff9800' : 'transparent', color: isSuperAdmin ? 'white' : 'inherit' }}
+                className={`nav-tab ${activeTab === 'super-admin' ? 'active' : ''}`}
+                onClick={() => navigate('/super-admin')}
+                style={{
+                  animation: 'fadeIn 0.3s ease-in',
+                  backgroundColor: isSuperAdmin ? '#ff9800' : 'transparent',
+                  color: isSuperAdmin ? 'white' : 'inherit'
+                }}
               >
                 <FaUserShield /> Super Admin
               </button>
@@ -267,7 +333,7 @@ function App() {
                     <button
                       className="profile-dropdown-item"
                       onClick={() => {
-                        setActiveTab('admin');
+                        navigate('/admin');
                         setShowProfileMenu(false);
                       }}
                     >
@@ -276,7 +342,7 @@ function App() {
                     <button
                       className="profile-dropdown-item"
                       onClick={() => {
-                        setActiveTab('my-plan');
+                        navigate('/my-plan');
                         setShowProfileMenu(false);
                       }}
                     >
@@ -285,7 +351,7 @@ function App() {
                     <button
                       className="profile-dropdown-item"
                       onClick={() => {
-                        setActiveTab('email-logs');
+                        navigate('/email-logs');
                         setShowProfileMenu(false);
                       }}
                     >
@@ -309,38 +375,38 @@ function App() {
       </header>
 
       <main className="app-main">
-        {activeTab === 'entry' && (
+        {location.pathname === '/entry' && (
           <EntryForm onAppointmentsAdded={handleAppointmentsAdded} />
         )}
-            {activeTab === 'list' && (
-              <AppointmentsList 
-                refreshTrigger={refreshTrigger} 
-                newAppointmentIds={newAppointmentIds}
-                onCreateInvoice={handleCreateInvoice}
-              />
-            )}
-        {activeTab === 'locations' && (
+        {location.pathname === '/appointments' && (
+          <AppointmentsList 
+            refreshTrigger={refreshTrigger} 
+            newAppointmentIds={newAppointmentIds}
+            onCreateInvoice={handleCreateInvoice}
+          />
+        )}
+        {location.pathname === '/locations' && (
           <LocationsManager />
         )}
-        {activeTab === 'services' && (
+        {location.pathname === '/services' && (
           <ServicesManager />
         )}
-        {activeTab === 'admin' && (
+        {location.pathname === '/admin' && (
           <AdminManager onSettingsSaved={fetchProfileSettings} />
         )}
-        {activeTab === 'invoice' && (
-          <Invoice appointments={invoiceAppointments} onBack={() => setActiveTab('list')} />
+        {location.pathname === '/invoice' && (
+          <Invoice appointments={invoiceAppointments} onBack={() => navigate('/appointments')} />
         )}
-        {activeTab === 'financial' && (hasPaidPlan || isSuperAdmin) && (
+        {location.pathname === '/financial' && (hasPaidPlan || isSuperAdmin) && (
           <Financial />
         )}
-        {activeTab === 'email-logs' && (
+        {location.pathname === '/email-logs' && (
           <EmailLogs />
         )}
-        {activeTab === 'my-plan' && (
+        {location.pathname === '/my-plan' && (
           <MyPlan />
         )}
-        {activeTab === 'super-admin' && isSuperAdmin && (
+        {location.pathname === '/super-admin' && isSuperAdmin && (
           <SuperAdminManager />
         )}
       </main>

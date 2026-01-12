@@ -253,3 +253,19 @@
   height: 16px;
   color: var(--color-text-secondary);
 }
+
+/* ===== SMOOTH TAB TRANSITIONS ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-tab {
+  transition: opacity 0.2s ease-in, transform 0.2s ease-in;
+}
