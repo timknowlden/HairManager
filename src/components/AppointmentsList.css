@@ -77,7 +77,7 @@
 .header-actions .nav-divider {
   width: 1px;
   height: 30px;
-  background-color: #d0d0d0;
+  background-color: var(--color-border-dark);
   margin: 0 5px;
   flex-shrink: 0;
 }
@@ -119,9 +119,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: #fef2f2;
+  background: var(--color-bg-primary);
   color: var(--color-danger);
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
@@ -134,7 +134,8 @@
 
 .appointments-list .clear-filters-btn:hover,
 .header-actions .clear-filters-btn:hover {
-  background: #fee2e2;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-danger);
 }
 
 .appointments-list .clear-filters-btn svg,
@@ -151,14 +152,14 @@
 }
 
 .tax-year-controls {
-  background: #E3F2FD;
+  background: var(--color-info-light);
   padding: 15px 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border: 2px solid #2196F3;
+  border: 2px solid var(--color-info);
 }
 
 .tax-year-selection-info {
@@ -194,15 +195,15 @@
 }
 
 .tax-year-checkbox-btn:hover {
-  border-color: #2196F3;
-  color: #2196F3;
-  background: #E3F2FD;
+  border-color: var(--color-info);
+  color: var(--color-info);
+  background: var(--color-info-light);
 }
 
 .tax-year-checkbox-btn.selected {
-  background: #2196F3;
-  color: white;
-  border-color: #2196F3;
+  background: var(--color-info);
+  color: var(--color-text-inverse);
+  border-color: var(--color-info);
 }
 
 .tax-year-checkbox-btn svg {
@@ -213,7 +214,7 @@
 
 .tax-year-checkbox-btn:not(.selected) svg {
   fill: none;
-  stroke: #2196F3;
+  stroke: var(--color-info);
   stroke-width: 2;
 }
 
@@ -224,8 +225,8 @@
 
 .select-all-tax-years-btn {
   padding: 8px 16px;
-  background: #2196F3;
-  color: white;
+  background: var(--gradient-info);
+  color: var(--color-text-inverse);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -240,8 +241,8 @@
 }
 
 .select-all-tax-years-btn:hover {
-  background: #1976D2;
-  box-shadow: 0 3px 6px rgba(33, 150, 243, 0.4);
+  background: var(--color-info-hover);
+  box-shadow: var(--shadow-glow-info);
   transform: translateY(-1px);
 }
 
@@ -261,7 +262,7 @@
 }
 
 .filter-row {
-  background: #fafafa;
+  background: var(--color-bg-secondary);
   position: sticky;
   top: 48px; /* Height of header row - adjust if needed */
   z-index: 9;
@@ -269,8 +270,8 @@
 
 .filter-row th {
   padding: 8px;
-  border-bottom: 1px solid #ddd;
-  background: #fafafa !important;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary) !important;
 }
 
 .filter-input,
@@ -287,8 +288,8 @@
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-light);
 }
 
 .filter-input::placeholder {
@@ -518,8 +519,8 @@ tbody tr.unpaid {
 }
 
 .error {
-  color: #c62828;
-  background: #ffebee;
+  color: var(--color-danger-hover);
+  background: var(--color-danger-light);
 }
 
 .admin-btn {
@@ -713,14 +714,14 @@ tbody tr.unpaid {
 }
 
 .invoice-controls {
-  background: #f3e5f5;
+  background: var(--color-purple-light);
   padding: 15px 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 2px solid #9C27B0;
+  border: 2px solid var(--color-purple);
 }
 
 .invoice-selection-info {
@@ -732,8 +733,8 @@ tbody tr.unpaid {
 .select-all-btn {
   padding: 10px 18px;
   border: none;
-  background: #9C27B0;
-  color: white;
+  background: var(--gradient-purple);
+  color: var(--color-text-inverse);
   border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
@@ -745,31 +746,31 @@ tbody tr.unpaid {
 }
 
 .select-all-btn:hover {
-  background: #7B1FA2;
+  background: var(--color-purple-hover);
 }
 
 .calculator-controls .select-all-btn {
-  background: #FF9800;
-  color: white;
+  background: var(--gradient-warning);
+  color: var(--color-text-inverse);
 }
 
 .calculator-controls .select-all-btn:hover {
-  background: #F57C00;
+  background: var(--color-warning-hover);
 }
 
 .selection-count {
-  font-weight: 600;
-  color: #7B1FA2;
+  font-weight: var(--font-semibold);
+  color: var(--color-purple);
 }
 
 .calculator-controls .selection-count {
-  color: #E65100;
+  color: var(--color-warning-hover);
 }
 
 .create-invoice-btn {
   padding: 10px 20px;
-  background: #4CAF50;
-  color: white;
+  background: var(--gradient-success);
+  color: var(--color-text-inverse);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -781,7 +782,7 @@ tbody tr.unpaid {
 }
 
 .create-invoice-btn:hover:not(:disabled) {
-  background: #45a049;
+  background: var(--color-success-hover);
 }
 
 .create-invoice-btn:disabled {
@@ -828,8 +829,8 @@ tbody tr.unpaid {
   left: -18px;
   top: 50%;
   transform: translateY(-50%);
-  background: #9C27B0;
-  color: white;
+  background: var(--color-purple);
+  color: var(--color-text-inverse);
   width: 18px;
   height: 18px;
   display: flex;
@@ -842,24 +843,24 @@ tbody tr.unpaid {
 }
 
 tbody tr.selected-for-invoice {
-  background: #f3e5f5 !important;
-  border-left: 4px solid #9C27B0;
+  background: var(--color-purple-light) !important;
+  border-left: 4px solid var(--color-purple);
 }
 
 tbody tr.selected-for-calculator {
-  background: #fff3e0 !important;
-  border-left: 4px solid #FF9800;
+  background: var(--color-warning-light) !important;
+  border-left: 4px solid var(--color-warning);
 }
 
 .calculator-controls {
-  background: #fff3e0;
+  background: var(--color-warning-light);
   padding: 15px 20px;
   border-radius: 8px;
   margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 2px solid #FF9800;
+  border: 2px solid var(--color-warning);
 }
 
 .calculator-selection-info {
@@ -885,16 +886,16 @@ tbody tr.selected-for-calculator {
 .calculator-sum.total {
   font-size: 18px;
   padding-left: 20px;
-  border-left: 2px solid #FF9800;
+  border-left: 2px solid var(--color-warning);
 }
 
 .sum-label {
-  color: #E65100;
+  color: var(--color-warning-hover);
 }
 
 .sum-amount {
-  color: #E65100;
-  font-size: 18px;
+  color: var(--color-warning-hover);
+  font-size: var(--text-lg);
 }
 
 .calculator-sum.total .sum-amount {
@@ -903,17 +904,17 @@ tbody tr.selected-for-calculator {
 }
 
 tbody tr.new-appointment {
-  background: #e8f5e9 !important;
-  border-left: 4px solid #4CAF50;
+  background: var(--color-success-light) !important;
+  border-left: 4px solid var(--color-success);
   animation: newAppointmentPulse 2s ease-in-out;
 }
 
 @keyframes newAppointmentPulse {
   0%, 100% {
-    background: #e8f5e9;
+    background: var(--color-success-light);
   }
   50% {
-    background: #c8e6c9;
+    background: var(--color-success-light);
   }
 }
 
@@ -941,7 +942,7 @@ tbody tr.new-appointment {
 }
 
 tbody tr.admin-mode:hover {
-  background: #e3f2fd;
+  background: var(--color-info-light);
 }
 
 .editable-cell {
@@ -951,15 +952,15 @@ tbody tr.admin-mode:hover {
 }
 
 .editable-cell:hover {
-  background: #e3f2fd;
-  border: 1px dashed #2196F3;
+  background: var(--color-info-light);
+  border: 1px dashed var(--color-info);
 }
 
 .cell-input {
   width: 100%;
   padding: 4px 8px;
-  border: 2px solid #2196F3;
-  border-radius: 4px;
+  border: 2px solid var(--color-info);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   background: white;
   box-sizing: border-box;
@@ -967,8 +968,8 @@ tbody tr.admin-mode:hover {
 
 .cell-input:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-light);
 }
 
 .admin-actions {
@@ -1072,12 +1073,12 @@ th.resizable {
 }
 
 .resize-handle:hover {
-  background: #2196F3;
+  background: var(--color-info);
   opacity: 0.5;
 }
 
 th.resizable:hover .resize-handle {
-  background: #2196F3;
+  background: var(--color-info);
   opacity: 0.3;
 }
 
@@ -1096,8 +1097,8 @@ th.resizable:hover .resize-handle {
   height: 40px;
   border-radius: 12px;
   border: none;
-  background: #2196F3;
-  color: white;
+  background: var(--gradient-info);
+  color: var(--color-text-inverse);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1108,9 +1109,9 @@ th.resizable:hover .resize-handle {
 }
 
 .scroll-btn:hover {
-  background: #1976D2;
+  background: var(--color-info-hover);
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .scroll-btn:active {
@@ -1118,19 +1119,19 @@ th.resizable:hover .resize-handle {
 }
 
 .scroll-to-top {
-  background: #4CAF50;
+  background: var(--gradient-success);
 }
 
 .scroll-to-top:hover {
-  background: #45a049;
+  background: var(--color-success-hover);
 }
 
 .scroll-to-bottom {
-  background: #2196F3;
+  background: var(--gradient-info);
 }
 
 .scroll-to-bottom:hover {
-  background: #1976D2;
+  background: var(--color-info-hover);
 }
 
 

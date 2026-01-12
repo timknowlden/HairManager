@@ -46,10 +46,10 @@
 
 /* Current Plan Card */
 .my-plan-page .current-plan-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-xl);
   padding: 32px;
-  color: white;
+  color: var(--color-text-inverse);
   margin-bottom: 32px;
   position: relative;
   overflow: hidden;
@@ -133,29 +133,29 @@
 }
 
 .my-plan-page .usage-section h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a2e;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
   margin: 0 0 20px 0;
 }
 
 .my-plan-page .usage-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  gap: var(--space-lg);
 }
 
 .my-plan-page .usage-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 24px;
-  transition: all 0.2s;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  transition: var(--transition-base);
 }
 
 .my-plan-page .usage-card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-border-dark);
+  box-shadow: var(--shadow-md);
 }
 
 .my-plan-page .usage-card-header {
@@ -176,9 +176,9 @@
 }
 
 .my-plan-page .usage-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: #374151;
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .usage-numbers {
@@ -190,46 +190,46 @@
 
 .my-plan-page .usage-numbers .current {
   font-size: 36px;
-  font-weight: 700;
-  color: #1a1a2e;
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .usage-numbers .separator {
   font-size: 20px;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   margin: 0 4px;
 }
 
 .my-plan-page .usage-numbers .max {
-  font-size: 18px;
-  color: #6b7280;
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 .my-plan-page .usage-numbers .max svg {
-  font-size: 14px;
-  color: #10b981;
+  font-size: var(--text-sm);
+  color: var(--color-success);
 }
 
 .my-plan-page .usage-progress {
   height: 8px;
-  background: #f3f4f6;
-  border-radius: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   margin-bottom: 8px;
 }
 
 .my-plan-page .usage-progress-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: width 0.5s ease;
 }
 
 .my-plan-page .usage-remaining {
-  font-size: 12px;
-  color: #9ca3af;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 /* Plans Section */
@@ -238,9 +238,9 @@
 }
 
 .my-plan-page .plans-section h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a2e;
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
   margin: 0 0 20px 0;
   display: flex;
   align-items: center;
@@ -248,40 +248,40 @@
 }
 
 .my-plan-page .plans-section h3 svg {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .my-plan-page .plans-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
+  gap: var(--space-xl);
   align-items: stretch;
 }
 
 .my-plan-page .plan-option {
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 20px;
+  background: var(--color-bg-primary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-xl);
   padding: 28px;
   position: relative;
-  transition: all 0.2s;
+  transition: var(--transition-base);
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
 .my-plan-page .plan-option:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--color-border-dark);
+  box-shadow: var(--shadow-lg);
 }
 
 .my-plan-page .plan-option.current {
-  border-color: #667eea;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
 }
 
 .my-plan-page .plan-option.featured {
-  border-color: #f59e0b;
+  border-color: var(--color-warning);
 }
 
 .my-plan-page .plan-option .featured-badge {
@@ -289,12 +289,12 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
+  background: var(--gradient-warning);
+  color: var(--color-text-inverse);
   padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   z-index: 1;
@@ -305,12 +305,12 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--gradient-primary);
+  color: var(--color-text-inverse);
   padding: 6px 20px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   z-index: 2;
@@ -319,9 +319,9 @@
 }
 
 .my-plan-page .plan-option h4 {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a2e;
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
   margin: 12px 0 12px 0;
 }
 
@@ -331,24 +331,24 @@
 
 .my-plan-page .plan-option-price .amount {
   font-size: 36px;
-  font-weight: 700;
-  color: #1a1a2e;
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .plan-option-price .period {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .my-plan-page .plan-option-price .free {
   font-size: 28px;
-  font-weight: 600;
-  color: #10b981;
+  font-weight: var(--font-semibold);
+  color: var(--color-success);
 }
 
 .my-plan-page .plan-description {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
   margin: 0 0 20px 0;
   line-height: 1.5;
 }
@@ -358,22 +358,22 @@
   flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
 }
 
 .my-plan-page .limit-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
-  color: #374151;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .limit-row svg {
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
   width: 16px;
 }
 
@@ -391,13 +391,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: #374151;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
 }
 
 .my-plan-page .plan-features li svg {
-  color: #10b981;
-  font-size: 11px;
+  color: var(--color-success);
+  font-size: var(--text-xs);
 }
 
 .my-plan-page .plan-action-btn {
@@ -417,29 +417,30 @@
 }
 
 .my-plan-page .plan-action-btn.current {
-  background: #e5e7eb;
-  color: #9ca3af;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
   cursor: not-allowed;
 }
 
 .my-plan-page .plan-action-btn.upgrade {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
+  background: var(--gradient-success);
+  color: var(--color-text-inverse);
 }
 
 .my-plan-page .plan-action-btn.upgrade:hover {
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  box-shadow: var(--shadow-glow-success);
   transform: translateY(-2px);
 }
 
 .my-plan-page .plan-action-btn.downgrade {
-  background: white;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .my-plan-page .plan-action-btn.downgrade:hover {
-  background: #f9fafb;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
 }
 
 /* Responsive */
