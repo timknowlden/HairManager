@@ -585,7 +585,8 @@
 }
 
 .super-admin-manager .action-btn:hover {
-  opacity: 0.8;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .super-admin-manager .action-btn svg {
@@ -595,22 +596,22 @@
 }
 
 .super-admin-manager .edit-btn {
-  background: #3b82f6 !important;
+  background: var(--gradient-info) !important;
   color: white !important;
 }
 
 .super-admin-manager .password-btn {
-  background: #f59e0b !important;
+  background: var(--gradient-warning) !important;
   color: white !important;
 }
 
 .super-admin-manager .impersonate-btn {
-  background: #8b5cf6 !important;
+  background: var(--gradient-purple) !important;
   color: white !important;
 }
 
 .super-admin-manager .delete-btn {
-  background: #ef4444 !important;
+  background: var(--gradient-danger) !important;
   color: white !important;
 }
 

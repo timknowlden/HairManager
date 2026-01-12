@@ -45,28 +45,28 @@
 .form-group label {
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
-  font-weight: 600;
-  color: #333;
-  font-size: 13px;
+  margin-bottom: var(--space-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   box-sizing: border-box;
-  transition: all 0.2s;
-  background: white;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-secondary);
   height: 43px;
 }
 
 .form-group input:hover,
 .form-group select:hover {
-  border-color: #bdbdbd;
+  border-color: var(--color-border-dark);
 }
 
 .form-group input:focus,
@@ -121,23 +121,23 @@
 }
 
 .appointment-count {
-  color: #666;
-  font-size: 14px;
-  font-weight: 600;
-  background: #f5f5f5;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  background: var(--color-bg-tertiary);
   padding: 5px 12px;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
 }
 
 .total-price {
-  color: #2c5f2d;
-  font-size: 14px;
-  font-weight: 600;
-  background: #e8f5e9;
+  color: var(--color-success-hover);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  background: var(--color-success-light);
   padding: 5px 12px;
-  border-radius: 4px;
-  border: 1px solid #c8e6c9;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-success);
 }
 
 .appointments-list {
@@ -154,17 +154,19 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 10px 14px;
-  background: #f5f5f5;
-  border-radius: 8px 8px 0 0;
-  border: 2px solid #e8e8e8;
+  padding: 12px 16px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: 1px solid var(--color-border);
   border-bottom: none;
-  font-weight: 600;
-  font-size: 13px;
-  color: #333;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
   margin-bottom: 0;
   width: 100%;
   box-sizing: border-box;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .header-number {
@@ -194,12 +196,11 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 14px;
-  background: white;
-  border: 2px solid #e8e8e8;
-  border: 2px solid #e8e8e8;
-  border: 2px solid #e8e8e8;
-  transition: all 0.2s;
+  padding: 14px 16px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  transition: all var(--transition-fast);
   position: relative;
   margin-top: 0;
   width: 100%;
@@ -270,19 +271,19 @@
 
 .price-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   font-family: inherit;
   box-sizing: border-box;
-  transition: all 0.2s;
-  background: white;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-secondary);
   height: 42px;
 }
 
 .price-input:hover {
-  border-color: #bdbdbd;
+  border-color: var(--color-border-dark);
 }
 
 .price-input:focus {
@@ -294,16 +295,16 @@
 
 .appointment-service select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 14px;
   padding-right: 30px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   font-family: inherit;
   box-sizing: border-box;
-  transition: all 0.2s;
-  background: white;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  transition: all var(--transition-fast);
+  background: var(--color-bg-secondary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 12px;
@@ -319,7 +320,7 @@
 }
 
 .appointment-service select:hover {
-  border-color: #bdbdbd;
+  border-color: var(--color-border-dark);
 }
 
 .appointment-service select:focus {
@@ -361,7 +362,7 @@
 .add-appointment-btn {
   width: 100%;
   padding: 14px;
-  background: var(--color-info);
+  background: var(--gradient-info);
   color: var(--color-text-inverse);
   border: none;
   border-radius: var(--radius-md);
@@ -373,14 +374,13 @@
   justify-content: center;
   gap: var(--space-sm);
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 4px var(--color-info-light);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
   margin-bottom: var(--space-lg);
 }
 
 .add-appointment-btn:hover {
-  background: var(--color-info-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px var(--color-info-light);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
 }
 
 .entry-form .submit-btn,
@@ -389,7 +389,7 @@ form .submit-btn,
 form button.submit-btn {
   width: 100%;
   padding: 14px;
-  background: var(--color-primary) !important;
+  background: var(--gradient-success) !important;
   color: var(--color-text-inverse) !important;
   border: none !important;
   border-radius: var(--radius-md);
@@ -398,16 +398,15 @@ form button.submit-btn {
   font-weight: var(--font-semibold);
   margin-top: var(--space-lg);
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 4px var(--color-primary-light);
+  box-shadow: var(--shadow-glow-success);
 }
 
 .entry-form .submit-btn:hover:not(:disabled),
 .entry-form button.submit-btn:hover:not(:disabled),
 form .submit-btn:hover:not(:disabled),
 form button.submit-btn:hover:not(:disabled) {
-  background: var(--color-primary-hover) !important;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px var(--color-primary-light);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
 }
 
 .submit-btn:disabled {
@@ -418,21 +417,25 @@ form button.submit-btn:hover:not(:disabled) {
 }
 
 .error-message {
-  padding: 12px;
-  background: #ffebee;
-  color: #c62828;
-  border-radius: 4px;
-  margin: 15px 0;
-  border-left: 4px solid #c62828;
+  padding: var(--space-md) var(--space-lg);
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: var(--radius-md);
+  margin: var(--space-md) 0;
+  border-left: 4px solid var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
 }
 
 .success-message {
-  padding: 12px;
-  background: #e8f5e9;
-  color: #2e7d32;
-  border-radius: 4px;
-  margin: 12px 0;
-  border-left: 4px solid #2e7d32;
+  padding: var(--space-md) var(--space-lg);
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: var(--radius-md);
+  margin: var(--space-md) 0;
+  border-left: 4px solid var(--color-success);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
 }
 
 /* Autocomplete styles */
@@ -452,19 +455,19 @@ form button.submit-btn:hover:not(:disabled) {
 
 .autocomplete-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   font-family: inherit;
   box-sizing: border-box;
-  transition: all 0.2s;
-  background: white;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-secondary);
   height: 42px;
 }
 
 .autocomplete-input:hover {
-  border-color: #bdbdbd;
+  border-color: var(--color-border-dark);
 }
 
 .autocomplete-input:focus {
@@ -490,17 +493,18 @@ form button.submit-btn:hover:not(:disabled) {
 }
 
 .autocomplete-suggestion {
-  padding: 10px 12px;
+  padding: 10px 14px;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 14px;
-  transition: background 0.15s;
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--text-base);
+  transition: background var(--transition-fast);
 }
 
 .autocomplete-suggestion:hover,
 .autocomplete-suggestion.selected {
-  background: #e8f5e9;
-  font-weight: 600;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-weight: var(--font-semibold);
 }
 
 .autocomplete-suggestion:last-child {
@@ -513,14 +517,14 @@ form button.submit-btn:hover:not(:disabled) {
 }
 
 .autocomplete-group-header {
-  padding: 8px 12px;
-  background: #f5f5f5;
-  font-weight: 600;
-  font-size: 12px;
-  color: #666;
+  padding: 8px 14px;
+  background: var(--color-bg-secondary);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border);
   cursor: default;
   position: sticky;
   top: 0;
@@ -528,7 +532,7 @@ form button.submit-btn:hover:not(:disabled) {
 }
 
 .autocomplete-group-header:hover {
-  background: #f5f5f5;
+  background: var(--color-bg-secondary);
 }
 
 /* Responsive design */

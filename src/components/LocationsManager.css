@@ -43,30 +43,32 @@
 }
 
 .filter-info {
-  padding: 10px;
-  background: #f5f5f5;
-  border-bottom: 1px solid #ddd;
-  font-size: 14px;
-  color: #666;
-  font-weight: 500;
+  padding: 12px 16px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-medium);
 }
 
 .filter-row {
-  background: #fafafa;
+  background: var(--color-bg-tertiary);
 }
 
 .filter-row th {
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .filter-input {
   width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  background: var(--color-bg-primary);
   box-sizing: border-box;
+  transition: border-color var(--transition-fast);
 }
 
 .filter-input:focus {
@@ -76,8 +78,7 @@
 }
 
 .filter-input::placeholder {
-  color: #999;
-  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
 th.sortable {
@@ -129,16 +130,16 @@ th.resizable:hover .resize-handle {
 
 .import-btn,
 .add-btn {
-  padding: 10px 18px;
+  padding: 11px 20px;
   border: none;
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
   flex-shrink: 0;
   white-space: nowrap;
   position: relative;
@@ -147,21 +148,25 @@ th.resizable:hover .resize-handle {
 }
 
 .import-btn {
-  background: #FF9800;
+  background: var(--gradient-warning);
   color: white;
+  box-shadow: var(--shadow-glow-warning);
 }
 
 .import-btn:hover {
-  background: #F57C00;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
 }
 
 .add-btn {
-  background: #4CAF50;
+  background: var(--gradient-success);
   color: white;
+  box-shadow: var(--shadow-glow-success);
 }
 
 .add-btn:hover {
-  background: #45a049;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
 }
 
 .location-form-container {
@@ -199,30 +204,31 @@ th.resizable:hover .resize-handle {
 }
 
 .form-group label {
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #555;
-  font-size: 14px;
+  margin-bottom: var(--space-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
   font-family: inherit;
-  transition: all 0.2s;
-  background: white;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-secondary);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  background: var(--color-bg-primary);
 }
 
 .form-group textarea {
@@ -241,17 +247,17 @@ th.resizable:hover .resize-handle {
 
 .location-submit-btn,
 .location-cancel-btn {
-  padding: 10px 20px;
+  padding: 11px 20px;
   margin: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   line-height: 1.4;
   height: 40px;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -261,25 +267,24 @@ th.resizable:hover .resize-handle {
 }
 
 .location-submit-btn {
-  background: #4CAF50;
+  background: var(--gradient-success);
   color: white;
 }
 
 .location-submit-btn:hover {
-  background: #45a049;
-  box-shadow: 0 3px 6px rgba(76, 175, 80, 0.4);
+  box-shadow: var(--shadow-glow-success);
   transform: translateY(-1px);
 }
 
 .location-cancel-btn {
-  background: #9E9E9E;
-  color: white;
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .location-cancel-btn:hover {
-  background: #757575;
-  box-shadow: 0 3px 6px rgba(158, 158, 158, 0.4);
-  transform: translateY(-1px);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-dark);
 }
 
 .locations-table-container {
@@ -327,18 +332,19 @@ tbody tr:hover {
 
 .edit-btn,
 .delete-btn {
-  padding: 8px;
+  padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 14px;
-  margin-right: 5px;
+  font-size: var(--text-sm);
+  margin-right: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   vertical-align: middle;
+  transition: all var(--transition-fast);
 }
 
 .actions-cell {
@@ -347,21 +353,23 @@ tbody tr:hover {
 }
 
 .edit-btn {
-  background: #2196F3;
+  background: var(--gradient-info);
   color: white;
 }
 
 .edit-btn:hover {
-  background: #1976D2;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
 }
 
 .delete-btn {
-  background: #f44336;
+  background: var(--gradient-danger);
   color: white;
 }
 
 .delete-btn:hover {
-  background: #d32f2f;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
 }
 
 .no-data {

@@ -147,9 +147,10 @@
 }
 
 .tabs .entry-btn.active {
-  border-color: var(--color-primary);
-  background: var(--color-bg-primary);
-  color: var(--color-primary);
+  border: none;
+  background: var(--gradient-success);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-glow-success);
 }
 
 /* Super Admin Button - Special Style */
@@ -161,6 +162,13 @@
 
 .tabs button.super-admin-btn:hover {
   opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.tabs button.super-admin-btn.active {
+  background: var(--gradient-warning);
+  color: var(--color-text-inverse);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
   transform: translateY(-1px);
 }
 
