@@ -425,6 +425,7 @@ function EntryForm({ onAppointmentsAdded }) {
   return (
     <div className="entry-form">
       <h2>New Appointment Entry</h2>
+      <p className="page-subtitle">Add new client appointments and services</p>
       
       <form onSubmit={handleSubmit} onKeyDown={(e) => {
         // Prevent Enter key from submitting form

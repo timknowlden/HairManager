@@ -8,11 +8,17 @@
 
 .entry-form h2 {
   margin-top: 0;
-  margin-bottom: var(--space-lg);
+  margin-bottom: 8px;
   color: var(--color-text-primary);
-  font-size: 26px;
+  font-size: var(--text-2xl);
   font-weight: var(--font-bold);
   letter-spacing: -0.5px;
+}
+
+.entry-form .page-subtitle {
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-lg) 0;
+  font-size: var(--text-base);
 }
 
 .form-header {
@@ -154,14 +160,14 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 12px 16px;
-  background: var(--color-bg-secondary);
+  padding: 14px 16px;
+  background: var(--gradient-primary);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-primary);
   border-bottom: none;
   font-weight: var(--font-semibold);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  color: var(--color-text-inverse);
   margin-bottom: 0;
   width: 100%;
   box-sizing: border-box;
@@ -245,11 +251,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-primary);
+  background: var(--gradient-primary);
   color: var(--color-text-inverse);
   border-radius: 50%;
   font-weight: var(--font-semibold);
   font-size: var(--text-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .appointment-client-name {
@@ -335,7 +342,7 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  background: var(--color-danger);
+  background: var(--gradient-danger);
   color: var(--color-text-inverse);
   border: none;
   border-radius: var(--radius-md);
@@ -345,11 +352,13 @@
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
 .remove-btn:hover:not(:disabled) {
   background: var(--color-danger-hover);
-  transform: scale(1.05);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow-danger);
 }
 
 .remove-btn:disabled {
