@@ -169,6 +169,8 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .section-header h3 {
@@ -189,6 +191,7 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .appointment-count {
@@ -612,7 +615,53 @@ form button.submit-btn:hover:not(:disabled) {
   background: var(--color-bg-secondary);
 }
 
+/* Field labels for stacked layout */
+.field-label-stacked {
+  display: none;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
 /* Responsive design */
+/* Stack rows when layout changes to vertical */
+@media (max-width: 1000px) {
+  .appointment-row {
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    border-top: 2px solid var(--color-border);
+    padding: 16px;
+  }
+
+  .field-label-stacked {
+    display: block;
+  }
+
+  .appointment-client-name,
+  .appointment-service,
+  .appointment-price {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 900px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-stats {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
 @media (max-width: 768px) {
   .entry-form {
     padding: 15px;
@@ -621,19 +670,6 @@ form button.submit-btn:hover:not(:disabled) {
   .form-header {
     grid-template-columns: 1fr;
     gap: 15px;
-  }
-
-  .appointments-header {
-    display: none;
-  }
-
-  .appointment-row {
-    flex-direction: column;
-    gap: 15px;
-    align-items: stretch;
-    border: 2px solid var(--color-border);
-    border-radius: var(--radius-md);
-    margin-bottom: 12px;
   }
 
   .appointment-row:first-child {

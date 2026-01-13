@@ -982,7 +982,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
           <thead>
             <tr>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-id" 
                 onClick={() => handleSort('id')}
                 style={{ width: columnWidths.id, position: 'relative' }}
               >
@@ -993,7 +993,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-location-name" 
                 onClick={() => handleSort('location_name')}
                 style={{ width: columnWidths.location_name, position: 'relative' }}
               >
@@ -1004,7 +1004,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-address" 
                 onClick={() => handleSort('address')}
                 style={{ width: columnWidths.address, position: 'relative' }}
               >
@@ -1015,7 +1015,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-city-town" 
                 onClick={() => handleSort('city_town')}
                 style={{ width: columnWidths.city_town, position: 'relative' }}
               >
@@ -1026,7 +1026,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-post-code" 
                 onClick={() => handleSort('post_code')}
                 style={{ width: columnWidths.post_code, position: 'relative' }}
               >
@@ -1037,7 +1037,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-distance" 
                 onClick={() => handleSort('distance')}
                 style={{ width: columnWidths.distance, position: 'relative' }}
               >
@@ -1048,7 +1048,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-contact-name" 
                 onClick={() => handleSort('contact_name')}
                 style={{ width: columnWidths.contact_name, position: 'relative' }}
               >
@@ -1059,7 +1059,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-email" 
                 onClick={() => handleSort('email_address')}
                 style={{ width: columnWidths.email_address, position: 'relative' }}
               >
@@ -1070,7 +1070,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-phone" 
                 onClick={() => handleSort('phone')}
                 style={{ width: columnWidths.phone, position: 'relative' }}
               >
@@ -1080,7 +1080,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   onMouseDown={(e) => handleMouseDown(e, 'phone')}
                 ></div>
               </th>
-              <th style={{ width: columnWidths.actions, position: 'relative' }}>
+              <th className="column-actions" style={{ width: columnWidths.actions, position: 'relative' }}>
                 Actions
                 <div 
                   className="resize-handle"
@@ -1089,8 +1089,8 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
               </th>
             </tr>
             <tr className="filter-row">
-              <th style={{ width: columnWidths.id }}></th>
-              <th>
+              <th className="column-id" style={{ width: columnWidths.id }}></th>
+              <th className="column-location-name">
                 <input
                   type="text"
                   placeholder="Filter name..."
@@ -1099,7 +1099,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-address">
                 <input
                   type="text"
                   placeholder="Filter address..."
@@ -1108,7 +1108,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-city-town">
                 <input
                   type="text"
                   placeholder="Filter city..."
@@ -1117,7 +1117,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-post-code">
                 <input
                   type="text"
                   placeholder="Filter postcode..."
@@ -1126,7 +1126,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-distance">
                 <input
                   type="text"
                   placeholder="Filter distance..."
@@ -1135,7 +1135,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-contact-name">
                 <input
                   type="text"
                   placeholder="Filter contact..."
@@ -1144,7 +1144,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-email">
                 <input
                   type="text"
                   placeholder="Filter email..."
@@ -1153,7 +1153,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-phone">
                 <input
                   type="text"
                   placeholder="Filter phone..."
@@ -1162,7 +1162,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
-              <th></th>
+              <th className="column-actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -1176,14 +1176,14 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
               filteredAndSortedLocations.map((loc) => (
                 <React.Fragment key={loc.id}>
                   <tr>
-                    <td style={{ width: columnWidths.id }}>{loc.id}</td>
-                    <td style={{ width: columnWidths.location_name }}>{loc.location_name}</td>
-                    <td style={{ width: columnWidths.address }}>{loc.address}</td>
-                    <td style={{ width: columnWidths.city_town }}>{loc.city_town}</td>
-                    <td style={{ width: columnWidths.post_code }}>{loc.post_code}</td>
-                    <td style={{ width: columnWidths.distance }}>{loc.distance ? `${loc.distance} mi` : '-'}</td>
-                    <td style={{ width: columnWidths.contact_name }}>{loc.contact_name || '-'}</td>
-                    <td style={{ width: columnWidths.email_address }}>
+                    <td className="column-id" style={{ width: columnWidths.id }}>{loc.id}</td>
+                    <td className="column-location-name" style={{ width: columnWidths.location_name }}>{loc.location_name}</td>
+                    <td className="column-address" style={{ width: columnWidths.address }}>{loc.address}</td>
+                    <td className="column-city-town" style={{ width: columnWidths.city_town }}>{loc.city_town}</td>
+                    <td className="column-post-code" style={{ width: columnWidths.post_code }}>{loc.post_code}</td>
+                    <td className="column-distance" style={{ width: columnWidths.distance }}>{loc.distance ? `${loc.distance} mi` : '-'}</td>
+                    <td className="column-contact-name" style={{ width: columnWidths.contact_name }}>{loc.contact_name || '-'}</td>
+                    <td className="column-email" style={{ width: columnWidths.email_address }}>
                       {loc.email_address && (Array.isArray(loc.email_address) ? loc.email_address.length > 0 : loc.email_address) ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {Array.isArray(loc.email_address) ? (
@@ -1213,7 +1213,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                         '-'
                       )}
                     </td>
-                    <td style={{ width: columnWidths.phone }}>
+                    <td className="column-phone" style={{ width: columnWidths.phone }}>
                       {loc.phone ? (
                         <a href={`tel:${loc.phone.replace(/\s+/g, '')}`} className="phone-link">
                           {loc.phone}
@@ -1222,7 +1222,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                         '-'
                       )}
                     </td>
-                    <td className="actions-cell" style={{ width: columnWidths.actions }}>
+                    <td className="actions-cell column-actions" style={{ width: columnWidths.actions }}>
                       <button onClick={() => handleEdit(loc)} className="edit-btn" title="Edit">
                         <FaEdit />
                       </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope, FaUserShield, FaArrowLeft, FaEye, FaCrown } from 'react-icons/fa';
+import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope, FaUserShield, FaArrowLeft, FaEye, FaCrown, FaBars, FaTimes } from 'react-icons/fa';
 import { useAuth } from './contexts/AuthContext';
 import EntryForm from './components/EntryForm';
 import AppointmentsList from './components/AppointmentsList';
@@ -141,7 +141,9 @@ function App() {
       const [invoiceAppointments, setInvoiceAppointments] = useState(null);
       const [profileSettings, setProfileSettings] = useState(null);
       const [showProfileMenu, setShowProfileMenu] = useState(false);
+      const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
       const profileMenuRef = useRef(null);
+      const mobileMenuRef = useRef(null);
 
       useEffect(() => {
         if (isAuthenticated) {
@@ -162,16 +164,25 @@ function App() {
           if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
             setShowProfileMenu(false);
           }
+          if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && 
+              !event.target.closest('.mobile-menu-toggle')) {
+            setIsMobileMenuOpen(false);
+          }
         };
 
-        if (showProfileMenu) {
+        if (showProfileMenu || isMobileMenuOpen) {
           document.addEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
           document.removeEventListener('mousedown', handleClickOutside);
         };
-      }, [showProfileMenu]);
+      }, [showProfileMenu, isMobileMenuOpen]);
+
+      // Close mobile menu when navigating
+      useEffect(() => {
+        setIsMobileMenuOpen(false);
+      }, [location.pathname]);
 
       const fetchProfileSettings = async () => {
         try {
@@ -242,7 +253,7 @@ function App() {
       };
 
   return (
-    <div className="app">
+    <div className={`app ${isSuperAdmin ? 'super-admin-active' : ''}`}>
       {impersonation && (
         <div className="impersonation-banner">
           <div className="impersonation-content">
@@ -260,35 +271,42 @@ function App() {
         <div className="app-header-content">
           <div className="header-row">
             <h1 className="business-name">{pageTitle}</h1>
-            <nav className="tabs">
+            <button 
+              className="mobile-menu-toggle"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
+            </button>
+            <nav className="tabs desktop-nav">
           <button
             className={`entry-btn ${activeTab === 'entry' ? 'active' : ''}`}
             onClick={() => navigate('/entry')}
           >
-            <FaPlus /> New Entry
+            <FaPlus /> <span className="entry-btn-text">New Entry</span>
           </button>
           <div className="nav-divider"></div>
           <button
             className={activeTab === 'list' ? 'active' : ''}
             onClick={() => navigate('/appointments')}
           >
-            <FaList /> View Appointments
+            <FaList /> Appointments
           </button>
           <button
-            className={activeTab === 'locations' ? 'active' : ''}
+            className={`locations-nav-btn ${activeTab === 'locations' ? 'active' : ''}`}
             onClick={() => navigate('/locations')}
           >
             <FaMapMarkerAlt /> Locations
           </button>
           <button
-            className={activeTab === 'services' ? 'active' : ''}
+            className={`services-nav-btn ${activeTab === 'services' ? 'active' : ''}`}
             onClick={() => navigate('/services')}
           >
             <FaCut /> Services
           </button>
           {(isSuperAdmin || hasPaidPlan) && (
             <button
-              className={activeTab === 'financial' ? 'active' : ''}
+              className={`financial-nav-btn ${activeTab === 'financial' ? 'active' : ''}`}
               onClick={() => navigate('/financial')}
               style={{
                 animation: 'fadeIn 0.3s ease-in'
@@ -297,78 +315,192 @@ function App() {
               <FaChartLine /> Financial
             </button>
           )}
-          {isSuperAdmin && (
-            <>
-              <div className="nav-divider"></div>
+            </nav>
+            {/* Mobile Menu */}
+            {isMobileMenuOpen && (
+              <div 
+                className="mobile-nav-overlay"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+            )}
+            <nav ref={mobileMenuRef} className={`mobile-nav ${isMobileMenuOpen ? 'open' : ''}`}>
               <button
-                className={`nav-tab ${activeTab === 'super-admin' ? 'active' : ''}`}
-                onClick={() => navigate('/super-admin')}
-                style={{
-                  animation: 'fadeIn 0.3s ease-in',
-                  backgroundColor: isSuperAdmin ? '#ff9800' : 'transparent',
-                  color: isSuperAdmin ? 'white' : 'inherit'
+                className={`mobile-nav-item ${activeTab === 'entry' ? 'active' : ''}`}
+                onClick={() => navigate('/entry')}
+              >
+                <FaPlus /> New Entry
+              </button>
+              <button
+                className={`mobile-nav-item ${activeTab === 'list' ? 'active' : ''}`}
+                onClick={() => navigate('/appointments')}
+              >
+                <FaList /> Appointments
+              </button>
+              <button
+                className={`mobile-nav-item ${activeTab === 'locations' ? 'active' : ''}`}
+                onClick={() => navigate('/locations')}
+              >
+                <FaMapMarkerAlt /> Locations
+              </button>
+              <button
+                className={`mobile-nav-item ${activeTab === 'services' ? 'active' : ''}`}
+                onClick={() => navigate('/services')}
+              >
+                <FaCut /> Services
+              </button>
+              {(isSuperAdmin || hasPaidPlan) && (
+                <button
+                  className={`mobile-nav-item ${activeTab === 'financial' ? 'active' : ''}`}
+                  onClick={() => navigate('/financial')}
+                >
+                  <FaChartLine /> Financial
+                </button>
+              )}
+              {isSuperAdmin && (
+                <button
+                  className={`mobile-nav-item ${activeTab === 'super-admin' ? 'active' : ''}`}
+                  onClick={() => navigate('/super-admin')}
+                >
+                  <FaUserShield /> Super Admin
+                </button>
+              )}
+              {/* Divider before profile items */}
+              <div className="mobile-nav-divider"></div>
+              {/* Profile Menu Items */}
+              <button
+                className={`mobile-nav-item ${activeTab === 'admin' ? 'active' : ''}`}
+                onClick={() => {
+                  navigate('/admin');
+                  setIsMobileMenuOpen(false);
                 }}
               >
-                <FaUserShield /> Super Admin
+                <FaUser /> Profile
               </button>
-            </>
-          )}
+              <button
+                className={`mobile-nav-item ${activeTab === 'my-plan' ? 'active' : ''}`}
+                onClick={() => {
+                  navigate('/my-plan');
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <FaCrown /> My Plan
+              </button>
+              <button
+                className={`mobile-nav-item ${activeTab === 'email-logs' ? 'active' : ''}`}
+                onClick={() => {
+                  navigate('/email-logs');
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <FaEnvelope /> Email Logs
+              </button>
+              <button
+                className="mobile-nav-item mobile-nav-item-signout"
+                onClick={() => {
+                  logout();
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                <FaSignOutAlt /> Sign out
+              </button>
             </nav>
-            <div 
-              ref={profileMenuRef}
-              className="profile-menu-container"
-              onMouseEnter={() => setShowProfileMenu(true)}
-              onMouseLeave={() => setShowProfileMenu(false)}
-            >
-              <div className="profile-trigger">
-                <div className="profile-avatar">
-                  {getUserInitials()}
-                </div>
-                <span className="profile-name">{getUserDisplayName()}</span>
-              </div>
-              {showProfileMenu && (
-                <>
-                  <div className="profile-dropdown-bridge"></div>
-                  <div className="profile-dropdown">
-                    <button
-                      className="profile-dropdown-item"
-                      onClick={() => {
-                        navigate('/admin');
-                        setShowProfileMenu(false);
-                      }}
-                    >
-                      <FaUser /> Profile
-                    </button>
-                    <button
-                      className="profile-dropdown-item"
-                      onClick={() => {
-                        navigate('/my-plan');
-                        setShowProfileMenu(false);
-                      }}
-                    >
-                      <FaCrown /> My Plan
-                    </button>
-                    <button
-                      className="profile-dropdown-item"
-                      onClick={() => {
-                        navigate('/email-logs');
-                        setShowProfileMenu(false);
-                      }}
-                    >
-                      <FaEnvelope /> Email Logs
-                    </button>
-                    <button
-                      className="profile-dropdown-item"
-                      onClick={() => {
-                        logout();
-                        setShowProfileMenu(false);
-                      }}
-                    >
-                      <FaSignOutAlt /> Sign out
-                    </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+              {isSuperAdmin && (
+                <button
+                  className={`super-admin-header-btn ${activeTab === 'super-admin' ? 'active' : ''}`}
+                  onClick={() => navigate('/super-admin')}
+                  style={{
+                    animation: 'fadeIn 0.3s ease-in'
+                  }}
+                >
+                  <FaUserShield /> Super Admin
+                </button>
+              )}
+              <div 
+                ref={profileMenuRef}
+                className="profile-menu-container"
+                onMouseEnter={() => setShowProfileMenu(true)}
+                onMouseLeave={() => setShowProfileMenu(false)}
+              >
+                <div className="profile-trigger">
+                  <div className="profile-avatar">
+                    {getUserInitials()}
                   </div>
+                  <span className="profile-name">{getUserDisplayName()}</span>
+                </div>
+                {showProfileMenu && (
+                  <>
+                    <div className="profile-dropdown-bridge"></div>
+                    <div className="profile-dropdown">
+                      <button
+                        className="profile-dropdown-item"
+                        onClick={() => {
+                          navigate('/admin');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaUser /> Profile
+                      </button>
+                      <button
+                        className="profile-dropdown-item"
+                        onClick={() => {
+                          navigate('/my-plan');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaCrown /> My Plan
+                      </button>
+                      <button
+                        className="profile-dropdown-item"
+                        onClick={() => {
+                          navigate('/email-logs');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaEnvelope /> Email Logs
+                      </button>
+                      {(isSuperAdmin || hasPaidPlan) && (
+                        <button
+                          className={`profile-dropdown-item profile-dropdown-financial ${activeTab === 'financial' ? 'active' : ''}`}
+                          onClick={() => {
+                            navigate('/financial');
+                            setShowProfileMenu(false);
+                          }}
+                        >
+                          <FaChartLine /> Financial
+                        </button>
+                      )}
+                      <button
+                        className={`profile-dropdown-item profile-dropdown-locations ${activeTab === 'locations' ? 'active' : ''}`}
+                        onClick={() => {
+                          navigate('/locations');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaMapMarkerAlt /> Locations
+                      </button>
+                      <button
+                        className={`profile-dropdown-item profile-dropdown-services ${activeTab === 'services' ? 'active' : ''}`}
+                        onClick={() => {
+                          navigate('/services');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaCut /> Services
+                      </button>
+                      <button
+                        className="profile-dropdown-item"
+                        onClick={() => {
+                          logout();
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaSignOutAlt /> Sign out
+                      </button>
+                    </div>
                 </>
               )}
+              </div>
             </div>
           </div>
         </div>

@@ -284,6 +284,10 @@
   border-color: var(--color-warning);
 }
 
+.my-plan-page .plan-option.current.featured {
+  border-color: var(--color-warning);
+}
+
 .my-plan-page .plan-option .featured-badge {
   position: absolute;
   top: -12px;
@@ -298,6 +302,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   z-index: 1;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
 .my-plan-page .plan-option .current-badge {
@@ -305,7 +310,6 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--gradient-primary);
   color: var(--color-text-inverse);
   padding: 6px 20px;
   border-radius: var(--radius-full);
@@ -313,9 +317,21 @@
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  z-index: 2;
+  z-index: 10;
   min-width: 120px;
   text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Match badge color to border color */
+.my-plan-page .plan-option.current .current-badge {
+  background: var(--gradient-primary);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.my-plan-page .plan-option.current.featured .current-badge {
+  background: var(--gradient-warning);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
 .my-plan-page .plan-option h4 {

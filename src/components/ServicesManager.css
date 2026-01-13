@@ -394,3 +394,75 @@ tbody tr:hover {
   border-left: 4px solid var(--color-success);
 }
 
+/* Responsive header styling - scoped to services-manager only */
+.services-manager .services-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.services-manager .services-header h2 {
+  font-size: clamp(20px, 2.2vw, 26px);
+}
+
+.services-manager .header-actions {
+  flex-wrap: wrap;
+}
+
+/* Responsive table column hiding - scoped to services-manager only */
+/* Hide Type at 1000px */
+@media (max-width: 1000px) {
+  .services-manager .column-type {
+    display: none !important;
+  }
+
+  .services-manager th, 
+  .services-manager td {
+    padding: 12px 10px;
+    font-size: clamp(13px, 1.8vw, 15px);
+  }
+}
+
+/* Hide Price at 768px (keep ID, Service Name, Actions) */
+@media (max-width: 768px) {
+  .services-manager .column-price {
+    display: none !important;
+  }
+
+  .services-manager th, 
+  .services-manager td {
+    padding: 10px 8px;
+    font-size: clamp(12px, 2.5vw, 14px);
+  }
+}
+
+/* Tighter spacing at 480px */
+@media (max-width: 480px) {
+  .services-manager th, 
+  .services-manager td {
+    padding: 8px 6px;
+    font-size: clamp(11px, 3vw, 13px);
+  }
+}
+
+/* Even tighter at 390px */
+@media (max-width: 390px) {
+  .services-manager th, 
+  .services-manager td {
+    padding: 6px 4px;
+    font-size: clamp(10px, 3.5vw, 12px);
+  }
+}
+
+/* Responsive header adjustments - scoped to services-manager only */
+@media (max-width: 900px) {
+  .services-manager .services-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .services-manager .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

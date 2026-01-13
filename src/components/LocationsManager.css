@@ -692,3 +692,86 @@ tbody tr:hover {
   font-weight: 600;
 }
 
+/* Responsive header styling - scoped to locations-manager only */
+.locations-manager .locations-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.locations-manager .locations-header h2 {
+  font-size: clamp(20px, 2.2vw, 26px);
+}
+
+.locations-manager .header-actions {
+  flex-wrap: wrap;
+}
+
+/* Responsive table column hiding - scoped to locations-manager only */
+/* Hide Distance, Post Code, City/Town at 1200px */
+@media (max-width: 1200px) {
+  .locations-manager .column-distance,
+  .locations-manager .column-post-code,
+  .locations-manager .column-city-town {
+    display: none !important;
+  }
+}
+
+/* Hide Address, Contact at 1000px */
+@media (max-width: 1000px) {
+  .locations-manager .column-address,
+  .locations-manager .column-contact-name {
+    display: none !important;
+  }
+
+  .locations-manager th, 
+  .locations-manager td {
+    padding: 12px 10px;
+    font-size: clamp(13px, 1.8vw, 15px);
+  }
+}
+
+/* Hide Email, Phone at 900px */
+@media (max-width: 900px) {
+  .locations-manager .column-email,
+  .locations-manager .column-phone {
+    display: none !important;
+  }
+
+  .locations-manager th, 
+  .locations-manager td {
+    padding: 10px 8px;
+    font-size: clamp(12px, 2.5vw, 14px);
+  }
+}
+
+/* Tighter spacing at 768px */
+@media (max-width: 768px) {
+  .locations-manager th, 
+  .locations-manager td {
+    padding: 8px 6px;
+    font-size: clamp(11px, 3vw, 13px);
+  }
+}
+
+/* Even tighter at 480px */
+@media (max-width: 480px) {
+  .locations-manager th, 
+  .locations-manager td {
+    padding: 6px 4px;
+    font-size: clamp(10px, 3.5vw, 12px);
+  }
+}
+
+/* Responsive header adjustments - scoped to locations-manager only */
+@media (max-width: 900px) {
+  .locations-manager .locations-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .locations-manager .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+

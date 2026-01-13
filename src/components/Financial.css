@@ -63,6 +63,50 @@
 .financial-table-wrapper {
   margin-bottom: 40px;
   overflow-x: auto;
+  position: relative;
+  /* Add subtle scroll indicator */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) var(--color-bg-secondary);
+}
+
+.financial-table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.financial-table-wrapper::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+}
+
+.financial-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.financial-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Scroll hint for mobile */
+@media (max-width: 768px) {
+  .financial-table-wrapper {
+    position: relative;
+  }
+
+  /* Show scroll indicator text */
+  .financial-table-wrapper::after {
+    content: '← Scroll →';
+    position: absolute;
+    top: -22px;
+    right: 0;
+    font-size: 0.7em;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    opacity: 0.7;
+    pointer-events: none;
+    z-index: 2;
+    letter-spacing: 0.5px;
+  }
 }
 
 .financial-table {
@@ -280,6 +324,28 @@
   padding: 14px 18px;
   border-bottom: 1px solid var(--color-border-light);
   color: var(--color-text-primary);
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  font-size: clamp(0.9em, 1.1vw, 1em); /* Base responsive font size for all cells */
+}
+
+/* First column text scales more aggressively */
+.financial-table td:first-child {
+  font-size: clamp(0.88em, 1.2vw, 1em);
+}
+
+/* Ensure table cells don't overflow - base styles */
+.financial-table th:first-child,
+.financial-table td:first-child {
+  min-width: 0;
+  max-width: none; /* Allow flexible sizing by default */
+}
+
+.financial-table th:last-child,
+.financial-table td:last-child {
+  white-space: nowrap; /* Keep amounts on one line */
 }
 
 .financial-table tbody tr:nth-child(even) {
@@ -294,7 +360,7 @@
 .financial-year-row {
   background: var(--color-bg-secondary) !important;
   font-weight: var(--font-semibold);
-  font-size: 1.05em;
+  font-size: clamp(0.9em, 1.2vw, 1.05em); /* Scales from 0.9em to 1.05em */
 }
 
 .financial-year-row:hover {
@@ -312,6 +378,7 @@
 .month-row td:first-child {
   padding-left: 50px;
   color: #555;
+  font-size: clamp(0.9em, 1.1vw, 1em); /* Scales responsively */
 }
 
 .month-total-row {
@@ -352,25 +419,74 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: clamp(24px, 2.5vw, 26px); /* Scales from 24px to 26px based on viewport */
+  height: clamp(24px, 2.5vw, 26px);
+  min-width: 24px; /* Minimum touch target */
+  min-height: 24px;
+  max-width: 26px;
+  max-height: 26px;
   background-color: var(--color-primary);
   border-radius: var(--radius-sm);
   color: white;
   font-weight: bold;
-  font-size: 18px;
+  font-size: clamp(16px, 1.8vw, 18px); /* Scales font size */
   line-height: 1;
   text-align: center;
   padding: 0;
+  margin: 0;
+  margin-right: clamp(6px, 1.2vw, 10px); /* Scales responsively from 6px to 10px */
   transition: all 0.2s ease;
   border: none;
   cursor: pointer;
   vertical-align: middle;
+  flex-shrink: 0; /* Prevent button from shrinking below min-width */
+  position: relative; /* Ensure consistent positioning */
 }
 
 .expand-button:hover {
   background-color: var(--color-primary-dark);
   transform: scale(1.1);
+}
+
+.expand-button:active {
+  transform: scale(0.95);
+}
+
+/* Improved visual hierarchy and spacing */
+.financial-year-section,
+.calendar-year-section,
+.location-section,
+.service-type-section,
+.service-name-section {
+  scroll-margin-top: 20px; /* For smooth scrolling to sections */
+}
+
+/* Better focus states for accessibility */
+.expand-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.filter-checkbox:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Smooth transitions for expand/collapse */
+.financial-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+/* Improved table readability */
+.financial-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Better visual separation between sections */
+.financial-year-section + .calendar-year-section {
+  border-top: 2px solid var(--color-border);
+  padding-top: 32px;
 }
 
 /* Financial Year Section */
@@ -414,5 +530,726 @@
   text-align: left;
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
+}
+
+/* Current Period Badge */
+.current-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 0.75em;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  vertical-align: middle;
+}
+
+/* Current Period Highlight */
+.current-period {
+  position: relative;
+}
+
+.current-period td:first-child {
+  font-weight: 600;
+  position: relative;
+}
+
+/* Use pseudo-element for border to avoid affecting alignment */
+.current-period td:first-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #10b981;
+  z-index: 1;
+}
+
+/* Keep consistent padding for all rows - border doesn't affect layout */
+/* All financial-year-row cells should have the same padding */
+.financial-year-row td:first-child {
+  padding: 14px 18px;
+}
+
+.financial-year-row.current-period td:first-child {
+  padding: 14px 18px; /* Same as non-current rows - border is absolute positioned */
+}
+
+.month-row.current-period td:first-child {
+  padding-left: 50px; /* Same as non-current rows - border is absolute positioned */
+}
+
+/* Ensure current period rows stand out */
+.financial-year-row.current-period {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, var(--color-bg-secondary) 4%) !important;
+}
+
+.month-row.current-period {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, white 4%) !important;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN - MOBILE & TABLET
+   ============================================ */
+
+/* Intermediate Tablet/Mobile Landscape (600px - 900px) - Problematic viewport range */
+@media (max-width: 900px) and (min-width: 600px) {
+  .financial-container {
+    padding: var(--space-md) 12px;
+  }
+
+  .financial-header {
+    padding: 18px 16px;
+  }
+
+  .financial-filters {
+    padding: 14px 16px;
+  }
+
+  .financial-table {
+    font-size: 0.88em;
+  }
+
+  .financial-table th,
+  .financial-table td {
+    padding: 9px 8px;
+  }
+
+  .financial-table th {
+    font-size: 0.82em;
+    padding: 7px 8px;
+  }
+
+  .financial-table {
+    table-layout: fixed; /* Use fixed layout for precise control */
+  }
+
+  /* Ensure all financial-year-row cells have consistent padding */
+  .financial-year-row td:first-child {
+    padding: 9px 8px !important; /* Match general table cell padding */
+  }
+
+  .financial-table th:first-child,
+  .financial-table td:first-child {
+    width: 60%; /* Fixed width for first column */
+    max-width: 60%;
+    padding-right: 6px;
+  }
+
+  .financial-table th:last-child,
+  .financial-table td:last-child {
+    width: 40%; /* Fixed width for amount column */
+    padding-left: 6px;
+  }
+
+  .expand-button {
+    width: clamp(26px, 3vw, 30px);
+    height: clamp(26px, 3vw, 30px);
+    min-width: 26px;
+    min-height: 26px;
+    max-width: 30px;
+    max-height: 30px;
+    font-size: clamp(16px, 2vw, 18px);
+    margin-right: clamp(4px, 0.8vw, 6px);
+  }
+
+  .current-badge {
+    font-size: 0.6em;
+    padding: 2px 6px;
+    margin-left: 4px;
+  }
+
+  .amount-cell {
+    font-size: 0.9em;
+  }
+
+  .financial-year-row {
+    font-size: clamp(0.88em, 1.3vw, 0.98em); /* Scales for intermediate viewports */
+  }
+
+  .month-row td:first-child {
+    font-size: clamp(0.85em, 1.1vw, 0.95em); /* Scales for intermediate viewports */
+  }
+}
+
+/* Tablet Styles (768px and below) */
+@media (max-width: 768px) {
+  .financial-container {
+    padding: var(--space-md) var(--space-sm);
+  }
+
+  .financial-header {
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .financial-header h2 {
+    font-size: 22px;
+  }
+
+  .financial-subtitle {
+    font-size: 0.9em;
+  }
+
+  .financial-filters {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+
+  .filter-checkbox {
+    font-size: 0.95em;
+  }
+
+  .filter-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+
+  .financial-table-wrapper {
+    margin-bottom: 32px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .financial-table {
+    min-width: 0; /* Allow table to fit viewport */
+    width: 100%;
+    font-size: 0.9em;
+    table-layout: auto; /* Use auto for flexible wrapping */
+  }
+
+  /* Optimize column widths for tablet */
+  .financial-table th:first-child,
+  .financial-table td:first-child {
+    max-width: 70%;
+    min-width: 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .financial-table th:last-child,
+  .financial-table td:last-child {
+    width: 30%;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .financial-table th,
+  .financial-table td {
+    padding: 10px 10px; /* Reduced padding */
+  }
+
+  .financial-table th {
+    font-size: 0.85em;
+    padding: 8px 10px;
+  }
+
+  /* Override base financial-year-row padding to match table cell padding */
+  .financial-year-row td:first-child {
+    padding: 10px 10px !important; /* Match general table cell padding */
+  }
+
+  .financial-year-row {
+    font-size: clamp(0.9em, 1.4vw, 1em); /* Scales for tablet */
+  }
+
+  .month-row td:first-child {
+    font-size: clamp(0.88em, 1.2vw, 0.95em); /* Scales for tablet */
+  }
+
+  .expand-button {
+    width: clamp(28px, 3.5vw, 32px);
+    height: clamp(28px, 3.5vw, 32px);
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 32px;
+    max-height: 32px;
+    font-size: clamp(17px, 2.2vw, 20px);
+    margin-right: clamp(6px, 1vw, 8px);
+  }
+
+  .financial-year-section h3,
+  .calendar-year-section h3,
+  .location-section h3,
+  .service-type-section h3,
+  .service-name-section h3 {
+    font-size: 1.5em;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .financial-year-section {
+    margin-bottom: 40px;
+  }
+
+  .calendar-year-section,
+  .location-section,
+  .service-type-section,
+  .service-name-section {
+    margin-top: 40px;
+    padding-top: 24px;
+  }
+
+  .month-row td:first-child,
+  .month-total-row td:first-child {
+    padding-left: 40px;
+  }
+
+  .current-badge {
+    font-size: 0.65em;
+    padding: 3px 8px;
+    margin-left: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Ensure all financial-year-row cells have consistent padding at tablet size */
+  .financial-year-row td:first-child {
+    padding: 10px 10px !important; /* Explicit padding to override any base rules */
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
+  }
+
+  /* Current period rows use same padding - border is absolute positioned */
+  .financial-year-row.current-period td:first-child {
+    padding: 10px 10px !important; /* Same as non-current rows */
+  }
+
+  .month-row.current-period td:first-child {
+    padding-left: 40px !important; /* Same as non-current rows */
+  }
+
+  /* Allow badge to wrap to next line if needed */
+  .financial-year-row td:first-child,
+  .month-row td:first-child {
+    white-space: normal;
+  }
+
+  .current-badge {
+    display: inline-block;
+    vertical-align: middle;
+  }
+}
+
+/* Mobile Styles (480px and below) */
+@media (max-width: 480px) {
+  .financial-container {
+    padding: var(--space-sm) 8px; /* Minimal horizontal padding */
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .financial-header {
+    padding: 14px 12px;
+    margin-bottom: 20px;
+  }
+
+  .financial-header h2 {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+
+  .financial-subtitle {
+    font-size: 0.85em;
+    line-height: 1.4;
+  }
+
+  .financial-filters {
+    padding: 12px 14px;
+    gap: 14px;
+  }
+
+  .filter-checkbox {
+    font-size: 0.9em;
+  }
+
+  .filter-checkbox input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .financial-table {
+    min-width: 0; /* Remove min-width to allow table to fit viewport */
+    width: 100%;
+    font-size: 0.85em;
+    border-radius: var(--radius-md);
+    table-layout: auto; /* Allow flexible column widths */
+  }
+
+  .financial-table th,
+  .financial-table td {
+    padding: 10px 8px; /* Reduced horizontal padding */
+  }
+
+  .financial-table th {
+    font-size: 0.75em;
+    padding: 8px 8px;
+    letter-spacing: 0.2px;
+    white-space: normal; /* Allow header text to wrap if needed */
+    line-height: 1.3;
+  }
+
+  /* Optimize column widths for mobile */
+  .financial-table th:first-child,
+  .financial-table td:first-child {
+    max-width: 65%; /* First column takes up to 65% of width */
+    min-width: 0;
+    padding-right: 4px; /* Reduce right padding */
+  }
+
+  .financial-table th:last-child,
+  .financial-table td:last-child {
+    padding-right: 8px;
+    padding-left: 4px; /* Reduce left padding */
+    width: auto;
+    min-width: 0;
+    text-align: right;
+  }
+
+  /* Make amount column more compact */
+  .amount-cell {
+    font-size: 0.85em;
+    white-space: nowrap;
+  }
+
+  .expand-button {
+    width: clamp(28px, 4vw, 32px);
+    height: clamp(28px, 4vw, 32px);
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 32px;
+    max-height: 32px;
+    font-size: clamp(17px, 2.5vw, 20px);
+    margin-right: clamp(4px, 1vw, 6px);
+    flex-shrink: 0; /* Prevent button from shrinking below min-width */
+  }
+
+  .financial-year-row {
+    font-size: clamp(0.85em, 1.5vw, 1em); /* Scales from 0.85em to 1em on mobile */
+  }
+
+  .financial-year-section h3,
+  .calendar-year-section h3,
+  .location-section h3,
+  .service-type-section h3,
+  .service-name-section h3 {
+    font-size: 1.3em;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+  }
+
+  .financial-year-section {
+    margin-bottom: 32px;
+  }
+
+  .calendar-year-section,
+  .location-section,
+  .service-type-section,
+  .service-name-section {
+    margin-top: 32px;
+    padding-top: 20px;
+  }
+
+  .month-row td:first-child,
+  .month-total-row td:first-child {
+    padding-left: 28px;
+    font-size: clamp(0.8em, 1.2vw, 0.9em); /* Scales responsively */
+  }
+
+  .amount-cell {
+    font-size: 0.9em;
+  }
+
+  .grand-total-row {
+    font-size: 1em;
+  }
+
+  .current-badge {
+    font-size: 0.6em;
+    padding: 2px 6px;
+    margin-left: 4px;
+    display: inline-block;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Adjust current period padding for mobile */
+  .financial-year-row.current-period td:first-child {
+    padding: 10px 8px; /* Keep same padding as non-current rows */
+  }
+
+  .month-row.current-period td:first-child {
+    padding-left: 28px; /* Keep same padding as non-current rows */
+  }
+
+  /* Optimize text wrapping for mobile */
+  .financial-year-row td:first-child {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Better spacing for nested content on mobile */
+  .location-table .month-row td:first-child,
+  .service-type-table .month-row td:first-child,
+  .service-name-table .month-row td:first-child {
+    padding-left: 28px;
+  }
+
+  .location-table .month-row.current-period td:first-child,
+  .service-type-table .month-row.current-period td:first-child,
+  .service-name-table .month-row.current-period td:first-child {
+    padding-left: 28px; /* Keep same padding as non-current rows */
+  }
+
+  /* Ensure text doesn't break awkwardly on mobile */
+  .financial-table td {
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  /* Remove min-width constraints to allow flexible sizing */
+  .financial-year-row td:first-child,
+  .month-row td:first-child {
+    min-width: 0;
+  }
+
+  /* Better badge visibility on mobile */
+  .current-badge {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* iPhone 12 Pro and similar devices (390px width) */
+@media (max-width: 390px) {
+  .financial-container {
+    padding: var(--space-sm) 6px;
+  }
+
+  .financial-header {
+    padding: 12px 10px;
+  }
+
+  .financial-filters {
+    padding: 10px 12px;
+  }
+
+  .financial-table {
+    font-size: 0.8em;
+  }
+
+  .financial-table th,
+  .financial-table td {
+    padding: 8px 6px;
+  }
+
+  .financial-table th {
+    font-size: 0.7em;
+    padding: 6px 6px;
+  }
+
+  .financial-table th:first-child,
+  .financial-table td:first-child {
+    max-width: 55%; /* Slightly more aggressive for smaller screens */
+  }
+
+  .amount-cell {
+    font-size: 0.8em;
+  }
+
+  .expand-button {
+    width: clamp(26px, 4.5vw, 30px);
+    height: clamp(26px, 4.5vw, 30px);
+    min-width: 26px;
+    min-height: 26px;
+    max-width: 30px;
+    max-height: 30px;
+    font-size: clamp(16px, 2.5vw, 18px);
+    margin-right: clamp(3px, 0.8vw, 4px);
+  }
+
+  .current-badge {
+    font-size: 0.55em;
+    padding: 2px 5px;
+    margin-left: 3px;
+  }
+
+  .financial-year-row.current-period td:first-child {
+    padding: 8px 6px; /* Keep same padding as non-current rows */
+  }
+
+  .month-row.current-period td:first-child {
+    padding-left: 28px; /* Keep same padding as non-current rows */
+  }
+}
+
+/* Small Mobile Styles (360px and below) */
+@media (max-width: 360px) {
+  .financial-container {
+    padding: var(--space-xs);
+  }
+
+  .financial-header {
+    padding: 14px;
+  }
+
+  .financial-header h2 {
+    font-size: 18px;
+  }
+
+  .financial-table {
+    min-width: 450px;
+    font-size: 0.8em;
+  }
+
+  .financial-table th,
+  .financial-table td {
+    padding: 8px 10px;
+  }
+
+  .financial-table th {
+    font-size: 0.75em;
+    padding: 8px 10px;
+  }
+
+  .expand-button {
+    width: clamp(28px, 5vw, 32px);
+    height: clamp(28px, 5vw, 32px);
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 32px;
+    max-height: 32px;
+    font-size: clamp(17px, 2.8vw, 20px);
+    margin-right: clamp(4px, 1vw, 6px);
+  }
+
+  .current-badge {
+    font-size: 0.6em;
+    padding: 2px 6px;
+    margin-left: 4px;
+  }
+}
+
+/* Landscape Mobile Optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+  .financial-container {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .financial-header {
+    padding: 18px;
+  }
+
+  .financial-filters {
+    flex-direction: row;
+    gap: 20px;
+  }
+}
+
+/* Touch Device Improvements */
+@media (hover: none) and (pointer: coarse) {
+  .expand-button {
+    width: clamp(36px, 5vw, 40px);
+    height: clamp(36px, 5vw, 40px);
+    min-width: 36px;
+    min-height: 36px;
+    max-width: 40px;
+    max-height: 40px;
+    font-size: clamp(20px, 3vw, 24px);
+  }
+
+  .filter-checkbox {
+    padding: 4px 0;
+  }
+
+  .financial-table tbody tr {
+    /* Better touch feedback */
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* High DPI Display Optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .current-badge {
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.4);
+  }
+
+  .financial-table {
+    border-width: 0.5px;
+  }
+}
+
+/* Loading and Error States - Mobile Optimized */
+@media (max-width: 480px) {
+  .error-message {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.9em;
+    margin-bottom: var(--space-md);
+  }
+}
+
+/* Improved accessibility for screen readers */
+@media (prefers-reduced-motion: reduce) {
+  .expand-button,
+  .financial-table tbody tr,
+  .current-badge {
+    transition: none;
+  }
+
+  .expand-button:hover {
+    transform: none;
+  }
+}
+
+/* Dark mode support (if applicable) */
+@media (prefers-color-scheme: dark) {
+  .financial-table-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .financial-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Print Styles */
+@media print {
+  .financial-container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .financial-filters {
+    display: none;
+  }
+
+  .expand-button {
+    display: none;
+  }
+
+  .financial-table {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .current-badge {
+    background: #10b981 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .financial-table-wrapper::after {
+    display: none;
+  }
 }
 

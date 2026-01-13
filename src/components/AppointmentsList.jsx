@@ -991,21 +991,21 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             className={`invoice-btn ${invoiceMode ? 'active' : ''}`}
             title="Toggle invoice selection mode"
           >
-            <FaFileInvoice /> {invoiceMode ? 'Exit Invoice' : 'Invoice'}
+            <FaFileInvoice /> <span className="invoice-btn-text">{invoiceMode ? 'Exit Invoice' : 'Invoice'}</span>
           </button>
           <button 
             onClick={toggleCalculatorMode} 
             className={`calculator-btn ${calculatorMode ? 'active' : ''}`}
             title="Toggle calculator mode"
           >
-            <FaCalculator /> {calculatorMode ? 'Exit Calculator' : 'Calculator'}
+            <FaCalculator /> <span className="calculator-btn-text">{calculatorMode ? 'Exit Calculator' : 'Calculator'}</span>
           </button>
           <button 
             onClick={toggleAdminMode} 
             className={`admin-btn ${adminMode ? 'active' : ''}`}
             title="Toggle admin editing mode"
           >
-            <FaWrench /> {adminMode ? 'Exit Admin' : 'Admin'}
+            <FaWrench /> <span className="admin-btn-text">{adminMode ? 'Exit Admin' : 'Admin'}</span>
           </button>
           <button onClick={fetchAppointments} className="refresh-btn" title="Refresh">
             <FaSync />
@@ -1016,11 +1016,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
             title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
           >
-            <FaCalendarAlt /> {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
+            <FaCalendarAlt /> <span className="tax-year-btn-text">{taxYearMode ? 'Exit Tax Year' : 'Tax Year'}</span> {selectedTaxYears.size > 0 && <span className="tax-year-count">({selectedTaxYears.size})</span>}
           </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="clear-filters-btn">
-              <FaTimes /> Clear Filters
+              <FaTimes /> <span className="clear-filters-text">Clear Filters</span>
             </button>
           )}
         </div>
@@ -1161,30 +1161,30 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     onMouseDown={(e) => handleMouseDown(e, 'client_name')}
                   ></div>
                 </th>
+                  <th 
+                    className="sortable resizable column-service" 
+                    onClick={() => handleSort('service')}
+                    style={{ width: columnWidths.service, position: 'relative' }}
+                  >
+                    Service {sortConfig.column === 'service' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'service')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable column-type" 
+                    onClick={() => handleSort('type')}
+                    style={{ width: columnWidths.type, position: 'relative' }}
+                  >
+                    Type {sortConfig.column === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'type')}
+                    ></div>
+                  </th>
                 <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('service')}
-                  style={{ width: columnWidths.service, position: 'relative' }}
-                >
-                  Service {sortConfig.column === 'service' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'service')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('type')}
-                  style={{ width: columnWidths.type, position: 'relative' }}
-                >
-                  Type {sortConfig.column === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'type')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
+                  className="sortable resizable column-location" 
                   onClick={() => handleSort('location')}
                   style={{ width: columnWidths.location, position: 'relative' }}
                 >
@@ -1195,7 +1195,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   ></div>
                 </th>
                 <th 
-                  className="sortable resizable" 
+                  className="sortable resizable column-price" 
                   onClick={() => handleSort('price')}
                   style={{ width: columnWidths.price, position: 'relative' }}
                 >
@@ -1205,39 +1205,39 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     onMouseDown={(e) => handleMouseDown(e, 'price')}
                   ></div>
                 </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('distance')}
-                  style={{ width: columnWidths.distance, position: 'relative' }}
-                >
-                  Distance {sortConfig.column === 'distance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'distance')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('paid')}
-                  style={{ width: columnWidths.paid, position: 'relative' }}
-                >
-                  Paid {sortConfig.column === 'paid' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'paid')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('payment_date')}
-                  style={{ width: columnWidths.payment_date, position: 'relative' }}
-                >
-                  Payment Date {sortConfig.column === 'payment_date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'payment_date')}
-                  ></div>
-                </th>
+                  <th 
+                    className="sortable resizable column-distance" 
+                    onClick={() => handleSort('distance')}
+                    style={{ width: columnWidths.distance, position: 'relative' }}
+                  >
+                    Distance {sortConfig.column === 'distance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'distance')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable" 
+                    onClick={() => handleSort('paid')}
+                    style={{ width: columnWidths.paid, position: 'relative' }}
+                  >
+                    Paid {sortConfig.column === 'paid' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'paid')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable column-payment-date" 
+                    onClick={() => handleSort('payment_date')}
+                    style={{ width: columnWidths.payment_date, position: 'relative' }}
+                  >
+                    Payment Date {sortConfig.column === 'payment_date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'payment_date')}
+                    ></div>
+                  </th>
                 {adminMode && (
                   <th style={{ width: columnWidths.actions, position: 'relative' }}>
                     Actions
@@ -1277,7 +1277,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     className="filter-input"
                   />
                 </th>
-                <th>
+                <th className="column-service">
                   <select
                     value={filters.service}
                     onChange={(e) => handleFilterChange('service', e.target.value)}
@@ -1289,7 +1289,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-type">
                   <select
                     value={filters.type}
                     onChange={(e) => handleFilterChange('type', e.target.value)}
@@ -1301,7 +1301,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-location">
                   <select
                     value={filters.location}
                     onChange={(e) => handleFilterChange('location', e.target.value)}
@@ -1313,7 +1313,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-price">
                   <input
                     type="text"
                     placeholder="Filter price..."
@@ -1322,7 +1322,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     className="filter-input"
                   />
                 </th>
-                <th>
+                <th className="column-distance">
                   <input
                     type="text"
                     placeholder="Filter distance..."
@@ -1342,7 +1342,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     <option value="unpaid">Unpaid</option>
                   </select>
                 </th>
-                <th>
+                <th className="column-payment-date">
                   <input
                     type="text"
                     placeholder="Filter payment date..."
@@ -1426,7 +1426,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-service ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'service')}
                       style={{ width: columnWidths.service }}
                     >
@@ -1459,9 +1459,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                         apt.service
                       )}
                     </td>
-                    <td style={{ width: columnWidths.type }}>{editValues[apt.id]?.type ?? apt.type}</td>
+                    <td className="column-type" style={{ width: columnWidths.type }}>{editValues[apt.id]?.type ?? apt.type}</td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-location ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'location')}
                       style={{ width: columnWidths.location }}
                     >
@@ -1488,7 +1488,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-price ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'price')}
                       style={{ width: columnWidths.price }}
                     >
@@ -1522,7 +1522,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-distance ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'distance')}
                       style={{ width: columnWidths.distance }}
                     >
@@ -1563,7 +1563,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                         {apt.paid ? '✓ Paid' : 'Unpaid'}
                       </button>
                     </td>
-                    <td style={{ width: columnWidths.payment_date }}>{apt.payment_date ? formatDate(apt.payment_date) : '-'}</td>
+                    <td className="column-payment-date" style={{ width: columnWidths.payment_date }}>{apt.payment_date ? formatDate(apt.payment_date) : '-'}</td>
                     {adminMode && (
                       <td className="admin-actions" style={{ width: columnWidths.actions }}>
                         {hasChanges && (

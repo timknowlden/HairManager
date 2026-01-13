@@ -101,6 +101,179 @@
   flex: 1;
 }
 
+.desktop-nav {
+  display: flex;
+}
+
+/* ===== MOBILE MENU ===== */
+.mobile-menu-toggle {
+  display: none; /* Hidden on desktop */
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  z-index: calc(var(--z-dropdown) + 10);
+}
+
+.mobile-menu-toggle:hover {
+  background: var(--color-bg-secondary);
+}
+
+.mobile-nav {
+  display: none; /* Hidden on desktop */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  box-shadow: var(--shadow-xl);
+  border-bottom: 1px solid var(--color-border);
+  z-index: calc(var(--z-dropdown) + 5);
+  padding: var(--space-lg);
+  padding-top: calc(var(--space-lg) + 80px); /* Account for header height */
+  max-height: 100vh;
+  overflow-y: auto;
+  transform: translateY(-100%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  pointer-events: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-nav.open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+
+.mobile-nav-item {
+  width: 100%;
+  padding: 14px var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-xs);
+  transition: all var(--transition-fast);
+}
+
+.mobile-nav-item:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.mobile-nav-item.active {
+  background: var(--gradient-primary);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-glow-primary);
+}
+
+.mobile-nav-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.mobile-nav-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--space-md) 0;
+  width: 100%;
+}
+
+.mobile-nav-item-signout {
+  color: var(--color-danger) !important;
+  margin-top: var(--space-xs);
+}
+
+.mobile-nav-item-signout:hover {
+  background: var(--color-danger-light) !important;
+  color: var(--color-danger-hover) !important;
+}
+
+.mobile-nav-item-signout svg {
+  color: var(--color-danger);
+}
+
+/* Mobile Menu Overlay */
+.mobile-nav-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: calc(var(--z-dropdown) + 4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .desktop-nav {
+    display: none; /* Hide desktop nav on mobile */
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-nav {
+    display: block;
+  }
+
+  .header-row {
+    gap: var(--space-md);
+  }
+
+  .business-name {
+    font-size: 1.3em;
+    flex: 1;
+  }
+
+  .app-header-content {
+    padding: var(--space-md) var(--space-md);
+  }
+
+  .profile-name {
+    display: none; /* Hide profile name on mobile to save space */
+  }
+
+  .profile-menu-container {
+    display: none; /* Hide profile menu on mobile - available in hamburger menu */
+  }
+}
+
+@media (max-width: 480px) {
+  .business-name {
+    font-size: 1.1em;
+  }
+
+  .mobile-nav {
+    padding: var(--space-md);
+    padding-top: calc(var(--space-md) + 60px);
+  }
+
+  .mobile-nav-item {
+    padding: 12px var(--space-sm);
+    font-size: var(--text-sm);
+  }
+}
+
 .nav-divider {
   width: 1px;
   height: 28px;
@@ -172,6 +345,35 @@
   transform: translateY(-1px);
 }
 
+/* Super Admin Header Button - Next to Profile */
+.super-admin-header-btn {
+  padding: 10px 18px;
+  border: none;
+  background: var(--gradient-warning);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-md);
+  font-weight: var(--font-medium);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  box-shadow: var(--shadow-glow-warning);
+  flex-shrink: 0;
+}
+
+.super-admin-header-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+.super-admin-header-btn.active {
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+
 /* ===== MAIN CONTENT ===== */
 .app-main {
   padding: var(--space-lg) var(--space-lg);
@@ -228,6 +430,67 @@
   white-space: nowrap;
 }
 
+/* Hide profile name and entry button text on screens narrower than 1200px */
+@media (max-width: 1200px) {
+  .profile-name {
+    display: none;
+  }
+
+  .entry-btn-text {
+    display: none;
+  }
+
+  .entry-btn {
+    padding: 10px 12px; /* Reduce padding when text is hidden */
+    min-width: auto;
+  }
+}
+
+/* Hide Financial from desktop nav and show in profile menu at 1200px for Super Admin */
+@media (max-width: 1200px) {
+  .super-admin-active .tabs button.financial-nav-btn,
+  .super-admin-active .desktop-nav button.financial-nav-btn,
+  .super-admin-active .tabs .financial-nav-btn,
+  .super-admin-active .desktop-nav .financial-nav-btn {
+    display: none !important;
+  }
+
+  .super-admin-active .profile-dropdown-financial {
+    display: flex !important;
+  }
+}
+
+/* Hide Financial, Locations, and Services from desktop nav and show in profile menu at 900px */
+@media (max-width: 900px) {
+  .tabs button.financial-nav-btn,
+  .desktop-nav button.financial-nav-btn,
+  .tabs .financial-nav-btn,
+  .desktop-nav .financial-nav-btn,
+  .tabs button.locations-nav-btn,
+  .desktop-nav button.locations-nav-btn,
+  .tabs .locations-nav-btn,
+  .desktop-nav .locations-nav-btn,
+  .tabs button.services-nav-btn,
+  .desktop-nav button.services-nav-btn,
+  .tabs .services-nav-btn,
+  .desktop-nav .services-nav-btn {
+    display: none !important;
+  }
+
+  .profile-dropdown-financial,
+  .profile-dropdown-locations,
+  .profile-dropdown-services {
+    display: flex !important;
+  }
+}
+
+/* Hide Financial, Locations, and Services in profile dropdown by default (show only at breakpoints and below) */
+.profile-dropdown-financial,
+.profile-dropdown-locations,
+.profile-dropdown-services {
+  display: none;
+}
+
 .profile-dropdown-bridge {
   position: absolute;
   top: 100%;
@@ -274,6 +537,12 @@
   width: 18px;
   height: 18px;
   color: var(--color-text-secondary);
+}
+
+.profile-dropdown-item.active {
+  background: var(--color-bg-secondary);
+  color: var(--color-primary);
+  font-weight: var(--font-semibold);
 }
 
 /* ===== SMOOTH TAB TRANSITIONS ===== */

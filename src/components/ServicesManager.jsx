@@ -429,7 +429,7 @@ Hair wash 	Hair	£5.00`;
           <thead>
             <tr>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-id" 
                 onClick={() => handleSort('id')}
                 style={{ width: columnWidths.id, position: 'relative' }}
               >
@@ -440,7 +440,7 @@ Hair wash 	Hair	£5.00`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-service-name" 
                 onClick={() => handleSort('service_name')}
                 style={{ width: columnWidths.service_name, position: 'relative' }}
               >
@@ -451,7 +451,7 @@ Hair wash 	Hair	£5.00`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-type" 
                 onClick={() => handleSort('type')}
                 style={{ width: columnWidths.type, position: 'relative' }}
               >
@@ -462,7 +462,7 @@ Hair wash 	Hair	£5.00`;
                 ></div>
               </th>
               <th 
-                className="sortable resizable" 
+                className="sortable resizable column-price" 
                 onClick={() => handleSort('price')}
                 style={{ width: columnWidths.price, position: 'relative' }}
               >
@@ -472,7 +472,7 @@ Hair wash 	Hair	£5.00`;
                   onMouseDown={(e) => handleMouseDown(e, 'price')}
                 ></div>
               </th>
-              <th style={{ width: columnWidths.actions, position: 'relative' }}>
+              <th className="column-actions" style={{ width: columnWidths.actions, position: 'relative' }}>
                 Actions
                 <div 
                   className="resize-handle"
@@ -481,8 +481,8 @@ Hair wash 	Hair	£5.00`;
               </th>
             </tr>
             <tr className="filter-row">
-              <th></th>
-              <th>
+              <th className="column-id"></th>
+              <th className="column-service-name">
                 <input
                   type="text"
                   placeholder="Filter name..."
@@ -491,7 +491,7 @@ Hair wash 	Hair	£5.00`;
                   className="filter-input"
                 />
               </th>
-              <th>
+              <th className="column-type">
                 <select
                   value={filters.type}
                   onChange={(e) => handleFilterChange('type', e.target.value)}
@@ -503,7 +503,7 @@ Hair wash 	Hair	£5.00`;
                   ))}
                 </select>
               </th>
-              <th>
+              <th className="column-price">
                 <input
                   type="text"
                   placeholder="Filter price..."
@@ -512,7 +512,7 @@ Hair wash 	Hair	£5.00`;
                   className="filter-input"
                 />
               </th>
-              <th></th>
+              <th className="column-actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -525,11 +525,11 @@ Hair wash 	Hair	£5.00`;
             ) : (
               filteredAndSortedServices.map((service) => (
                 <tr key={service.id}>
-                  <td style={{ width: columnWidths.id }}>{service.id}</td>
-                  <td style={{ width: columnWidths.service_name }}>{service.service_name}</td>
-                  <td style={{ width: columnWidths.type }}>{service.type}</td>
-                  <td style={{ width: columnWidths.price }}>{formatCurrency(service.price)}</td>
-                  <td className="actions-cell" style={{ width: columnWidths.actions }}>
+                  <td className="column-id" style={{ width: columnWidths.id }}>{service.id}</td>
+                  <td className="column-service-name" style={{ width: columnWidths.service_name }}>{service.service_name}</td>
+                  <td className="column-type" style={{ width: columnWidths.type }}>{service.type}</td>
+                  <td className="column-price" style={{ width: columnWidths.price }}>{formatCurrency(service.price)}</td>
+                  <td className="actions-cell column-actions" style={{ width: columnWidths.actions }}>
                     <button onClick={() => handleEdit(service)} className="edit-btn" title="Edit">
                       <FaEdit />
                     </button>
