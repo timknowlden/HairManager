@@ -446,8 +446,34 @@
   }
 }
 
+/* Hide Financial, Locations, and Services in profile dropdown by default */
+.profile-dropdown-financial,
+.profile-dropdown-locations,
+.profile-dropdown-services {
+  display: none !important;
+}
+
+/* Explicitly hide when visible in desktop nav (above breakpoints where they move) */
+/* Above 1200px: Financial is in desktop nav for super admin, so hide from profile dropdown */
+@media (min-width: 1201px) {
+  .super-admin-active .profile-dropdown-financial {
+    display: none !important;
+  }
+}
+
+/* Above 900px: Financial, Locations and Services are in desktop nav, so hide from profile dropdown */
+@media (min-width: 901px) {
+  .profile-dropdown-financial,
+  .profile-dropdown-locations,
+  .profile-dropdown-services {
+    display: none !important;
+  }
+}
+
 /* Hide Financial from desktop nav and show in profile menu at 1200px for Super Admin */
-@media (max-width: 1200px) {
+/* Only show in profile dropdown when profile menu is visible (above 768px) */
+/* This rule comes AFTER the min-width rules so it can override them */
+@media (max-width: 1200px) and (min-width: 769px) {
   .super-admin-active .tabs button.financial-nav-btn,
   .super-admin-active .desktop-nav button.financial-nav-btn,
   .super-admin-active .tabs .financial-nav-btn,
@@ -461,7 +487,9 @@
 }
 
 /* Hide Financial, Locations, and Services from desktop nav and show in profile menu at 900px */
-@media (max-width: 900px) {
+/* Only show in profile dropdown when profile menu is visible (above 768px) */
+/* This rule comes AFTER the min-width rules so it can override them */
+@media (max-width: 900px) and (min-width: 769px) {
   .tabs button.financial-nav-btn,
   .desktop-nav button.financial-nav-btn,
   .tabs .financial-nav-btn,
@@ -484,10 +512,44 @@
   }
 }
 
-/* Hide Financial, Locations, and Services in profile dropdown by default (show only at breakpoints and below) */
-.profile-dropdown-financial,
-.profile-dropdown-locations,
-.profile-dropdown-services {
+/* At 768px and below, profile menu is hidden, so show items in mobile menu instead */
+/* This applies to all users */
+@media (max-width: 768px) {
+  /* Hide from desktop nav (all users) */
+  .tabs button.financial-nav-btn,
+  .desktop-nav button.financial-nav-btn,
+  .tabs .financial-nav-btn,
+  .desktop-nav .financial-nav-btn,
+  .tabs button.locations-nav-btn,
+  .desktop-nav button.locations-nav-btn,
+  .tabs .locations-nav-btn,
+  .desktop-nav .locations-nav-btn,
+  .tabs button.services-nav-btn,
+  .desktop-nav button.services-nav-btn,
+  .tabs .services-nav-btn,
+  .desktop-nav .services-nav-btn {
+    display: none !important;
+  }
+  
+  /* Hide from profile dropdown (profile menu is hidden at this breakpoint) */
+  .profile-dropdown-financial,
+  .profile-dropdown-locations,
+  .profile-dropdown-services {
+    display: none !important;
+  }
+  
+  /* Show in mobile menu (mobile menu is visible at this breakpoint) */
+  .mobile-nav-financial,
+  .mobile-nav-locations,
+  .mobile-nav-services {
+    display: flex !important;
+  }
+}
+
+/* Hide Financial, Locations, and Services in mobile menu by default (show only when profile menu is hidden) */
+.mobile-nav-financial,
+.mobile-nav-locations,
+.mobile-nav-services {
   display: none;
 }
 

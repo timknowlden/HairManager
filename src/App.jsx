@@ -336,26 +336,26 @@ function App() {
               >
                 <FaList /> Appointments
               </button>
-              <button
-                className={`mobile-nav-item ${activeTab === 'locations' ? 'active' : ''}`}
-                onClick={() => navigate('/locations')}
-              >
-                <FaMapMarkerAlt /> Locations
-              </button>
-              <button
-                className={`mobile-nav-item ${activeTab === 'services' ? 'active' : ''}`}
-                onClick={() => navigate('/services')}
-              >
-                <FaCut /> Services
-              </button>
               {(isSuperAdmin || hasPaidPlan) && (
                 <button
-                  className={`mobile-nav-item ${activeTab === 'financial' ? 'active' : ''}`}
+                  className={`mobile-nav-item mobile-nav-financial ${activeTab === 'financial' ? 'active' : ''}`}
                   onClick={() => navigate('/financial')}
                 >
                   <FaChartLine /> Financial
                 </button>
               )}
+              <button
+                className={`mobile-nav-item mobile-nav-locations ${activeTab === 'locations' ? 'active' : ''}`}
+                onClick={() => navigate('/locations')}
+              >
+                <FaMapMarkerAlt /> Locations
+              </button>
+              <button
+                className={`mobile-nav-item mobile-nav-services ${activeTab === 'services' ? 'active' : ''}`}
+                onClick={() => navigate('/services')}
+              >
+                <FaCut /> Services
+              </button>
               {isSuperAdmin && (
                 <button
                   className={`mobile-nav-item ${activeTab === 'super-admin' ? 'active' : ''}`}
