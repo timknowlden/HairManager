@@ -21,12 +21,14 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [selectedForCalculator, setSelectedForCalculator] = useState(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // Track last selected index for shift-click
   const [currency, setCurrency] = useState('GBP');
+  const appointmentRowRefs = useRef({}); // Refs for appointment rows to enable scrolling
+  const goToTimeoutRef = useRef(null); // Timeout ref for debouncing go to
   const [editingCell, setEditingCell] = useState(null); // { rowId, column }
   const [editValues, setEditValues] = useState({}); // { rowId: { column: value } }
   
   // Column widths state for resizing
   const [columnWidths, setColumnWidths] = useState({
-    id: 50, // Narrower ID column
+    id: 80, // Wider ID column to accommodate 4-digit numbers
     date: 110,
     client_name: 150,
     service: 150,
@@ -44,9 +46,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Track newly added appointments (state)
   const [newAppointmentIdsSet, setNewAppointmentIdsSet] = useState(new Set());
   
-  // Filter states
+  // Filter states (ID removed - now used for "go to" functionality)
   const [filters, setFilters] = useState({
-    id: '',
     date: '',
     client_name: '',
     service: '',
@@ -57,6 +58,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     paid: '',
     payment_date: ''
   });
+  const [goToId, setGoToId] = useState(''); // Separate state for "go to" ID input
 
   // Date filter mode: 'day', 'month', 'year', or '' (text search)
   const [dateFilterMode, setDateFilterMode] = useState('day'); // Default to day mode
@@ -65,6 +67,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [dateFilterYear, setDateFilterYear] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef(null);
+  const datePickerButtonRef = useRef(null);
+  const [datePickerPosition, setDatePickerPosition] = useState({ top: 0, left: 0 });
   
   // Calendar view state (for day picker grid)
   const [calendarView, setCalendarView] = useState(() => {
@@ -115,6 +119,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     fetchProfileSettings();
     // Clear new appointment IDs on refresh/fetch
     setNewAppointmentIdsSet(new Set());
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (goToTimeoutRef.current) {
+        clearTimeout(goToTimeoutRef.current);
+      }
+    };
   }, [refreshTrigger]);
 
   const fetchProfileSettings = async () => {
@@ -141,7 +152,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [newAppointmentIds]);
 
-  // Close date picker when clicking outside
+  // Close date picker when clicking outside and update position on scroll/resize
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
@@ -150,11 +161,28 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       }
     };
 
+    const updatePosition = () => {
+      if (showDatePicker && datePickerButtonRef.current) {
+        const rect = datePickerButtonRef.current.getBoundingClientRect();
+        setDatePickerPosition({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX
+        });
+      }
+    };
+
     if (showDatePicker) {
       // Use click instead of mousedown to avoid conflicts with button clicks
       document.addEventListener('click', handleClickOutside, true);
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      // Initial position update
+      updatePosition();
+      
       return () => {
         document.removeEventListener('click', handleClickOutside, true);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
       };
     }
   }, [showDatePicker]);
@@ -635,6 +663,23 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
 
+  // Format selected date for display in input box (DD/MM/YYYY format)
+  const formatSelectedDate = () => {
+    if (dateFilterMode === 'day' && dateFilterDay) {
+      const date = new Date(dateFilterDay);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } else if (dateFilterMode === 'month' && dateFilterMonth) {
+      const [year, month] = dateFilterMonth.split('-');
+      return `01/${month}/${year}`;
+    } else if (dateFilterMode === 'year' && dateFilterYear) {
+      return `01/01/${dateFilterYear}`;
+    }
+    return '';
+  };
+
   // Memoized date formatter
   const formatDate = useCallback((dateString) => {
     if (!dateString) return '';
@@ -932,8 +977,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         if (!selectedTaxYears.has(aptTaxYear)) return false;
       }
 
-      // ID filter
-      if (filters.id && apt.id.toString() !== filters.id) return false;
+      // ID filter removed - now used for "go to" functionality only
       
       // Date filter - handle different modes
       if (dateFilterMode === 'day' && dateFilterDay) {
@@ -1369,9 +1413,27 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }));
   };
 
-  const clearFilters = () => {
+  // Go to specific appointment by ID (scrolls to it, clears other filters to ensure it's visible)
+  const goToAppointment = (appointmentId) => {
+    if (!appointmentId || appointmentId.trim() === '') {
+      // If empty, restore previous filters (if we had any)
+      return;
+    }
+
+    const id = parseInt(appointmentId, 10);
+    if (isNaN(id)) {
+      return; // Invalid number, don't show error while typing
+    }
+
+    // Find the appointment in the full list (not filtered)
+    const appointment = appointments.find(apt => apt.id === id);
+    if (!appointment) {
+      return; // Not found, don't show error while typing
+    }
+
+    // Clear all other filters to ensure the appointment is visible
+    // This makes ID search supersede all other filters including tax year
     setFilters({
-      id: '',
       date: '',
       client_name: '',
       service: '',
@@ -1386,12 +1448,84 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     setDateFilterDay('');
     setDateFilterMonth('');
     setDateFilterYear('');
+    setSelectedTaxYears(new Set()); // Clear tax year filter as well
+
+    // Wait for filters to clear and DOM to update, then scroll
+    setTimeout(() => {
+      const rowElement = appointmentRowRefs.current[id];
+      if (rowElement && tableContainerRef.current) {
+        // Calculate position relative to scroll container
+        const container = tableContainerRef.current;
+        const rowTop = rowElement.offsetTop;
+        
+        // Scroll to the row with some offset from top
+        container.scrollTo({
+          top: rowTop - 100, // 100px offset from top
+          behavior: 'smooth'
+        });
+
+        // Highlight the row briefly
+        rowElement.classList.add('highlighted-row');
+        setTimeout(() => {
+          rowElement.classList.remove('highlighted-row');
+        }, 10000);
+      }
+    }, 150);
+  };
+
+  // Handle ID input change - automatically go to appointment as user types (typeahead)
+  const handleGoToIdChange = (e) => {
+    const value = e.target.value;
+    setGoToId(value);
+    
+    // Clear any pending timeout
+    if (goToTimeoutRef.current) {
+      clearTimeout(goToTimeoutRef.current);
+    }
+    
+    // If empty, don't search
+    if (!value.trim()) {
+      return;
+    }
+    
+    // Very short debounce for typeahead feel (100ms) - searches as you type
+    goToTimeoutRef.current = setTimeout(() => {
+      goToAppointment(value.trim());
+    }, 100); // Short delay to avoid excessive searches while typing
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      date: '',
+      client_name: '',
+      service: '',
+      type: '',
+      location: '',
+      price: '',
+      distance: '',
+      paid: '',
+      payment_date: ''
+    });
+    setDateFilterMode('');
+    setDateFilterDay('');
+    setDateFilterMonth('');
+    setDateFilterYear('');
+    setGoToId(''); // Clear the go to ID
+    
+    // Restore default tax year filter (most recent tax year)
+    if (availableTaxYears.length > 0) {
+      const mostRecentTaxYear = availableTaxYears[0]; // First one is most recent
+      setSelectedTaxYears(new Set([mostRecentTaxYear]));
+    } else {
+      setSelectedTaxYears(new Set()); // If no tax years available, clear it
+    }
   };
 
   const hasActiveFilters = Object.values(filters).some(f => f !== '') || 
     (dateFilterMode === 'day' && dateFilterDay) ||
     (dateFilterMode === 'month' && dateFilterMonth) ||
-    (dateFilterMode === 'year' && dateFilterYear);
+    (dateFilterMode === 'year' && dateFilterYear) ||
+    goToId.trim() !== ''; // Show clear button when ID search is active
 
   if (loading) {
     return <div className="loading">Loading appointments...</div>;
@@ -1700,20 +1834,29 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 <th>
                   <input
                     type="text"
-                    placeholder="Filter ID..."
-                    value={filters.id}
-                    onChange={(e) => handleFilterChange('id', e.target.value)}
+                    placeholder="Go to appointment #..."
+                    value={goToId}
+                    onChange={handleGoToIdChange}
                     className="filter-input"
                   />
                 </th>
                 <th>
                   <div className="date-filter-container" ref={datePickerRef}>
                     <button
+                      ref={datePickerButtonRef}
                       type="button"
                       className="date-filter-mode-btn"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        // Calculate position for fixed positioning
+                        if (datePickerButtonRef.current) {
+                          const rect = datePickerButtonRef.current.getBoundingClientRect();
+                          setDatePickerPosition({
+                            top: rect.bottom + window.scrollY + 4,
+                            left: rect.left + window.scrollX
+                          });
+                        }
                         // Always set to day mode if not already set when opening
                         if (dateFilterMode === '' || dateFilterMode === undefined) {
                           setDateFilterMode('day');
@@ -1732,7 +1875,15 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       <FaCalendarAlt /> <span className="date-filter-btn-text">Date</span>
                     </button>
                     {showDatePicker && (
-                      <div className="date-picker-popup" onClick={(e) => e.stopPropagation()}>
+                      <div 
+                        className="date-picker-popup" 
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: 'fixed',
+                          top: `${datePickerPosition.top}px`,
+                          left: `${datePickerPosition.left}px`
+                        }}
+                      >
                         <div className="date-picker-header">
                           <span>Select Date</span>
                           <button
@@ -1975,6 +2126,15 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                             </div>
                           )}
                         </div>
+                        <div className="date-picker-selected-date">
+                          <input
+                            type="text"
+                            value={formatSelectedDate()}
+                            readOnly
+                            placeholder="No date selected"
+                            className="date-picker-selected-input"
+                          />
+                        </div>
                         <div className="date-picker-actions">
                           <button
                             type="button"
@@ -2103,7 +2263,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 const isNew = newAppointmentIdsSet.has(apt.id);
                 
                 return (
-                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
+                  <tr 
+                    key={apt.id} 
+                    ref={(el) => { appointmentRowRefs.current[apt.id] = el; }}
+                    className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}
+                  >
                     {(invoiceMode || calculatorMode) && (
                       <td className="invoice-select-cell">
                         <div className="checkbox-wrapper">

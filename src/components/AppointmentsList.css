@@ -279,6 +279,11 @@
   overflow: visible;
 }
 
+.filter-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .filter-input,
 .filter-select {
   width: 100%;
@@ -309,6 +314,8 @@
   justify-content: flex-start;
   width: 100%;
   position: relative;
+  overflow: visible;
+  z-index: 1;
 }
 
 .date-filter-mode-btn {
@@ -353,9 +360,7 @@
 
 /* Date picker popup */
 .date-picker-popup {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -367,6 +372,9 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overflow-x: visible;
 }
 
 
@@ -724,6 +732,37 @@
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-light);
   background: var(--color-bg-primary);
+}
+
+.date-picker-selected-date {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  margin-bottom: 0;
+}
+
+.date-picker-selected-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  text-align: center;
+  box-sizing: border-box;
+  cursor: default;
+}
+
+.date-picker-selected-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: var(--color-bg-primary);
+}
+
+.date-picker-selected-input::placeholder {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-normal);
 }
 
 .date-picker-actions {
@@ -1451,6 +1490,21 @@ tbody tr.new-appointment {
   background: var(--color-success-light) !important;
   border-left: 4px solid var(--color-success);
   animation: newAppointmentPulse 2s ease-in-out;
+}
+
+tbody tr.highlighted-row {
+  background: var(--color-primary-light) !important;
+  animation: highlightPulse 4s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    background: var(--color-primary-light) !important;
+  }
+  50% {
+    background: var(--color-primary) !important;
+    color: var(--color-text-inverse);
+  }
 }
 
 @keyframes newAppointmentPulse {
