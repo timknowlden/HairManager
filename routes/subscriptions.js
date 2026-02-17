@@ -90,6 +90,112 @@ router.get('/my-subscription', authenticateToken, (req, res) => {
   );
 });
 
+// Get current user's subscription usage (plan + usage stats)
+router.get('/usage', authenticateToken, (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  // Get user's current plan and limits
+  db.get(
+    `SELECT 
+      sp.name as plan_name,
+      sp.display_name as plan_display_name,
+      sp.max_appointments,
+      sp.max_locations,
+      sp.max_services,
+      sp.features,
+      sp.price_monthly,
+      sp.currency,
+      us.status as subscription_status
+    FROM user_subscriptions us
+    JOIN subscription_plans sp ON us.plan_id = sp.id
+    WHERE us.user_id = ? AND (us.status = 'active' OR us.status IS NULL)`,
+    [userId],
+    (err, userSubscription) => {
+      if (err) {
+        console.error('Error fetching user subscription:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      console.log('[subscriptions/usage] User subscription query result:', userSubscription);
+      
+      let currentPlan = userSubscription;
+      if (!currentPlan) {
+        // If no active subscription, get the 'Free' plan
+        db.get(
+          `SELECT name, display_name, max_appointments, max_locations, max_services, features, price_monthly, currency 
+           FROM subscription_plans WHERE name = 'free'`,
+          [],
+          (planErr, freePlan) => {
+            if (planErr || !freePlan) {
+              return res.status(500).json({ error: 'No default "Free" plan found.' });
+            }
+            currentPlan = {
+              name: freePlan.name,
+              display_name: freePlan.display_name,
+              max_appointments: freePlan.max_appointments,
+              max_locations: freePlan.max_locations,
+              max_services: freePlan.max_services,
+              features: freePlan.features ? JSON.parse(freePlan.features) : [],
+              price_monthly: freePlan.price_monthly,
+              currency: freePlan.currency
+            };
+            fetchUsageAndRespond();
+          }
+        );
+        return;
+      }
+
+      // Parse features if needed
+      if (currentPlan.features && typeof currentPlan.features === 'string') {
+        currentPlan.features = JSON.parse(currentPlan.features);
+      }
+
+      fetchUsageAndRespond();
+
+      function fetchUsageAndRespond() {
+        // Get all usage counts in a single optimized query
+        db.get(
+          `SELECT 
+            (SELECT COUNT(*) FROM appointments WHERE user_id = ?) as appointment_count,
+            (SELECT COUNT(*) FROM address_data WHERE user_id = ?) as location_count,
+            (SELECT COUNT(*) FROM services WHERE user_id = ?) as service_count`,
+          [userId, userId, userId],
+          (err, row) => {
+            if (err) {
+              console.error('Error fetching usage counts:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+
+            const planData = {
+              name: currentPlan.plan_name || currentPlan.name,
+              display_name: currentPlan.plan_display_name || currentPlan.display_name,
+              max_appointments: currentPlan.max_appointments,
+              max_locations: currentPlan.max_locations,
+              max_services: currentPlan.max_services,
+              features: currentPlan.features || [],
+              price: currentPlan.price_monthly,
+              currency: currentPlan.currency || 'GBP'
+            };
+            
+            console.log('[subscriptions/usage] Returning plan data:', planData);
+            console.log('[subscriptions/usage] Plan name:', planData.name);
+            
+            res.json({
+              plan: planData,
+              usage: {
+                appointments: row.appointment_count || 0,
+                locations: row.location_count || 0,
+                services: row.service_count || 0
+              }
+            });
+          }
+        );
+      }
+    }
+  );
+});
+
 // Get current user's usage statistics
 router.get('/my-usage', authenticateToken, (req, res) => {
   const db = req.app.locals.db;

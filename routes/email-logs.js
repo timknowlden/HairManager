@@ -4,153 +4,110 @@ import { readFileSync } from 'fs';
 
 const router = express.Router();
 
-// Webhook route doesn't require authentication (SendGrid calls it)
+// Webhook route doesn't require authentication (Resend calls it)
 // GET handler for testing webhook endpoint
 router.get('/webhook', (req, res) => {
   res.json({ 
-    message: 'SendGrid webhook endpoint is active. SendGrid will POST events here.',
+    message: 'Resend webhook endpoint is active. Resend will POST events here.',
     method: 'POST',
-    note: 'This endpoint does not require authentication for SendGrid webhooks'
+    note: 'This endpoint does not require authentication for Resend webhooks'
   });
 });
 
-// POST handler for SendGrid webhook events
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+// POST handler for Resend webhook events
+// Resend sends individual events (not arrays like SendGrid)
+// Event types: email.sent, email.delivered, email.delivery_delayed,
+//   email.complained, email.bounced, email.opened, email.clicked
+router.post('/webhook', express.json(), async (req, res) => {
   const db = req.app.locals.db;
   
-  // Log webhook receipt
   const webhookReceivedAt = new Date().toISOString();
   console.log('\n[WEBHOOK] ========================================');
   console.log('[WEBHOOK] Webhook received at:', webhookReceivedAt);
   console.log('[WEBHOOK] Content-Type:', req.headers['content-type']);
-  console.log('[WEBHOOK] Content-Length:', req.headers['content-length']);
-  console.log('[WEBHOOK] User-Agent:', req.headers['user-agent']);
   
-  // Log raw webhook body
-  let rawBodyString;
-  try {
-    if (Buffer.isBuffer(req.body)) {
-      rawBodyString = req.body.toString('utf8');
-    } else if (typeof req.body === 'string') {
-      rawBodyString = req.body;
-    } else {
-      rawBodyString = JSON.stringify(req.body);
-    }
-    console.log('[WEBHOOK] Raw JSON Body:');
-    console.log(JSON.stringify(JSON.parse(rawBodyString), null, 2));
-  } catch (e) {
-    rawBodyString = req.body?.toString?.() || String(req.body);
-    console.log('[WEBHOOK] Raw Body (could not parse as JSON):', rawBodyString.substring(0, 500));
-  }
+  const event = req.body;
+  const eventJson = JSON.stringify(event);
+  console.log('[WEBHOOK] Event JSON:', eventJson);
   console.log('[WEBHOOK] ========================================\n');
   
   try {
-    // SendGrid sends events as an array
-    let events;
-    try {
-      if (Array.isArray(req.body)) {
-        events = req.body;
-      } else {
-        events = JSON.parse(req.body.toString());
-      }
-    } catch (parseErr) {
-      console.error('[WEBHOOK] ❌ Error parsing webhook body:', parseErr.message);
-      console.error('[WEBHOOK] Body type:', typeof req.body);
-      console.error('[WEBHOOK] Body preview:', req.body?.toString?.()?.substring(0, 200));
-      return res.status(400).json({ error: 'Invalid webhook format', details: parseErr.message });
+    // Resend webhook payload structure:
+    // { type: "email.delivered", created_at: "...", data: { email_id: "...", to: [...], ... } }
+    const eventType = event.type;
+    const eventData = event.data || {};
+    const emailId = eventData.email_id;
+    const toEmails = eventData.to || [];
+    const createdAt = event.created_at || new Date().toISOString();
+    
+    console.log(`[WEBHOOK] Event type: ${eventType}`);
+    console.log(`[WEBHOOK] Email ID: ${emailId}`);
+    console.log(`[WEBHOOK] To: ${toEmails.join(', ')}`);
+    
+    if (!emailId) {
+      console.warn('[WEBHOOK] No email_id found in event');
+      return res.status(200).json({ success: true, message: 'No email_id in event' });
     }
     
-    if (!Array.isArray(events)) {
-      console.error('[WEBHOOK] ❌ Events is not an array. Type:', typeof events);
-      console.error('[WEBHOOK] Events value:', events);
-      return res.status(400).json({ error: 'Invalid webhook format - expected array' });
+    // Map Resend event types to our status
+    let logStatus = null;
+    if (eventType === 'email.sent') {
+      logStatus = 'sent';
+    } else if (eventType === 'email.delivered') {
+      logStatus = 'delivered';
+    } else if (eventType === 'email.bounced' || eventType === 'email.complained') {
+      logStatus = 'failed';
+    } else if (eventType === 'email.delivery_delayed') {
+      logStatus = 'sent'; // Keep as sent, it's still in transit
+    } else if (eventType === 'email.opened') {
+      logStatus = 'opened';
+    } else if (eventType === 'email.clicked') {
+      logStatus = 'opened'; // Clicked implies opened
     }
     
-    console.log(`[WEBHOOK] ✓ Received ${events.length} event(s) from SendGrid\n`);
+    if (!logStatus) {
+      console.log(`[WEBHOOK] No status mapping for event type: ${eventType}, acknowledging`);
+      return res.status(200).json({ success: true, skipped: true });
+    }
     
-    // Sort events by timestamp (oldest first) to process in chronological order
-    // This ensures "delivered" is processed before "open", etc.
-    events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    console.log(`[WEBHOOK] Events sorted by timestamp (oldest first)\n`);
+    const now = createdAt;
+    const errorMsg = eventType === 'email.bounced' ? (eventData.bounce?.message || 'Email bounced') : 
+                     eventType === 'email.complained' ? 'Recipient marked as spam' : null;
     
-    let processedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
     
-    // Process events sequentially to avoid race conditions
-    for (let index = 0; index < events.length; index++) {
-      const event = events[index];
-      const eventJson = JSON.stringify(event);
-      console.log(`[WEBHOOK] --- Processing event ${index + 1}/${events.length} ---`);
-      console.log(`[WEBHOOK] Event JSON:`, eventJson);
-      const { sg_message_id, sg_event_id, event: eventType, email, timestamp, reason, status, sg_machine_open } = event;
+    // Process each recipient
+    for (const recipientEmail of toEmails) {
+      // Check current status to respect hierarchy
+      const currentRow = await new Promise((resolve) => {
+        db.get(
+          `SELECT id, status, user_id FROM email_logs 
+           WHERE sendgrid_message_id = ? AND recipient_email = ?
+           LIMIT 1`,
+          [emailId, recipientEmail],
+          (err, row) => {
+            if (err) {
+              console.error('[WEBHOOK] Error checking current status:', err);
+              resolve(null);
+            } else {
+              resolve(row);
+            }
+          }
+        );
+      });
       
-      processedCount++;
-      console.log(`[WEBHOOK] Event type: ${eventType}`);
-      console.log(`[WEBHOOK] Message ID: ${sg_message_id}`);
-      console.log(`[WEBHOOK] Event ID: ${sg_event_id}`);
-      console.log(`[WEBHOOK] Email: ${email}`);
-      console.log(`[WEBHOOK] Timestamp: ${timestamp} (${new Date(timestamp * 1000).toISOString()})`);
-      if (reason) console.log(`[WEBHOOK] Reason: ${reason}`);
-      if (eventType === 'open' && sg_machine_open !== undefined) {
-        console.log(`[WEBHOOK] Machine/Preview Open: ${sg_machine_open}`);
-      }
-      
-      // Map SendGrid event types to our status
-      // Important: We need to respect status hierarchy - "opened" should only be set if already "delivered"
-      let logStatus = null; // null means don't update status for this event
-      if (eventType === 'delivered') {
-        logStatus = 'delivered';
-      } else if (eventType === 'bounce' || eventType === 'dropped' || eventType === 'deferred') {
-        logStatus = 'failed';
-      } else if (eventType === 'open' || eventType === 'click') {
-        // Only set to "opened" if:
-        // 1. Current status is already "delivered" (can't skip delivery state)
-        // 2. It's NOT a machine/preview open (sg_machine_open should be false or undefined)
-        // Machine opens (like Outlook's scanner) should not update status to "opened"
-        if (sg_machine_open === true) {
-          console.log(`[WEBHOOK] ⏭ Skipping machine/preview open event - not a real user open`);
-          logStatus = null; // Don't update status for machine opens
-        } else {
-          logStatus = 'opened'; // We'll check current status before updating
-        }
-      } else if (eventType === 'processed') {
-        logStatus = 'sent';
-      }
-      
-      const now = new Date(timestamp * 1000).toISOString() || new Date().toISOString();
-      const errorMsg = reason || (eventType === 'bounce' ? 'Email bounced' : null) || 
-                       (eventType === 'dropped' ? 'Email dropped' : null);
-      
-      // Extract the base message ID (before first dot) for matching
-      // SendGrid message IDs can be in format: "base.recvd-..." or just "base"
-      const baseMessageId = sg_message_id ? sg_message_id.split('.')[0] : null;
-      
-      if (!baseMessageId) {
-        console.warn('[WEBHOOK] No message ID found in event:', event);
-        return;
-      }
-      
-      console.log(`[WEBHOOK] Proposed status: ${logStatus || 'none (will skip)'}`);
-      console.log(`[WEBHOOK] Matching: webhook message ID="${sg_message_id}", base="${baseMessageId}"`);
-      
-      // For "open" events, we need to check current status first
-      // Only update to "opened" if current status is "delivered"
-      if (logStatus === 'opened') {
-        // First, get the current status AND id (we need id for webhook_events table)
-        // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
-        const currentRow = await new Promise((resolve) => {
+      if (!currentRow) {
+        // Try matching by just the email_id (message ID) without recipient
+        const fallbackRow = await new Promise((resolve) => {
           db.get(
             `SELECT id, status, user_id FROM email_logs 
-             WHERE (sendgrid_message_id = ? 
-                OR sendgrid_message_id = ?
-                OR ? LIKE (sendgrid_message_id || '%'))
-             AND recipient_email = ?
+             WHERE sendgrid_message_id = ?
              LIMIT 1`,
-            [sg_message_id, baseMessageId, sg_message_id, email],
+            [emailId],
             (err, row) => {
               if (err) {
-                console.error('[WEBHOOK] Error checking current status:', err);
+                console.error('[WEBHOOK] Error in fallback lookup:', err);
                 resolve(null);
               } else {
                 resolve(row);
@@ -159,518 +116,170 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           );
         });
         
-        if (!currentRow) {
+        if (!fallbackRow) {
           skippedCount++;
-          console.warn(`[WEBHOOK] No email log found for message ID: ${sg_message_id} (base: ${baseMessageId}) and recipient ${email}`);
+          console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
           continue;
         }
         
-        // Always store the webhook event, even if we skip the status update
-        db.run(
-          `INSERT INTO webhook_events 
-           (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            currentRow.id,
-            currentRow.user_id,
-            eventType,
-            sg_message_id,
-            sg_event_id || null,
-            eventJson,
-            webhookReceivedAt,
-            timestamp || null
-          ],
-          (err) => {
-            if (err) {
-              console.error('[WEBHOOK] Error storing webhook event for opened:', err);
-            } else {
-              console.log(`[WEBHOOK] ✓ Stored webhook event for opened: email_log_id=${currentRow.id}, status="${currentRow.status}"`);
-            }
-          }
-        );
-        
-        // Only update to "opened" if:
-        // 1. Current status is "delivered" (can't skip delivery state)
-        // 2. It's NOT a machine/preview open (already checked above, but double-check)
-        // This prevents skipping the "delivered" state and ignores preview/scanner opens
-        if (currentRow.status === 'delivered' && sg_machine_open !== true) {
-          const openResult = await new Promise((resolve) => {
-            // First try with webhook_event_data column
-            db.run(
-              `UPDATE email_logs 
-               SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-               WHERE (sendgrid_message_id = ? 
-                  OR sendgrid_message_id = ?
-                  OR ? LIKE (sendgrid_message_id || '%'))
-               AND recipient_email = ?`,
-              [
-                'opened',
-                sg_event_id || null,
-                errorMsg,
-                now,
-                eventJson, // Store latest webhook event data
-                sg_message_id,
-                baseMessageId,
-                sg_message_id,
-                email  // Match by recipient email to handle multiple recipients
-              ],
-              function(updateErr) {
-                if (updateErr) {
-                  // If webhook_event_data column doesn't exist, try without it
-                  if (updateErr.message && updateErr.message.includes('webhook_event_data')) {
-                    console.warn('[WEBHOOK] webhook_event_data column not found for opened event, updating without it');
-                    db.run(
-                      `UPDATE email_logs 
-                       SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
-                       WHERE (sendgrid_message_id = ? 
-                          OR sendgrid_message_id = ?
-                          OR ? LIKE (sendgrid_message_id || '%'))
-                       AND recipient_email = ?`,
-                      [
-                        'opened',
-                        sg_event_id || null,
-                        errorMsg,
-                        now,
-                        sg_message_id,
-                        baseMessageId,
-                        sg_message_id,
-                        email
-                      ],
-                      function(retryErr) {
-                        if (retryErr) {
-                          console.error('[WEBHOOK] ❌ Error updating to opened:', retryErr);
-                          resolve({ success: false, changes: 0 });
-                        } else if (this.changes > 0) {
-                          console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id} for ${email}`);
-                          resolve({ success: true, changes: this.changes });
-                        } else {
-                          console.log(`[WEBHOOK] ⚠ No rows updated for opened event`);
-                          resolve({ success: false, changes: 0 });
-                        }
-                      }
-                    );
-                  } else {
-                    console.error('[WEBHOOK] ❌ Error updating to opened:', updateErr);
-                    resolve({ success: false, changes: 0 });
-                  }
-                } else if (this.changes > 0) {
-                  console.log(`[WEBHOOK] ✓ Updated to opened (was delivered): ${sg_message_id} for ${email}`);
-                  resolve({ success: true, changes: this.changes });
-                } else {
-                  console.log(`[WEBHOOK] ⚠ No rows updated for opened event`);
-                  resolve({ success: false, changes: 0 });
-                }
-              }
-            );
-          });
-          
-          // Update counters synchronously after await
-          if (openResult.success && openResult.changes > 0) {
-            updatedCount++;
-          } else {
-            skippedCount++;
-          }
-        } else {
-          console.log(`[WEBHOOK] ⏭ Skipping "opened" update - current status is "${currentRow.status}", not "delivered"`);
-          skippedCount++;
-        }
-        continue; // Don't continue with the regular update for "open" events
-      }
-      
-      // For all other events, update normally
-      if (!logStatus) {
-        skippedCount++;
-        console.log(`[WEBHOOK] No status mapping for event type: ${eventType}, skipping status update`);
+        // Use fallback row
+        await processStatusUpdate(db, fallbackRow, logStatus, errorMsg, now, eventJson, emailId, webhookReceivedAt, eventType);
+        updatedCount++;
         continue;
       }
       
-      // Check current status before updating to respect hierarchy
-      // Don't downgrade: delivered > sent, opened > delivered
-      // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
-      const currentStatus = await new Promise((resolve) => {
-        db.get(
-          `SELECT status FROM email_logs 
-           WHERE (sendgrid_message_id = ? 
-              OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%'))
-           AND recipient_email = ?
-           LIMIT 1`,
-          [sg_message_id, baseMessageId, sg_message_id, email],
-          (err, row) => {
-            if (err) {
-              console.error('[WEBHOOK] Error checking current status:', err);
-              resolve(null);
-            } else {
-              resolve(row ? row.status : null);
-            }
+      // Store webhook event
+      db.run(
+        `INSERT INTO webhook_events 
+         (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          currentRow.id,
+          currentRow.user_id,
+          eventType,
+          emailId,
+          null,
+          eventJson,
+          webhookReceivedAt,
+          null
+        ],
+        (err) => {
+          if (err) {
+            console.error('[WEBHOOK] Error storing webhook event:', err);
           }
-        );
-      });
+        }
+      );
       
-      // Respect status hierarchy: don't downgrade or skip states
-      // Status progression: sent → delivered/failed → opened
-      if (currentStatus) {
-        const statusHierarchy = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 0 };
-        const currentLevel = statusHierarchy[currentStatus] || 0;
-        const newLevel = statusHierarchy[logStatus] || 0;
-        
-        // Don't allow skipping states - e.g., can't go from "sent" directly to "opened"
-        if (logStatus === 'opened' && currentStatus !== 'delivered') {
-          skippedCount++;
-          console.log(`[WEBHOOK] ⏭ Skipping "opened" - current status "${currentStatus}" must be "delivered" first`);
-          continue;
-        }
-        
-        // Don't downgrade (except failed can overwrite anything)
-        if (newLevel <= currentLevel && logStatus !== 'failed') {
-          skippedCount++;
-          console.log(`[WEBHOOK] ⏭ Skipping update - current status "${currentStatus}" (level ${currentLevel}) is higher than "${logStatus}" (level ${newLevel})`);
-          continue;
-        }
+      // Respect status hierarchy
+      const statusHierarchy = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 0 };
+      const currentLevel = statusHierarchy[currentRow.status] || 0;
+      const newLevel = statusHierarchy[logStatus] || 0;
+      
+      // For "opened", require "delivered" first
+      if (logStatus === 'opened' && currentRow.status !== 'delivered') {
+        console.log(`[WEBHOOK] Skipping "opened" - current status "${currentRow.status}" must be "delivered" first`);
+        skippedCount++;
+        continue;
       }
       
-      // First, find the email_log_id(s) that match this event
-      // Match by BOTH message ID AND recipient email to handle multiple recipients correctly
-      // Each recipient gets a unique full message ID in webhooks (e.g., "base.recvd-...")
-      // But we store the base ID when sending, so we need to match:
-      // 1. Full webhook ID matches stored base ID (stored base is prefix of webhook full)
-      // 2. Base webhook ID matches stored base ID (exact match)
-      // 3. Full webhook ID exact match (in case we stored full ID)
-      const matchingLogs = await new Promise((resolve) => {
-        db.all(
-          `SELECT id, user_id, recipient_email, sendgrid_message_id FROM email_logs 
-           WHERE (
-             sendgrid_message_id = ? 
-             OR sendgrid_message_id = ?
-             OR ? LIKE (sendgrid_message_id || '%')
-             OR sendgrid_message_id LIKE (? || '%')
-           )
-           AND recipient_email = ?
-           LIMIT 10`,
-          [sg_message_id, baseMessageId, sg_message_id, baseMessageId, email],
-          (err, rows) => {
-            if (err) {
-              console.error('[WEBHOOK] Error finding matching email logs:', err);
-              resolve([]);
-            } else {
-              if (rows && rows.length > 0) {
-                console.log(`[WEBHOOK] Found ${rows.length} matching email log(s) for recipient ${email}`);
-                rows.forEach(row => {
-                  console.log(`[WEBHOOK]   - Log ID: ${row.id}, stored msg_id: ${row.sendgrid_message_id}, recipient: ${row.recipient_email}`);
-                });
-              } else {
-                console.warn(`[WEBHOOK] No matching email log found for recipient ${email}, message ID: ${sg_message_id} (base: ${baseMessageId})`);
-              }
-              resolve(rows || []);
-            }
-          }
-        );
-      });
-      
-      // Store webhook event in webhook_events table for debugging (even if no match found)
-      // eventJson is already declared at the start of the loop
-      if (matchingLogs.length > 0) {
-        for (const log of matchingLogs) {
-          db.run(
-            `INSERT INTO webhook_events 
-             (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              log.id,
-              log.user_id,
-              eventType,
-              sg_message_id,
-              sg_event_id || null,
-              eventJson,
-              webhookReceivedAt,
-              timestamp || null
-            ],
-            (err) => {
-              if (err) {
-                console.error('[WEBHOOK] Error storing webhook event:', err);
-              } else {
-                console.log(`[WEBHOOK] ✓ Stored webhook event for email_log_id: ${log.id}`);
-              }
-            }
-          );
-        }
-      } else {
-        // Store event even if no matching email log found (for debugging)
-        db.run(
-          `INSERT INTO webhook_events 
-           (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            null,
-            0, // Unknown user - will need to match later
-            eventType,
-            sg_message_id,
-            sg_event_id || null,
-            eventJson,
-            webhookReceivedAt,
-            timestamp || null
-          ],
-          (err) => {
-            if (err) {
-              console.error('[WEBHOOK] Error storing unmatched webhook event:', err);
-            } else {
-              console.log(`[WEBHOOK] ⚠ Stored unmatched webhook event (no email_log found)`);
-            }
-          }
-        );
+      // Don't downgrade (except failed can overwrite anything)
+      if (newLevel <= currentLevel && logStatus !== 'failed') {
+        console.log(`[WEBHOOK] Skipping - current status "${currentRow.status}" is higher than "${logStatus}"`);
+        skippedCount++;
+        continue;
       }
       
-      // Try multiple matching strategies, but also match by recipient email:
-      // 1. Exact match with full webhook ID AND recipient email
-      // 2. Exact match with base ID AND recipient email
-      // 3. LIKE pattern: webhook full ID starts with stored base ID AND recipient email matches
+      // Update the email log
       const updateResult = await new Promise((resolve) => {
-        // First try with webhook_event_data column
         db.run(
           `UPDATE email_logs 
-           SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-           WHERE (sendgrid_message_id = ? 
-              OR sendgrid_message_id = ?
-              OR ? LIKE (sendgrid_message_id || '%'))
-           AND recipient_email = ?`,
-          [
-            logStatus, 
-            sg_event_id || null, 
-            errorMsg, 
-            now,
-            eventJson, // Store latest webhook event data
-            sg_message_id,           // Exact match with full ID
-            baseMessageId,           // Exact match with base ID (most common: both are base)
-            sg_message_id,           // Webhook full ID starts with stored base (webhook: "base.recvd-...", stored: "base")
-            email                     // Match by recipient email to handle multiple recipients
-          ],
-          function(err) {
-            if (err) {
-              // If webhook_event_data column doesn't exist, try without it
-              if (err.message && err.message.includes('webhook_event_data')) {
-                console.warn('[WEBHOOK] webhook_event_data column not found, updating without it');
-                db.run(
-                  `UPDATE email_logs 
-                   SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
-                   WHERE (sendgrid_message_id = ? 
-                      OR sendgrid_message_id = ?
-                      OR ? LIKE (sendgrid_message_id || '%'))
-                   AND recipient_email = ?`,
-                  [
-                    logStatus, 
-                    sg_event_id || null, 
-                    errorMsg, 
-                    now,
-                    sg_message_id,
-                    baseMessageId,
-                    sg_message_id,
-                    email
-                  ],
-                  function(retryErr) {
-                    if (retryErr) {
-                      console.error('[WEBHOOK] ❌ Error updating email log:', retryErr);
-                      resolve({ success: false, changes: 0 });
-                    } else if (this.changes > 0) {
-                      console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus} for ${email}`);
-                      resolve({ success: true, changes: this.changes });
-                    } else {
-                      console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId}) and email: ${email}`);
-                      resolve({ success: false, changes: 0, notFound: true });
-                    }
-                  }
-                );
-              } else {
-                console.error('[WEBHOOK] ❌ Error updating email log:', err);
-                resolve({ success: false, changes: 0 });
-              }
-            } else if (this.changes > 0) {
-              console.log(`[WEBHOOK] ✓ Updated ${this.changes} email log(s): ${sg_message_id} (base: ${baseMessageId}) -> ${logStatus} for ${email}`);
-              resolve({ success: true, changes: this.changes });
+           SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
+           WHERE id = ?`,
+          [logStatus, errorMsg, now, eventJson, currentRow.id],
+          function(updateErr) {
+            if (updateErr) {
+              console.error('[WEBHOOK] Error updating email log:', updateErr);
+              resolve(false);
             } else {
-              console.warn(`[WEBHOOK] ⚠ No email log found matching message ID: ${sg_message_id} (base: ${baseMessageId}) and email: ${email}`);
-              resolve({ success: false, changes: 0, notFound: true });
+              console.log(`[WEBHOOK] Updated email log ${currentRow.id}: ${currentRow.status} -> ${logStatus}`);
+              resolve(this.changes > 0);
             }
           }
         );
       });
       
-      // Update counters synchronously based on result
-      if (updateResult.success && updateResult.changes > 0) {
+      if (updateResult) {
         updatedCount++;
         
-        // If we just updated to "delivered", check for any pending "open" events
-        // This handles cases where Outlook sends "open" events before "delivered"
+        // If just set to "delivered", check for pending open events
         if (logStatus === 'delivered') {
-          // Find the email_log_id that was just updated
-          const updatedLogId = await new Promise((resolve) => {
+          const pendingOpen = await new Promise((resolve) => {
             db.get(
-              `SELECT id FROM email_logs 
-               WHERE (sendgrid_message_id = ? 
-                  OR sendgrid_message_id = ?
-                  OR ? LIKE (sendgrid_message_id || '%'))
-               AND recipient_email = ?
-               LIMIT 1`,
-              [sg_message_id, baseMessageId, sg_message_id, email],
-              (err, row) => {
-                if (err) {
-                  console.error('[WEBHOOK] Error finding updated log ID:', err);
-                  resolve(null);
-                } else {
-                  resolve(row ? row.id : null);
-                }
-              }
+              `SELECT id, raw_event_data FROM webhook_events 
+               WHERE email_log_id = ? AND event_type IN ('email.opened', 'email.clicked')
+               ORDER BY processed_at DESC LIMIT 1`,
+              [currentRow.id],
+              (err, row) => resolve(err ? null : row)
             );
           });
           
-          if (updatedLogId) {
-            // Check for any "open" events that were stored but not applied
-            // Only apply real user opens (not machine/preview opens) that occurred after delivery
-            db.get(
-              `SELECT id, raw_event_data, event_timestamp, sendgrid_event_id 
-               FROM webhook_events 
-               WHERE email_log_id = ? 
-                 AND event_type IN ('open', 'click')
-               ORDER BY event_timestamp DESC 
-               LIMIT 1`,
-              [updatedLogId],
-              (err, openEvent) => {
-                if (!err && openEvent) {
-                  try {
-                    const openEventData = JSON.parse(openEvent.raw_event_data);
-                    
-                    // Skip machine/preview opens - only apply real user opens
-                    if (openEventData.sg_machine_open === true) {
-                      console.log(`[WEBHOOK] Found pending "open" event but it's a machine/preview open - skipping`);
-                      return;
-                    }
-                    
-                    const openTimestamp = openEvent.event_timestamp || Math.floor(Date.now() / 1000);
-                    const openNow = new Date(openTimestamp * 1000).toISOString();
-                    
-                    console.log(`[WEBHOOK] Found pending real user "open" event (timestamp: ${openTimestamp}), applying now that status is "delivered"`);
-                    
-                    // Update to "opened" using the stored open event data
-                    db.run(
-                      `UPDATE email_logs 
-                       SET status = 'opened', sendgrid_event_id = ?, updated_at = ?, webhook_event_data = ?
-                       WHERE id = ?`,
-                      [
-                        openEvent.sendgrid_event_id || null,
-                        openNow,
-                        openEvent.raw_event_data,
-                        updatedLogId
-                      ],
-                      function(openUpdateErr) {
-                        if (openUpdateErr) {
-                          // Try without webhook_event_data if column doesn't exist
-                          if (openUpdateErr.message && openUpdateErr.message.includes('webhook_event_data')) {
-                            db.run(
-                              `UPDATE email_logs 
-                               SET status = 'opened', sendgrid_event_id = ?, updated_at = ?
-                               WHERE id = ?`,
-                              [
-                                openEvent.sendgrid_event_id || null,
-                                openNow,
-                                updatedLogId
-                              ],
-                              (retryErr) => {
-                                if (retryErr) {
-                                  console.error('[WEBHOOK] Error applying pending open event:', retryErr);
-                                } else {
-                                  console.log(`[WEBHOOK] ✓ Applied pending "open" event to email_log_id=${updatedLogId}`);
-                                }
-                              }
-                            );
-                          } else {
-                            console.error('[WEBHOOK] Error applying pending open event:', openUpdateErr);
-                          }
-                        } else {
-                          console.log(`[WEBHOOK] ✓ Applied pending "open" event to email_log_id=${updatedLogId}`);
-                        }
-                      }
-                    );
-                  } catch (parseErr) {
-                    console.error('[WEBHOOK] Error parsing pending open event data:', parseErr);
-                  }
-                }
+          if (pendingOpen) {
+            console.log(`[WEBHOOK] Found pending open event, applying now`);
+            db.run(
+              `UPDATE email_logs SET status = 'opened', updated_at = ?, webhook_event_data = ? WHERE id = ?`,
+              [now, pendingOpen.raw_event_data, currentRow.id],
+              (err) => {
+                if (err) console.error('[WEBHOOK] Error applying pending open:', err);
+                else console.log(`[WEBHOOK] Applied pending open to email_log_id=${currentRow.id}`);
               }
             );
           }
         }
-      } else if (updateResult.notFound) {
+      } else {
         skippedCount++;
-      }
-      
-      // If no match found, try fallback matching by email AND message ID
-      if (!updateResult.success && updateResult.changes === 0) {
-        // Try to find by email, message ID, and recent date as fallback
-        db.all(
-          `SELECT id, sendgrid_message_id, recipient_email, sent_at FROM email_logs 
-           WHERE recipient_email = ? 
-           AND (sendgrid_message_id = ? OR sendgrid_message_id = ? OR ? LIKE (sendgrid_message_id || '%'))
-           AND sent_at >= datetime('now', '-7 days')
-           ORDER BY sent_at DESC LIMIT 5`,
-          [email, sg_message_id, baseMessageId, sg_message_id],
-          (err, rows) => {
-            if (err) {
-              console.error('[WEBHOOK] Error finding email log by email:', err);
-              return;
-            }
-            if (rows && rows.length > 0) {
-              console.log(`[WEBHOOK] Found ${rows.length} potential matches by email. Stored message IDs:`, rows.map(r => ({
-                id: r.id,
-                msg_id: r.sendgrid_message_id,
-                email: r.recipient_email,
-                sent_at: r.sent_at
-              })));
-              // Try to update the most recent one if it's within a few minutes
-              const mostRecent = rows[0];
-              const sentTime = new Date(mostRecent.sent_at);
-              const now = new Date();
-              const minutesDiff = (now - sentTime) / (1000 * 60);
-              
-              if (minutesDiff < 30) { // Within 30 minutes
-                console.log(`[WEBHOOK] Attempting to update most recent log (ID: ${mostRecent.id}) as fallback match`);
-                db.run(
-                  `UPDATE email_logs 
-                   SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
-                   WHERE id = ?`,
-                  [logStatus, sg_event_id || null, errorMsg, new Date().toISOString(), mostRecent.id],
-                  function(updateErr) {
-                    if (updateErr) {
-                      console.error('[WEBHOOK] Error updating fallback match:', updateErr);
-                    } else if (this.changes > 0) {
-                      updatedCount++;
-                      console.log(`[WEBHOOK] ✓ Updated fallback match (ID: ${mostRecent.id}) -> ${logStatus}`);
-                    }
-                  }
-                );
-              }
-            }
-          }
-        );
       }
     }
     
-    // Summary log
-    console.log('\n[WEBHOOK] ========================================');
-    console.log(`[WEBHOOK] Summary: ${processedCount} processed, ${updatedCount} updated, ${skippedCount} skipped`);
-    console.log('[WEBHOOK] ========================================\n');
+    // If no recipients in the event, try to update by email_id alone
+    if (toEmails.length === 0) {
+      const result = await new Promise((resolve) => {
+        db.run(
+          `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
+           WHERE sendgrid_message_id = ?`,
+          [logStatus, errorMsg, now, eventJson, emailId],
+          function(err) {
+            if (err) {
+              console.error('[WEBHOOK] Error updating by email_id:', err);
+              resolve(0);
+            } else {
+              resolve(this.changes);
+            }
+          }
+        );
+      });
+      updatedCount += result;
+    }
     
-    res.status(200).json({ 
-      success: true, 
-      processed: processedCount,
-      updated: updatedCount,
-      skipped: skippedCount
-    });
+    console.log(`\n[WEBHOOK] Summary: ${updatedCount} updated, ${skippedCount} skipped`);
+    res.status(200).json({ success: true, updated: updatedCount, skipped: skippedCount });
   } catch (error) {
-    console.error('\n[WEBHOOK] ❌❌❌ ERROR PROCESSING WEBHOOK ❌❌❌');
-    console.error('[WEBHOOK] Error:', error.message);
+    console.error('\n[WEBHOOK] ERROR PROCESSING WEBHOOK:', error.message);
     console.error('[WEBHOOK] Stack:', error.stack);
-    console.error('[WEBHOOK] ========================================\n');
     res.status(500).json({ error: 'Failed to process webhook', details: error.message });
   }
 });
+
+// Helper function to process a status update
+async function processStatusUpdate(db, row, logStatus, errorMsg, now, eventJson, emailId, webhookReceivedAt, eventType) {
+  // Store webhook event
+  db.run(
+    `INSERT INTO webhook_events 
+     (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.user_id, eventType, emailId, null, eventJson, webhookReceivedAt, null],
+    (err) => {
+      if (err) console.error('[WEBHOOK] Error storing webhook event:', err);
+    }
+  );
+  
+  // Update the log
+  return new Promise((resolve) => {
+    db.run(
+      `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
+       WHERE id = ?`,
+      [logStatus, errorMsg, now, eventJson, row.id],
+      function(err) {
+        if (err) {
+          console.error('[WEBHOOK] Error updating email log:', err);
+          resolve(false);
+        } else {
+          console.log(`[WEBHOOK] Updated fallback email log ${row.id} -> ${logStatus}`);
+          resolve(this.changes > 0);
+        }
+      }
+    );
+  });
+}
 
 // All other routes require authentication
 router.use(authenticateToken);
@@ -700,7 +309,6 @@ router.get('/:id/webhook-events', (req, res) => {
   const userId = req.userId;
   const { id } = req.params;
   
-  // First verify the email log belongs to the user
   db.get(
     'SELECT id FROM email_logs WHERE id = ? AND user_id = ?',
     [id, userId],
@@ -715,7 +323,6 @@ router.get('/:id/webhook-events', (req, res) => {
         return;
       }
       
-      // Fetch all webhook events for this email log, ordered by processed_at
       db.all(
         `SELECT * FROM webhook_events 
          WHERE email_log_id = ? 
@@ -764,7 +371,6 @@ router.delete('/:id', (req, res) => {
   const userId = req.userId;
   const { id } = req.params;
   
-  // First verify the email log belongs to the user
   db.get(
     'SELECT id FROM email_logs WHERE id = ? AND user_id = ?',
     [id, userId],
@@ -780,17 +386,14 @@ router.delete('/:id', (req, res) => {
         return;
       }
       
-      // Delete associated webhook events first (due to foreign key)
       db.run(
         'DELETE FROM webhook_events WHERE email_log_id = ?',
         [id],
         (webhookErr) => {
           if (webhookErr) {
             console.error('Error deleting webhook events:', webhookErr);
-            // Continue with email log deletion even if webhook events fail
           }
           
-          // Delete the email log
           db.run(
             'DELETE FROM email_logs WHERE id = ? AND user_id = ?',
             [id, userId],
@@ -834,7 +437,6 @@ router.get('/pdf/:id', (req, res) => {
         return res.status(404).json({ error: 'PDF not found' });
       }
       
-      // Serve the PDF file
       try {
         const pdfData = readFileSync(row.pdf_file_path);
         res.contentType('application/pdf');
@@ -847,7 +449,7 @@ router.get('/pdf/:id', (req, res) => {
   );
 });
 
-// POST /api/email-logs/update-status - Update email status from SendGrid webhook
+// POST /api/email-logs/update-status - Update email status from webhook
 router.post('/update-status', (req, res) => {
   const db = req.app.locals.db;
   const { messageId, eventId, status, errorMessage } = req.body;
@@ -916,13 +518,12 @@ router.put('/:id/status', (req, res) => {
   );
 });
 
-// POST /api/email-logs/check-status - Manually check SendGrid status for pending/sent emails
+// POST /api/email-logs/check-status - Check Resend email status via API
 router.post('/check-status', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   
   try {
-    // Get profile settings to access SendGrid API key
     db.get('SELECT email_relay_api_key FROM admin_settings WHERE user_id = ?', [userId], async (err, profile) => {
       if (err) {
         console.error('Error fetching profile settings:', err);
@@ -930,16 +531,10 @@ router.post('/check-status', async (req, res) => {
       }
       
       if (!profile || !profile.email_relay_api_key) {
-        return res.status(400).json({ error: 'SendGrid API key not configured' });
+        return res.status(400).json({ error: 'Resend API key not configured' });
       }
       
       const apiKey = profile.email_relay_api_key;
-      if (!apiKey || apiKey.trim() === '') {
-        console.error('[STATUS CHECK] API key is empty or invalid');
-        return res.status(400).json({ error: 'SendGrid API key is empty' });
-      }
-      
-      console.log('[STATUS CHECK] Using API key (first 10 chars):', apiKey.substring(0, 10) + '...');
       
       // Get all pending or sent emails for this user
       db.all(
@@ -960,166 +555,64 @@ router.post('/check-status', async (req, res) => {
           }
           
           try {
-            // First, test the API key with a simple request to verify it works
-            const authHeader = `Bearer ${apiKey.trim()}`;
-            console.log('[STATUS CHECK] Testing API key with SendGrid...');
-            
-            // Test API key by making a simple request to user profile endpoint
-            const testResponse = await fetch('https://api.sendgrid.com/v3/user/profile', {
-              method: 'GET',
-              headers: {
-                'Authorization': authHeader,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            if (!testResponse.ok) {
-              const testErrorText = await testResponse.text();
-              let testErrorData;
-              try {
-                testErrorData = JSON.parse(testErrorText);
-              } catch (e) {
-                testErrorData = { message: testErrorText };
-              }
-              console.error('[STATUS CHECK] API key test failed:', testResponse.status, testErrorData);
-              return res.status(400).json({ 
-                error: 'SendGrid API key is invalid or lacks required permissions',
-                details: testErrorData
-              });
-            }
-            
-            console.log('[STATUS CHECK] API key is valid, proceeding with status checks...');
-            
-            // Use SendGrid REST API directly with fetch
             let updatedCount = 0;
             
             const updatePromises = logs.map(async (log) => {
               try {
-                // Query SendGrid Messages API by email address
-                // This works for both local and production testing
-                // Get base message ID (before first dot) for matching
-                const baseMessageId = log.sendgrid_message_id ? log.sendgrid_message_id.split('.')[0] : null;
-                
-                // Query by email - get recent messages for this recipient
-                const queryParams = new URLSearchParams({
-                  query: `to_email="${log.recipient_email}"`,
-                  limit: '50' // Get up to 50 recent messages
-                });
-                
-                console.log(`[STATUS CHECK] Checking log ${log.id} for email ${log.recipient_email}, message ID: ${log.sendgrid_message_id} (base: ${baseMessageId})`);
-                console.log(`[STATUS CHECK] Query: ${queryParams.toString()}`);
-                
+                // Use Resend API to get email status
                 const response = await fetch(
-                  `https://api.sendgrid.com/v3/messages?${queryParams}`,
+                  `https://api.resend.com/emails/${log.sendgrid_message_id}`,
                   {
                     method: 'GET',
                     headers: {
-                      'Authorization': authHeader,
+                      'Authorization': `Bearer ${apiKey}`,
                       'Content-Type': 'application/json'
                     }
                   }
                 );
                 
                 if (!response.ok) {
-                  const errorText = await response.text();
-                  let errorData;
-                  try {
-                    errorData = JSON.parse(errorText);
-                  } catch (e) {
-                    errorData = { message: errorText };
-                  }
-                  console.error(`[STATUS CHECK] SendGrid API error for log ${log.id}:`, response.status, response.statusText);
-                  console.error('[STATUS CHECK] Error details:', JSON.stringify(errorData, null, 2));
-                  
-                  // The Messages API requires additional permissions
-                  // This is expected - use webhooks for automatic status updates
-                  if (response.status === 400 && errorData.errors && errorData.errors.some(e => e.message && e.message.includes('authorization required'))) {
-                    console.log(`[STATUS CHECK] Messages API not available. Use "Mark Delivered" button for local testing, or configure webhook for production.`);
-                  } else if (response.status === 403 || (errorData.errors && errorData.errors.some(e => e.message && e.message.includes('permission')))) {
-                    console.error('[STATUS CHECK] Messages API requires additional permissions');
-                  }
+                  console.error(`[STATUS CHECK] Resend API error for log ${log.id}:`, response.status);
                   return;
                 }
                 
                 const data = await response.json();
                 
-                // Find the message that matches our message ID
-                if (data && data.messages && Array.isArray(data.messages)) {
-                  // Try to find by exact match first, then by base ID
-                  let matchingMessage = data.messages.find(msg => {
-                    if (!msg.msg_id) return false;
-                    const msgBaseId = msg.msg_id.split('.')[0];
-                    return msg.msg_id === log.sendgrid_message_id || 
-                           msg.msg_id === baseMessageId ||
-                           msgBaseId === baseMessageId ||
-                           msg.msg_id.startsWith(baseMessageId);
-                  });
-                  
-                  // If no match by message ID, try matching by events
-                  if (!matchingMessage) {
-                    matchingMessage = data.messages.find(msg => 
-                      msg.events && msg.events.some(evt => {
-                        if (!evt.sg_message_id) return false;
-                        const evtBaseId = evt.sg_message_id.split('.')[0];
-                        return evt.sg_message_id === log.sendgrid_message_id ||
-                               evt.sg_message_id === baseMessageId ||
-                               evtBaseId === baseMessageId ||
-                               evt.sg_message_id.startsWith(baseMessageId);
-                      })
-                    );
-                  }
-                  
-                  if (matchingMessage && matchingMessage.events && matchingMessage.events.length > 0) {
-                    // Get the most recent event (events are sorted by most recent first)
-                    const latestEvent = matchingMessage.events[0];
-                    const eventType = latestEvent.event;
-                    
-                    console.log(`[STATUS CHECK] Found matching message for log ${log.id}, latest event: ${eventType}`);
-                    
-                    // Map SendGrid event types to our status
-                    let logStatus = 'sent';
-                    if (eventType === 'delivered') {
-                      logStatus = 'delivered';
-                    } else if (eventType === 'bounce' || eventType === 'dropped' || eventType === 'deferred') {
-                      logStatus = 'failed';
-                    } else if (eventType === 'open' || eventType === 'click') {
-                      logStatus = 'opened';
-                    } else if (eventType === 'processed') {
-                      logStatus = 'sent';
-                    }
-                    
-                    const now = new Date().toISOString();
-                    const errorMsg = latestEvent.reason || null;
-                    
-                    // Update the email log
-                    return new Promise((resolve) => {
-                      db.run(
-                        `UPDATE email_logs 
-                         SET status = ?, sendgrid_event_id = ?, error_message = ?, updated_at = ?
-                         WHERE id = ?`,
-                        [logStatus, latestEvent.sg_event_id || null, errorMsg, now, log.id],
-                        function(updateErr) {
-                          if (updateErr) {
-                            console.error('[STATUS CHECK] Error updating email log:', updateErr);
-                          } else if (this.changes > 0) {
-                            updatedCount++;
-                            console.log(`[STATUS CHECK] ✓ Updated email log ${log.id}: ${logStatus} (event: ${eventType})`);
-                          }
-                          resolve();
-                        }
-                      );
-                    });
-                  } else {
-                    console.log(`[STATUS CHECK] No matching message found for log ${log.id} (msg_id: ${log.sendgrid_message_id}, email: ${log.recipient_email})`);
-                    console.log(`[STATUS CHECK] Found ${data.messages.length} messages for this email, but none matched the message ID`);
-                  }
-                } else {
-                  console.log(`[STATUS CHECK] No messages found for log ${log.id} (email: ${log.recipient_email})`);
+                // Resend returns last_event field with the latest status
+                const lastEvent = data.last_event;
+                let logStatus = 'sent';
+                
+                if (lastEvent === 'delivered') {
+                  logStatus = 'delivered';
+                } else if (lastEvent === 'bounced' || lastEvent === 'complained') {
+                  logStatus = 'failed';
+                } else if (lastEvent === 'opened' || lastEvent === 'clicked') {
+                  logStatus = 'opened';
+                } else if (lastEvent === 'sent') {
+                  logStatus = 'sent';
                 }
+                
+                const now = new Date().toISOString();
+                
+                return new Promise((resolve) => {
+                  db.run(
+                    `UPDATE email_logs 
+                     SET status = ?, updated_at = ?
+                     WHERE id = ?`,
+                    [logStatus, now, log.id],
+                    function(updateErr) {
+                      if (updateErr) {
+                        console.error('[STATUS CHECK] Error updating email log:', updateErr);
+                      } else if (this.changes > 0) {
+                        updatedCount++;
+                        console.log(`[STATUS CHECK] Updated email log ${log.id}: ${logStatus}`);
+                      }
+                      resolve();
+                    }
+                  );
+                });
               } catch (checkErr) {
                 console.error(`[STATUS CHECK] Error checking status for log ${log.id}:`, checkErr.message);
-                console.error('[STATUS CHECK] Stack:', checkErr.stack);
-                // Continue with other logs even if one fails
               }
             });
             
@@ -1132,9 +625,9 @@ router.post('/check-status', async (req, res) => {
               message: `Checked ${logs.length} emails, updated ${updatedCount} statuses` 
             });
           } catch (apiErr) {
-            console.error('Error querying SendGrid API:', apiErr);
+            console.error('Error querying Resend API:', apiErr);
             res.status(500).json({ 
-              error: 'Failed to check SendGrid status', 
+              error: 'Failed to check Resend status', 
               details: apiErr.message 
             });
           }
@@ -1148,4 +641,3 @@ router.post('/check-status', async (req, res) => {
 });
 
 export default router;
-

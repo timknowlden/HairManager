@@ -31,8 +31,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.GH_PAT || github.actor }}
+          password: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Get version from package.json
         id: package-version

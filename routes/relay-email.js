@@ -1,9 +1,9 @@
 import express from 'express';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 
 const router = express.Router();
 
-// Send email via relay service (SendGrid, Mailgun, etc.)
+// Send email via Resend API
 router.post('/send-email', async (req, res) => {
   try {
     const { to, subject, body, pdfData, pdfFilename } = req.body;
@@ -29,69 +29,55 @@ router.post('/send-email', async (req, res) => {
       }
 
       // Check if relay service is configured
-      if (!profile.email_relay_service || !profile.email_relay_api_key) {
+      if (!profile.email_relay_api_key) {
         return res.status(400).json({ 
-          error: 'Email relay service not configured. Please set up a relay service (SendGrid, etc.) in Profile Settings.' 
+          error: 'Resend API key not configured. Please set up Resend in Profile Settings.' 
         });
       }
 
-      const relayService = profile.email_relay_service.toLowerCase();
       const fromEmail = profile.email_relay_from_email || profile.email || 'noreply@example.com';
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
 
       try {
-        if (relayService === 'sendgrid') {
-          // SendGrid implementation
-          sgMail.setApiKey(profile.email_relay_api_key);
+        const resend = new Resend(profile.email_relay_api_key);
 
-          // Convert base64 PDF to buffer
-          const pdfBuffer = Buffer.from(pdfData, 'base64');
+        // Convert base64 PDF to buffer
+        const pdfBuffer = Buffer.from(pdfData, 'base64');
 
-          const msg = {
-            to: to,
-            from: {
-              email: fromEmail,
-              name: fromName
-            },
-            subject: subject,
-            text: body || 'Please find the invoice attached.',
-            html: body ? body.replace(/\n/g, '<br>') : '<p>Please find the invoice attached.</p>',
-            attachments: [
-              {
-                content: pdfBuffer.toString('base64'),
-                filename: pdfFilename || 'invoice.pdf',
-                type: 'application/pdf',
-                disposition: 'attachment'
-              }
-            ]
-          };
+        const { data, error: resendError } = await resend.emails.send({
+          from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+          to: [to],
+          subject: subject,
+          text: body || 'Please find the invoice attached.',
+          html: body ? body.replace(/\n/g, '<br>') : '<p>Please find the invoice attached.</p>',
+          attachments: [
+            {
+              content: pdfBuffer,
+              filename: pdfFilename || 'invoice.pdf',
+            }
+          ]
+        });
 
-          await sgMail.send(msg);
-          console.log('Email sent via SendGrid');
-          return res.json({ 
-            success: true, 
-            message: 'Email sent successfully via SendGrid',
-            method: 'SendGrid'
-          });
-        } else {
-          return res.status(400).json({ 
-            error: `Unsupported relay service: ${relayService}. Currently supported: SendGrid` 
-          });
+        if (resendError) {
+          throw resendError;
         }
+
+        console.log('Email sent via Resend');
+        return res.json({ 
+          success: true, 
+          message: 'Email sent successfully via Resend',
+          method: 'Resend'
+        });
       } catch (relayError) {
-        console.error('Relay service error:', relayError);
+        console.error('Resend error:', relayError);
         
-        let errorMessage = 'Failed to send email via relay service';
-        if (relayError.response) {
-          errorMessage += `: ${relayError.response.body?.errors?.[0]?.message || relayError.response.body?.message || 'Unknown error'}`;
-        } else {
-          errorMessage += `: ${relayError.message}`;
-        }
+        let errorMessage = 'Failed to send email via Resend';
+        errorMessage += `: ${relayError.message}`;
         
         res.status(500).json({ 
           error: errorMessage,
           details: relayError.message,
-          service: relayService
+          service: 'resend'
         });
       }
     });

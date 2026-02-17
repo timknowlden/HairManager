@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
-import { FaWrench, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare, FaSync, FaCalendarAlt } from 'react-icons/fa';
+import { FaWrench, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare, FaSync, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 import './AppointmentsList.css';
@@ -19,13 +19,16 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [selectedForInvoice, setSelectedForInvoice] = useState([]); // Array to preserve order
   const [calculatorMode, setCalculatorMode] = useState(false);
   const [selectedForCalculator, setSelectedForCalculator] = useState(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState(null); // Track last selected index for shift-click
   const [currency, setCurrency] = useState('GBP');
+  const appointmentRowRefs = useRef({}); // Refs for appointment rows to enable scrolling
+  const goToTimeoutRef = useRef(null); // Timeout ref for debouncing go to
   const [editingCell, setEditingCell] = useState(null); // { rowId, column }
   const [editValues, setEditValues] = useState({}); // { rowId: { column: value } }
   
   // Column widths state for resizing
   const [columnWidths, setColumnWidths] = useState({
-    id: 50, // Narrower ID column
+    id: 80, // Wider ID column to accommodate 4-digit numbers
     date: 110,
     client_name: 150,
     service: 150,
@@ -43,9 +46,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Track newly added appointments (state)
   const [newAppointmentIdsSet, setNewAppointmentIdsSet] = useState(new Set());
   
-  // Filter states
+  // Filter states (ID removed - now used for "go to" functionality)
   const [filters, setFilters] = useState({
-    id: '',
     date: '',
     client_name: '',
     service: '',
@@ -56,6 +58,51 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     paid: '',
     payment_date: ''
   });
+  const [goToId, setGoToId] = useState(''); // Separate state for "go to" ID input
+
+  // Date filter mode: 'day', 'month', 'year', or '' (text search)
+  const [dateFilterMode, setDateFilterMode] = useState('day'); // Default to day mode
+  const [dateFilterDay, setDateFilterDay] = useState('');
+  const [dateFilterMonth, setDateFilterMonth] = useState('');
+  const [dateFilterYear, setDateFilterYear] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const datePickerRef = useRef(null);
+  const datePickerButtonRef = useRef(null);
+  const [datePickerPosition, setDatePickerPosition] = useState({ top: 0, left: 0 });
+  
+  // Calendar view state (for day picker grid)
+  const [calendarView, setCalendarView] = useState(() => {
+    const today = new Date();
+    return {
+      month: today.getMonth(),
+      year: today.getFullYear()
+    };
+  });
+  
+  // Month picker year state
+  const [monthPickerYear, setMonthPickerYear] = useState(() => {
+    const today = new Date();
+    return today.getFullYear();
+  });
+  
+  // Year picker decade state (for year grid)
+  const [yearPickerDecade, setYearPickerDecade] = useState(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    // Round down to nearest decade (e.g., 2024 -> 2020)
+    return Math.floor(currentYear / 10) * 10;
+  });
+  
+  // Update calendar view when dateFilterDay changes
+  useEffect(() => {
+    if (dateFilterDay) {
+      const selectedDate = new Date(dateFilterDay);
+      setCalendarView({
+        month: selectedDate.getMonth(),
+        year: selectedDate.getFullYear()
+      });
+    }
+  }, [dateFilterDay]);
 
   // Tax year filter: Set of selected tax years (empty set = all)
   const [taxYearMode, setTaxYearMode] = useState(false);
@@ -72,6 +119,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     fetchProfileSettings();
     // Clear new appointment IDs on refresh/fetch
     setNewAppointmentIdsSet(new Set());
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (goToTimeoutRef.current) {
+        clearTimeout(goToTimeoutRef.current);
+      }
+    };
   }, [refreshTrigger]);
 
   const fetchProfileSettings = async () => {
@@ -97,6 +151,41 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       setNewAppointmentIdsSet(new Set(newAppointmentIds));
     }
   }, [newAppointmentIds]);
+
+  // Close date picker when clicking outside and update position on scroll/resize
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+        // Only close if clicking outside the entire container (button + popup)
+        setShowDatePicker(false);
+      }
+    };
+
+    const updatePosition = () => {
+      if (showDatePicker && datePickerButtonRef.current) {
+        const rect = datePickerButtonRef.current.getBoundingClientRect();
+        setDatePickerPosition({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX
+        });
+      }
+    };
+
+    if (showDatePicker) {
+      // Use click instead of mousedown to avoid conflicts with button clicks
+      document.addEventListener('click', handleClickOutside, true);
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      // Initial position update
+      updatePosition();
+      
+      return () => {
+        document.removeEventListener('click', handleClickOutside, true);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [showDatePicker]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -342,24 +431,77 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
   // Invoice mode
-  const handleInvoiceToggle = (id) => {
-    setSelectedForInvoice(prev => {
-      const index = prev.indexOf(id);
-      if (index !== -1) {
-        // Remove from array (preserves order of remaining items)
-        return prev.filter(item => item !== id);
-      } else {
-        // Add to end of array (preserves selection order)
-        return [...prev, id];
+  const handleInvoiceToggle = (id, event) => {
+    const currentIndex = filteredAppointments.findIndex(apt => apt.id === id);
+    
+    // Get shiftKey from event (check both synthetic and native event)
+    const shiftKey = event?.shiftKey || event?.nativeEvent?.shiftKey || false;
+    
+    // Validate lastSelectedIndex is still within bounds
+    const validLastIndex = lastSelectedIndex !== null && 
+                           lastSelectedIndex >= 0 && 
+                           lastSelectedIndex < filteredAppointments.length
+                           ? lastSelectedIndex 
+                           : null;
+    
+    // Check if shift key is pressed and we have a valid last selected index
+    if (shiftKey && validLastIndex !== null && validLastIndex !== currentIndex && currentIndex !== -1) {
+      // Select range from lastSelectedIndex to currentIndex
+      const startIndex = Math.min(validLastIndex, currentIndex);
+      const endIndex = Math.max(validLastIndex, currentIndex);
+      const rangeIds = filteredAppointments
+        .slice(startIndex, endIndex + 1)
+        .map(apt => apt.id);
+      
+      setSelectedForInvoice(prev => {
+        const newSelection = [...prev];
+        const isCurrentlySelected = prev.includes(id);
+        
+        // If the clicked item is selected, deselect the range; otherwise, select it
+        if (isCurrentlySelected) {
+          // Remove all items in range
+          return newSelection.filter(item => !rangeIds.includes(item));
+        } else {
+          // Add all items in range (avoid duplicates)
+          rangeIds.forEach(rangeId => {
+            if (!newSelection.includes(rangeId)) {
+              newSelection.push(rangeId);
+            }
+          });
+          return newSelection;
+        }
+      });
+      
+      // Update last selected index to the current one
+      setLastSelectedIndex(currentIndex);
+    } else {
+      // Normal toggle behavior
+      setSelectedForInvoice(prev => {
+        const index = prev.indexOf(id);
+        if (index !== -1) {
+          // Remove from array (preserves order of remaining items)
+          return prev.filter(item => item !== id);
+        } else {
+          // Add to end of array (preserves selection order)
+          return [...prev, id];
+        }
+      });
+      
+      // Update last selected index only if the item was found
+      if (currentIndex !== -1) {
+        setLastSelectedIndex(currentIndex);
       }
-    });
+    }
   };
 
   const handleSelectAllInvoices = () => {
     if (selectedForInvoice.length === filteredAppointments.length) {
       setSelectedForInvoice([]);
+      setLastSelectedIndex(null);
     } else {
       setSelectedForInvoice(filteredAppointments.map(a => a.id));
+      // Set last selected index to the last item when selecting all
+      setLastSelectedIndex(filteredAppointments.length - 1);
     }
   };
 
@@ -381,7 +523,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     localStorage.setItem('invoiceAppointments', JSON.stringify(selectedAppointments));
     
     // Clear selection and exit invoice mode
-    setSelectedForInvoice(new Set());
+    setSelectedForInvoice([]);
+    setLastSelectedIndex(null);
     setInvoiceMode(false);
     
     // Navigate to invoice view
@@ -405,7 +548,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
 
   const toggleInvoiceMode = () => {
     if (invoiceMode) {
-      setSelectedForInvoice(new Set());
+      setSelectedForInvoice([]);
+      setLastSelectedIndex(null);
       setInvoiceMode(false);
     } else {
       // Close other modes when opening invoice
@@ -413,7 +557,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       setTaxYearMode(false);
       if (calculatorMode) {
         setSelectedForCalculator(new Set());
+        setLastSelectedIndex(null);
       }
+      setLastSelectedIndex(null); // Reset when entering invoice mode
       setInvoiceMode(true);
     }
     setAdminMode(false); // Disable admin mode when enabling invoice
@@ -422,14 +568,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const toggleCalculatorMode = () => {
     if (calculatorMode) {
       setSelectedForCalculator(new Set());
+      setLastSelectedIndex(null);
       setCalculatorMode(false);
     } else {
       // Close other modes when opening calculator
       setInvoiceMode(false);
       setTaxYearMode(false);
       if (invoiceMode) {
-        setSelectedForInvoice(new Set());
+        setSelectedForInvoice([]);
+        setLastSelectedIndex(null);
       }
+      setLastSelectedIndex(null); // Reset when entering calculator mode
       setCalculatorMode(true);
     }
     setAdminMode(false); // Disable admin mode when enabling calculator
@@ -443,28 +592,93 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       setInvoiceMode(false);
       setCalculatorMode(false);
       if (invoiceMode) {
-        setSelectedForInvoice(new Set());
+        setSelectedForInvoice([]);
+        setLastSelectedIndex(null);
       }
       if (calculatorMode) {
         setSelectedForCalculator(new Set());
+        setLastSelectedIndex(null);
       }
       setTaxYearMode(true);
     }
   };
 
   // Calculator mode
-  const handleCalculatorToggle = (id) => {
-    setSelectedForCalculator(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
+  const handleCalculatorToggle = (id, event) => {
+    const currentIndex = filteredAppointments.findIndex(apt => apt.id === id);
+    
+    // Get shiftKey from event (check both synthetic and native event)
+    const shiftKey = event?.shiftKey || event?.nativeEvent?.shiftKey || false;
+    
+    // Validate lastSelectedIndex is still within bounds
+    const validLastIndex = lastSelectedIndex !== null && 
+                           lastSelectedIndex >= 0 && 
+                           lastSelectedIndex < filteredAppointments.length
+                           ? lastSelectedIndex 
+                           : null;
+    
+    // Check if shift key is pressed and we have a valid last selected index
+    if (shiftKey && validLastIndex !== null && validLastIndex !== currentIndex && currentIndex !== -1) {
+      // Select range from lastSelectedIndex to currentIndex
+      const startIndex = Math.min(validLastIndex, currentIndex);
+      const endIndex = Math.max(validLastIndex, currentIndex);
+      const rangeIds = filteredAppointments
+        .slice(startIndex, endIndex + 1)
+        .map(apt => apt.id);
+      
+      setSelectedForCalculator(prev => {
+        const newSet = new Set(prev);
+        const isCurrentlySelected = prev.has(id);
+        
+        // If the clicked item is selected, deselect the range; otherwise, select it
+        if (isCurrentlySelected) {
+          // Remove all items in range
+          rangeIds.forEach(rangeId => newSet.delete(rangeId));
+        } else {
+          // Add all items in range
+          rangeIds.forEach(rangeId => newSet.add(rangeId));
+        }
+        return newSet;
+      });
+      
+      // Update last selected index to the current one
+      setLastSelectedIndex(currentIndex);
+    } else {
+      // Normal toggle behavior
+      setSelectedForCalculator(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(id)) {
+          newSet.delete(id);
+        } else {
+          newSet.add(id);
+        }
+        return newSet;
+      });
+      
+      // Update last selected index only if the item was found
+      if (currentIndex !== -1) {
+        setLastSelectedIndex(currentIndex);
       }
-      return newSet;
-    });
+    }
   };
 
+
+  // Format selected date for display in input box (DD/MM/YYYY format)
+  const formatSelectedDate = () => {
+    if (dateFilterMode === 'day' && dateFilterDay) {
+      const date = new Date(dateFilterDay);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    } else if (dateFilterMode === 'month' && dateFilterMonth) {
+      const [year, month] = dateFilterMonth.split('-');
+      return `01/${month}/${year}`;
+    } else if (dateFilterMode === 'year' && dateFilterYear) {
+      return `01/01/${dateFilterYear}`;
+    }
+    return '';
+  };
 
   // Memoized date formatter
   const formatDate = useCallback((dateString) => {
@@ -476,6 +690,118 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       year: 'numeric'
     });
   }, []);
+
+  // Calendar helper functions
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (month, year) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const generateCalendarDays = (month, year) => {
+    const daysInMonth = getDaysInMonth(month, year);
+    const firstDay = getFirstDayOfMonth(month, year);
+    const days = [];
+    
+    // Adjust for Monday as first day (0 = Sunday, 1 = Monday, etc.)
+    const startDay = firstDay === 0 ? 6 : firstDay - 1;
+    
+    // Previous month's trailing days
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const daysInPrevMonth = getDaysInMonth(prevMonth, prevYear);
+    
+    for (let i = startDay - 1; i >= 0; i--) {
+      days.push({
+        day: daysInPrevMonth - i,
+        month: prevMonth,
+        year: prevYear,
+        isCurrentMonth: false
+      });
+    }
+    
+    // Current month's days
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push({
+        day,
+        month,
+        year,
+        isCurrentMonth: true
+      });
+    }
+    
+    // Next month's leading days
+    const daysNeeded = 42 - days.length; // 6 weeks * 7 days
+    const nextMonth = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+    
+    for (let day = 1; day <= daysNeeded; day++) {
+      days.push({
+        day,
+        month: nextMonth,
+        year: nextYear,
+        isCurrentMonth: false
+      });
+    }
+    
+    return days;
+  };
+
+  const formatMonthYear = (month, year) => {
+    const date = new Date(year, month);
+    return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  };
+
+  const isToday = (day, month, year) => {
+    const today = new Date();
+    return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  };
+
+  const isSelected = (day, month, year) => {
+    if (!dateFilterDay) return false;
+    const selected = new Date(dateFilterDay);
+    return day === selected.getDate() && month === selected.getMonth() && year === selected.getFullYear();
+  };
+
+  const handleDaySelect = (day, month, year) => {
+    const date = new Date(year, month, day);
+    const dateString = date.toISOString().split('T')[0];
+    setDateFilterDay(dateString);
+    setDateFilterMode('day');
+    setDateFilterMonth('');
+    setDateFilterYear('');
+    setFilters(prev => ({ ...prev, date: '' }));
+    // Update calendar view to show selected month
+    setCalendarView({ month, year });
+  };
+
+  const navigateMonth = (direction) => {
+    setCalendarView(prev => {
+      let newMonth = prev.month + direction;
+      let newYear = prev.year;
+      
+      if (newMonth < 0) {
+        newMonth = 11;
+        newYear--;
+      } else if (newMonth > 11) {
+        newMonth = 0;
+        newYear++;
+      }
+      
+      return { month: newMonth, year: newYear };
+    });
+  };
+
+  const goToToday = () => {
+    const today = new Date();
+    setCalendarView({
+      month: today.getMonth(),
+      year: today.getFullYear()
+    });
+    handleDaySelect(today.getDate(), today.getMonth(), today.getFullYear());
+  };
 
   // Get UK tax year from a date (tax year runs from 6 April to 5 April)
   const getTaxYear = (dateString) => {
@@ -651,11 +977,22 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         if (!selectedTaxYears.has(aptTaxYear)) return false;
       }
 
-      // ID filter
-      if (filters.id && apt.id.toString() !== filters.id) return false;
+      // ID filter removed - now used for "go to" functionality only
       
-      // Date filter
-      if (filters.date) {
+      // Date filter - handle different modes
+      if (dateFilterMode === 'day' && dateFilterDay) {
+        const aptDate = new Date(apt.date);
+        const filterDate = new Date(dateFilterDay);
+        if (aptDate.toDateString() !== filterDate.toDateString()) return false;
+      } else if (dateFilterMode === 'month' && dateFilterMonth) {
+        const aptDate = new Date(apt.date);
+        const [year, month] = dateFilterMonth.split('-');
+        if (aptDate.getFullYear() !== parseInt(year) || aptDate.getMonth() + 1 !== parseInt(month)) return false;
+      } else if (dateFilterMode === 'year' && dateFilterYear) {
+        const aptDate = new Date(apt.date);
+        if (aptDate.getFullYear() !== parseInt(dateFilterYear)) return false;
+      } else if (filters.date) {
+        // Text search when no mode is selected
         const filterDate = formatDate(apt.date);
         if (!filterDate.toLowerCase().includes(filters.date.toLowerCase())) return false;
       }
@@ -705,7 +1042,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     filtered = sortData(filtered, sortColumn, sortDirection);
 
     return filtered;
-  }, [appointments, filters, sortConfig, selectedTaxYears]);
+  }, [appointments, filters, sortConfig, selectedTaxYears, dateFilterMode, dateFilterDay, dateFilterMonth, dateFilterYear]);
 
   // Calculate totals for selected appointments (must be after filteredAppointments)
   const calculateTotals = useMemo(() => {
@@ -939,8 +1276,133 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const handleSelectAllCalculator = () => {
     if (selectedForCalculator.size === filteredAppointments.length) {
       setSelectedForCalculator(new Set());
+      setLastSelectedIndex(null);
     } else {
-      setSelectedForCalculator(new Set(filteredAppointments.map(a => a.id)));
+      const allIds = new Set(filteredAppointments.map(a => a.id));
+      setSelectedForCalculator(allIds);
+      // Set last selected index to the last item when selecting all
+      setLastSelectedIndex(filteredAppointments.length - 1);
+    }
+  };
+
+  // Mark selected appointments as paid
+  const handleMarkSelectedAsPaid = async () => {
+    if (selectedForCalculator.size === 0) {
+      setError('Please select at least one appointment');
+      return;
+    }
+
+    const count = selectedForCalculator.size;
+    const confirmMessage = `Are you sure you want to mark ${count} appointment${count !== 1 ? 's' : ''} as paid?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const selectedIds = Array.from(selectedForCalculator);
+      const promises = selectedIds.map(id => 
+        fetch(`${API_BASE}/appointments/${id}/pay`, {
+          method: 'PATCH',
+          headers: getAuthHeaders()
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.ok);
+      const failed = results.filter(r => r.status === 'rejected' || !r.value.ok);
+      
+      if (failed.length > 0) {
+        const failedCount = failed.length;
+        setError(`Failed to mark ${failedCount} appointment${failedCount !== 1 ? 's' : ''} as paid`);
+        // If some failed, refetch to ensure consistency
+        if (successful.length > 0) {
+          fetchAppointments();
+        }
+      } else {
+        // Update local state instead of refetching to prevent page movement
+        const now = new Date().toISOString();
+        setAppointments(prev => prev.map(apt => {
+          if (selectedForCalculator.has(apt.id)) {
+            return {
+              ...apt,
+              paid: 1,
+              payment_date: now
+            };
+          }
+          return apt;
+        }));
+        // Clear selection after successful update
+        setSelectedForCalculator(new Set());
+        setLastSelectedIndex(null);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to mark appointments as paid');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mark selected appointments as unpaid
+  const handleMarkSelectedAsUnpaid = async () => {
+    if (selectedForCalculator.size === 0) {
+      setError('Please select at least one appointment');
+      return;
+    }
+
+    const count = selectedForCalculator.size;
+    const confirmMessage = `Are you sure you want to mark ${count} appointment${count !== 1 ? 's' : ''} as unpaid?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const selectedIds = Array.from(selectedForCalculator);
+      const promises = selectedIds.map(id => 
+        fetch(`${API_BASE}/appointments/${id}/unpay`, {
+          method: 'PATCH',
+          headers: getAuthHeaders()
+        })
+      );
+
+      const results = await Promise.allSettled(promises);
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.ok);
+      const failed = results.filter(r => r.status === 'rejected' || !r.value.ok);
+      
+      if (failed.length > 0) {
+        const failedCount = failed.length;
+        setError(`Failed to mark ${failedCount} appointment${failedCount !== 1 ? 's' : ''} as unpaid`);
+        // If some failed, refetch to ensure consistency
+        if (successful.length > 0) {
+          fetchAppointments();
+        }
+      } else {
+        // Update local state instead of refetching to prevent page movement
+        setAppointments(prev => prev.map(apt => {
+          if (selectedForCalculator.has(apt.id)) {
+            return {
+              ...apt,
+              paid: 0,
+              payment_date: null
+            };
+          }
+          return apt;
+        }));
+        // Clear selection after successful update
+        setSelectedForCalculator(new Set());
+        setLastSelectedIndex(null);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to mark appointments as unpaid');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -951,9 +1413,27 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }));
   };
 
-  const clearFilters = () => {
+  // Go to specific appointment by ID (scrolls to it, clears other filters to ensure it's visible)
+  const goToAppointment = (appointmentId) => {
+    if (!appointmentId || appointmentId.trim() === '') {
+      // If empty, restore previous filters (if we had any)
+      return;
+    }
+
+    const id = parseInt(appointmentId, 10);
+    if (isNaN(id)) {
+      return; // Invalid number, don't show error while typing
+    }
+
+    // Find the appointment in the full list (not filtered)
+    const appointment = appointments.find(apt => apt.id === id);
+    if (!appointment) {
+      return; // Not found, don't show error while typing
+    }
+
+    // Clear all other filters to ensure the appointment is visible
+    // This makes ID search supersede all other filters including tax year
     setFilters({
-      id: '',
       date: '',
       client_name: '',
       service: '',
@@ -964,9 +1444,88 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       paid: '',
       payment_date: ''
     });
+    setDateFilterMode('');
+    setDateFilterDay('');
+    setDateFilterMonth('');
+    setDateFilterYear('');
+    setSelectedTaxYears(new Set()); // Clear tax year filter as well
+
+    // Wait for filters to clear and DOM to update, then scroll
+    setTimeout(() => {
+      const rowElement = appointmentRowRefs.current[id];
+      if (rowElement && tableContainerRef.current) {
+        // Calculate position relative to scroll container
+        const container = tableContainerRef.current;
+        const rowTop = rowElement.offsetTop;
+        
+        // Scroll to the row with some offset from top
+        container.scrollTo({
+          top: rowTop - 100, // 100px offset from top
+          behavior: 'smooth'
+        });
+
+        // Highlight the row briefly
+        rowElement.classList.add('highlighted-row');
+        setTimeout(() => {
+          rowElement.classList.remove('highlighted-row');
+        }, 10000);
+      }
+    }, 150);
   };
 
-  const hasActiveFilters = Object.values(filters).some(f => f !== '');
+  // Handle ID input change - automatically go to appointment as user types (typeahead)
+  const handleGoToIdChange = (e) => {
+    const value = e.target.value;
+    setGoToId(value);
+    
+    // Clear any pending timeout
+    if (goToTimeoutRef.current) {
+      clearTimeout(goToTimeoutRef.current);
+    }
+    
+    // If empty, don't search
+    if (!value.trim()) {
+      return;
+    }
+    
+    // Very short debounce for typeahead feel (100ms) - searches as you type
+    goToTimeoutRef.current = setTimeout(() => {
+      goToAppointment(value.trim());
+    }, 100); // Short delay to avoid excessive searches while typing
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      date: '',
+      client_name: '',
+      service: '',
+      type: '',
+      location: '',
+      price: '',
+      distance: '',
+      paid: '',
+      payment_date: ''
+    });
+    setDateFilterMode('');
+    setDateFilterDay('');
+    setDateFilterMonth('');
+    setDateFilterYear('');
+    setGoToId(''); // Clear the go to ID
+    
+    // Restore default tax year filter (most recent tax year)
+    if (availableTaxYears.length > 0) {
+      const mostRecentTaxYear = availableTaxYears[0]; // First one is most recent
+      setSelectedTaxYears(new Set([mostRecentTaxYear]));
+    } else {
+      setSelectedTaxYears(new Set()); // If no tax years available, clear it
+    }
+  };
+
+  const hasActiveFilters = Object.values(filters).some(f => f !== '') || 
+    (dateFilterMode === 'day' && dateFilterDay) ||
+    (dateFilterMode === 'month' && dateFilterMonth) ||
+    (dateFilterMode === 'year' && dateFilterYear) ||
+    goToId.trim() !== ''; // Show clear button when ID search is active
 
   if (loading) {
     return <div className="loading">Loading appointments...</div>;
@@ -991,21 +1550,21 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             className={`invoice-btn ${invoiceMode ? 'active' : ''}`}
             title="Toggle invoice selection mode"
           >
-            <FaFileInvoice /> {invoiceMode ? 'Exit Invoice' : 'Invoice'}
+            <FaFileInvoice /> <span className="invoice-btn-text">{invoiceMode ? 'Exit Invoice' : 'Invoice'}</span>
           </button>
           <button 
             onClick={toggleCalculatorMode} 
             className={`calculator-btn ${calculatorMode ? 'active' : ''}`}
             title="Toggle calculator mode"
           >
-            <FaCalculator /> {calculatorMode ? 'Exit Calculator' : 'Calculator'}
+            <FaCalculator /> <span className="calculator-btn-text">{calculatorMode ? 'Exit Calculator' : 'Calculator'}</span>
           </button>
           <button 
             onClick={toggleAdminMode} 
             className={`admin-btn ${adminMode ? 'active' : ''}`}
             title="Toggle admin editing mode"
           >
-            <FaWrench /> {adminMode ? 'Exit Admin' : 'Admin'}
+            <FaWrench /> <span className="admin-btn-text">{adminMode ? 'Exit Admin' : 'Admin'}</span>
           </button>
           <button onClick={fetchAppointments} className="refresh-btn" title="Refresh">
             <FaSync />
@@ -1016,11 +1575,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
             className={`tax-year-btn ${taxYearMode ? 'active' : ''}`}
             title={taxYearMode ? 'Close tax year filter' : 'Filter by tax year'}
           >
-            <FaCalendarAlt /> {taxYearMode ? 'Exit Tax Year' : 'Tax Year'} {selectedTaxYears.size > 0 && `(${selectedTaxYears.size})`}
+            <FaCalendarAlt /> <span className="tax-year-btn-text">{taxYearMode ? 'Exit Tax Year' : 'Tax Year'}</span> {selectedTaxYears.size > 0 && <span className="tax-year-count">({selectedTaxYears.size})</span>}
           </button>
           {hasActiveFilters && (
             <button onClick={clearFilters} className="clear-filters-btn">
-              <FaTimes /> Clear Filters
+              <FaTimes /> <span className="clear-filters-text">Clear Filters</span>
             </button>
           )}
         </div>
@@ -1048,15 +1607,16 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
 
       {calculatorMode && (
         <div className="calculator-controls">
-          <div className="calculator-selection-info">
-            <button onClick={handleSelectAllCalculator} className="select-all-btn">
-              <FaCheck /> {selectedForCalculator.size === filteredAppointments.length ? 'Deselect All' : 'Select All'}
-            </button>
-            <span className="selection-count">
-              {selectedForCalculator.size} appointment{selectedForCalculator.size !== 1 ? 's' : ''} selected
-            </span>
-          </div>
-          <div className="calculator-totals">
+          <div className="calculator-controls-top">
+            <div className="calculator-selection-info">
+              <button onClick={handleSelectAllCalculator} className="select-all-btn">
+                <FaCheck /> {selectedForCalculator.size === filteredAppointments.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <span className="selection-count">
+                {selectedForCalculator.size} appointment{selectedForCalculator.size !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="calculator-totals">
             <div className="calculator-sum">
               <span className="sum-label">Unpaid:</span>
               <span className="sum-amount">{currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'}{calculateTotals.unpaid.toFixed(2)}</span>
@@ -1070,6 +1630,27 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
               <span className="sum-amount">{currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'}{calculateTotals.total.toFixed(2)}</span>
             </div>
           </div>
+          </div>
+          {selectedForCalculator.size > 0 && (
+            <div className="calculator-actions">
+              <button
+                onClick={handleMarkSelectedAsPaid}
+                className="mark-paid-btn"
+                disabled={loading}
+                title="Mark selected appointments as paid"
+              >
+                <FaCheckCircle /> Mark as Paid ({selectedForCalculator.size})
+              </button>
+              <button
+                onClick={handleMarkSelectedAsUnpaid}
+                className="mark-unpaid-btn"
+                disabled={loading}
+                title="Mark selected appointments as unpaid"
+              >
+                <FaTimesCircle /> Mark as Unpaid ({selectedForCalculator.size})
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1161,30 +1742,30 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     onMouseDown={(e) => handleMouseDown(e, 'client_name')}
                   ></div>
                 </th>
+                  <th 
+                    className="sortable resizable column-service" 
+                    onClick={() => handleSort('service')}
+                    style={{ width: columnWidths.service, position: 'relative' }}
+                  >
+                    Service {sortConfig.column === 'service' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'service')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable column-type" 
+                    onClick={() => handleSort('type')}
+                    style={{ width: columnWidths.type, position: 'relative' }}
+                  >
+                    Type {sortConfig.column === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'type')}
+                    ></div>
+                  </th>
                 <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('service')}
-                  style={{ width: columnWidths.service, position: 'relative' }}
-                >
-                  Service {sortConfig.column === 'service' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'service')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('type')}
-                  style={{ width: columnWidths.type, position: 'relative' }}
-                >
-                  Type {sortConfig.column === 'type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'type')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
+                  className="sortable resizable column-location" 
                   onClick={() => handleSort('location')}
                   style={{ width: columnWidths.location, position: 'relative' }}
                 >
@@ -1195,7 +1776,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                   ></div>
                 </th>
                 <th 
-                  className="sortable resizable" 
+                  className="sortable resizable column-price" 
                   onClick={() => handleSort('price')}
                   style={{ width: columnWidths.price, position: 'relative' }}
                 >
@@ -1205,39 +1786,39 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     onMouseDown={(e) => handleMouseDown(e, 'price')}
                   ></div>
                 </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('distance')}
-                  style={{ width: columnWidths.distance, position: 'relative' }}
-                >
-                  Distance {sortConfig.column === 'distance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'distance')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('paid')}
-                  style={{ width: columnWidths.paid, position: 'relative' }}
-                >
-                  Paid {sortConfig.column === 'paid' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'paid')}
-                  ></div>
-                </th>
-                <th 
-                  className="sortable resizable" 
-                  onClick={() => handleSort('payment_date')}
-                  style={{ width: columnWidths.payment_date, position: 'relative' }}
-                >
-                  Payment Date {sortConfig.column === 'payment_date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                  <div 
-                    className="resize-handle"
-                    onMouseDown={(e) => handleMouseDown(e, 'payment_date')}
-                  ></div>
-                </th>
+                  <th 
+                    className="sortable resizable column-distance" 
+                    onClick={() => handleSort('distance')}
+                    style={{ width: columnWidths.distance, position: 'relative' }}
+                  >
+                    Distance {sortConfig.column === 'distance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'distance')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable" 
+                    onClick={() => handleSort('paid')}
+                    style={{ width: columnWidths.paid, position: 'relative' }}
+                  >
+                    Paid {sortConfig.column === 'paid' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'paid')}
+                    ></div>
+                  </th>
+                  <th 
+                    className="sortable resizable column-payment-date" 
+                    onClick={() => handleSort('payment_date')}
+                    style={{ width: columnWidths.payment_date, position: 'relative' }}
+                  >
+                    Payment Date {sortConfig.column === 'payment_date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <div 
+                      className="resize-handle"
+                      onMouseDown={(e) => handleMouseDown(e, 'payment_date')}
+                    ></div>
+                  </th>
                 {adminMode && (
                   <th style={{ width: columnWidths.actions, position: 'relative' }}>
                     Actions
@@ -1253,20 +1834,334 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 <th>
                   <input
                     type="text"
-                    placeholder="Filter ID..."
-                    value={filters.id}
-                    onChange={(e) => handleFilterChange('id', e.target.value)}
+                    placeholder="Go to appointment #..."
+                    value={goToId}
+                    onChange={handleGoToIdChange}
                     className="filter-input"
                   />
                 </th>
                 <th>
-                  <input
-                    type="text"
-                    placeholder="Filter date..."
-                    value={filters.date}
-                    onChange={(e) => handleFilterChange('date', e.target.value)}
-                    className="filter-input"
-                  />
+                  <div className="date-filter-container" ref={datePickerRef}>
+                    <button
+                      ref={datePickerButtonRef}
+                      type="button"
+                      className="date-filter-mode-btn"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Calculate position for fixed positioning
+                        if (datePickerButtonRef.current) {
+                          const rect = datePickerButtonRef.current.getBoundingClientRect();
+                          setDatePickerPosition({
+                            top: rect.bottom + window.scrollY + 4,
+                            left: rect.left + window.scrollX
+                          });
+                        }
+                        // Always set to day mode if not already set when opening
+                        if (dateFilterMode === '' || dateFilterMode === undefined) {
+                          setDateFilterMode('day');
+                          // Set calendar view to current month/year
+                          const today = new Date();
+                          setCalendarView({
+                            month: today.getMonth(),
+                            year: today.getFullYear()
+                          });
+                        }
+                        // Always open the picker when button is clicked
+                        setShowDatePicker(true);
+                      }}
+                      title="Open date picker"
+                    >
+                      <FaCalendarAlt /> <span className="date-filter-btn-text">Date</span>
+                    </button>
+                    {showDatePicker && (
+                      <div 
+                        className="date-picker-popup" 
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: 'fixed',
+                          top: `${datePickerPosition.top}px`,
+                          left: `${datePickerPosition.left}px`
+                        }}
+                      >
+                        <div className="date-picker-header">
+                          <span>Select Date</span>
+                          <button
+                            type="button"
+                            className="date-picker-close"
+                            onClick={() => setShowDatePicker(false)}
+                            title="Close"
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                        <div className="date-picker-mode-switcher">
+                          <button
+                            type="button"
+                            className={`date-picker-mode-switch-btn ${dateFilterMode === 'day' ? 'active' : ''}`}
+                            onClick={() => {
+                              setDateFilterMode('day');
+                              setDateFilterMonth('');
+                              setDateFilterYear('');
+                              setFilters(prev => ({ ...prev, date: '' }));
+                              // Update calendar view if a date is already selected
+                              if (dateFilterDay) {
+                                const selectedDate = new Date(dateFilterDay);
+                                setCalendarView({
+                                  month: selectedDate.getMonth(),
+                                  year: selectedDate.getFullYear()
+                                });
+                              }
+                            }}
+                          >
+                            Day
+                          </button>
+                          <button
+                            type="button"
+                            className={`date-picker-mode-switch-btn ${dateFilterMode === 'month' ? 'active' : ''}`}
+                            onClick={() => {
+                              setDateFilterMode('month');
+                              setDateFilterDay('');
+                              setDateFilterYear('');
+                              setFilters(prev => ({ ...prev, date: '' }));
+                              // Set month picker year from selected month or current year
+                              if (dateFilterMonth) {
+                                const [year] = dateFilterMonth.split('-');
+                                setMonthPickerYear(parseInt(year));
+                              } else {
+                                const today = new Date();
+                                setMonthPickerYear(today.getFullYear());
+                              }
+                            }}
+                          >
+                            Month
+                          </button>
+                          <button
+                            type="button"
+                            className={`date-picker-mode-switch-btn ${dateFilterMode === 'year' ? 'active' : ''}`}
+                            onClick={() => {
+                              setDateFilterMode('year');
+                              setDateFilterDay('');
+                              setDateFilterMonth('');
+                              setFilters(prev => ({ ...prev, date: '' }));
+                              // Set year picker decade from selected year or current decade
+                              if (dateFilterYear) {
+                                const year = parseInt(dateFilterYear);
+                                setYearPickerDecade(Math.floor(year / 10) * 10);
+                              } else {
+                                const today = new Date();
+                                const currentYear = today.getFullYear();
+                                setYearPickerDecade(Math.floor(currentYear / 10) * 10);
+                              }
+                            }}
+                          >
+                            Year
+                          </button>
+                        </div>
+                        <div className="date-picker-input-section">
+                          {dateFilterMode === 'day' && (
+                            <div className="calendar-day-picker">
+                              <div className="calendar-header-nav">
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => navigateMonth(-1)}
+                                  title="Previous month"
+                                >
+                                  <FaChevronLeft />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="calendar-month-year-btn"
+                                  onClick={() => {
+                                    // Switch to month picker when clicking month/year
+                                    setDateFilterMode('month');
+                                  }}
+                                  title="Click to select month"
+                                >
+                                  {formatMonthYear(calendarView.month, calendarView.year)}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => navigateMonth(1)}
+                                  title="Next month"
+                                >
+                                  <FaChevronRight />
+                                </button>
+                              </div>
+                              <div className="calendar-weekdays">
+                                <div className="calendar-weekday">Mo</div>
+                                <div className="calendar-weekday">Tu</div>
+                                <div className="calendar-weekday">We</div>
+                                <div className="calendar-weekday">Th</div>
+                                <div className="calendar-weekday">Fr</div>
+                                <div className="calendar-weekday">Sa</div>
+                                <div className="calendar-weekday">Su</div>
+                              </div>
+                              <div className="calendar-days-grid">
+                                {generateCalendarDays(calendarView.month, calendarView.year).map((dateInfo, index) => {
+                                  const { day, month, year, isCurrentMonth } = dateInfo;
+                                  const dayIsToday = isToday(day, month, year);
+                                  const dayIsSelected = isSelected(day, month, year);
+                                  
+                                  return (
+                                    <button
+                                      key={index}
+                                      type="button"
+                                      className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${dayIsToday ? 'today' : ''} ${dayIsSelected ? 'selected' : ''}`}
+                                      onClick={() => {
+                                        handleDaySelect(day, month, year);
+                                        // Update calendar view to show selected month
+                                        setCalendarView({ month, year });
+                                      }}
+                                    >
+                                      {day}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {dateFilterMode === 'month' && (
+                            <div className="month-picker">
+                              <div className="month-picker-year-nav">
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => setMonthPickerYear(monthPickerYear - 1)}
+                                  title="Previous year"
+                                >
+                                  <FaChevronLeft />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="calendar-month-year-btn"
+                                  onClick={() => {
+                                    // Switch to year picker when clicking year
+                                    setDateFilterMode('year');
+                                  }}
+                                  title="Click to select year"
+                                >
+                                  {monthPickerYear}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => setMonthPickerYear(monthPickerYear + 1)}
+                                  title="Next year"
+                                >
+                                  <FaChevronRight />
+                                </button>
+                              </div>
+                              <div className="month-picker-grid">
+                                {[
+                                  'January', 'February', 'March', 'April',
+                                  'May', 'June', 'July', 'August',
+                                  'September', 'October', 'November', 'December'
+                                ].map((monthName, index) => {
+                                  const monthValue = `${monthPickerYear}-${String(index + 1).padStart(2, '0')}`;
+                                  const isSelected = dateFilterMonth === monthValue;
+                                  
+                                  return (
+                                    <button
+                                      key={index}
+                                      type="button"
+                                      className={`month-picker-btn ${isSelected ? 'selected' : ''}`}
+                                      onClick={() => {
+                                        setDateFilterMonth(monthValue);
+                                        // Keep the year in sync
+                                        setMonthPickerYear(monthPickerYear);
+                                      }}
+                                    >
+                                      {monthName.substring(0, 3)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          {dateFilterMode === 'year' && (
+                            <div className="year-picker">
+                              <div className="year-picker-decade-nav">
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => setYearPickerDecade(yearPickerDecade - 10)}
+                                  title="Previous decade"
+                                >
+                                  <FaChevronLeft />
+                                </button>
+                                <div className="year-picker-decade-display">
+                                  {yearPickerDecade}s
+                                </div>
+                                <button
+                                  type="button"
+                                  className="calendar-nav-btn"
+                                  onClick={() => setYearPickerDecade(yearPickerDecade + 10)}
+                                  title="Next decade"
+                                >
+                                  <FaChevronRight />
+                                </button>
+                              </div>
+                              <div className="year-picker-grid">
+                                {Array.from({ length: 12 }, (_, i) => {
+                                  const year = yearPickerDecade + i;
+                                  const isSelected = dateFilterYear === year.toString();
+                                  
+                                  return (
+                                    <button
+                                      key={year}
+                                      type="button"
+                                      className={`year-picker-btn ${isSelected ? 'selected' : ''}`}
+                                      onClick={() => {
+                                        setDateFilterYear(year.toString());
+                                      }}
+                                    >
+                                      {year}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="date-picker-selected-date">
+                          <input
+                            type="text"
+                            value={formatSelectedDate()}
+                            readOnly
+                            placeholder="No date selected"
+                            className="date-picker-selected-input"
+                          />
+                        </div>
+                        <div className="date-picker-actions">
+                          <button
+                            type="button"
+                            className="date-picker-clear-btn"
+                            onClick={() => {
+                              setDateFilterDay('');
+                              setDateFilterMonth('');
+                              setDateFilterYear('');
+                              setDateFilterMode('day');
+                              setFilters(prev => ({ ...prev, date: '' }));
+                            }}
+                          >
+                            Clear
+                          </button>
+                          {dateFilterMode === 'day' && (
+                            <button
+                              type="button"
+                              className="date-picker-today-btn"
+                              onClick={goToToday}
+                            >
+                              Today
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </th>
                 <th>
                   <input
@@ -1277,7 +2172,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     className="filter-input"
                   />
                 </th>
-                <th>
+                <th className="column-service">
                   <select
                     value={filters.service}
                     onChange={(e) => handleFilterChange('service', e.target.value)}
@@ -1289,7 +2184,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-type">
                   <select
                     value={filters.type}
                     onChange={(e) => handleFilterChange('type', e.target.value)}
@@ -1301,7 +2196,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-location">
                   <select
                     value={filters.location}
                     onChange={(e) => handleFilterChange('location', e.target.value)}
@@ -1313,7 +2208,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     ))}
                   </select>
                 </th>
-                <th>
+                <th className="column-price">
                   <input
                     type="text"
                     placeholder="Filter price..."
@@ -1322,7 +2217,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     className="filter-input"
                   />
                 </th>
-                <th>
+                <th className="column-distance">
                   <input
                     type="text"
                     placeholder="Filter distance..."
@@ -1342,7 +2237,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     <option value="unpaid">Unpaid</option>
                   </select>
                 </th>
-                <th>
+                <th className="column-payment-date">
                   <input
                     type="text"
                     placeholder="Filter payment date..."
@@ -1368,14 +2263,23 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                 const isNew = newAppointmentIdsSet.has(apt.id);
                 
                 return (
-                  <tr key={apt.id} className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}>
+                  <tr 
+                    key={apt.id} 
+                    ref={(el) => { appointmentRowRefs.current[apt.id] = el; }}
+                    className={`${apt.paid ? 'paid' : 'unpaid'} ${adminMode ? 'admin-mode' : ''} ${invoiceMode && selectedForInvoice.includes(apt.id) ? 'selected-for-invoice' : ''} ${calculatorMode && selectedForCalculator.has(apt.id) ? 'selected-for-calculator' : ''} ${isNew ? 'new-appointment' : ''}`}
+                  >
                     {(invoiceMode || calculatorMode) && (
                       <td className="invoice-select-cell">
                         <div className="checkbox-wrapper">
                           <input
                             type="checkbox"
                             checked={invoiceMode ? selectedForInvoice.includes(apt.id) : selectedForCalculator.has(apt.id)}
-                            onChange={() => invoiceMode ? handleInvoiceToggle(apt.id) : handleCalculatorToggle(apt.id)}
+                            readOnly
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // onClick should have shiftKey - pass the event
+                              invoiceMode ? handleInvoiceToggle(apt.id, e) : handleCalculatorToggle(apt.id, e);
+                            }}
                             className="invoice-checkbox"
                           />
                           {invoiceMode && selectedForInvoice.includes(apt.id) && (
@@ -1426,7 +2330,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-service ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'service')}
                       style={{ width: columnWidths.service }}
                     >
@@ -1459,9 +2363,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                         apt.service
                       )}
                     </td>
-                    <td style={{ width: columnWidths.type }}>{editValues[apt.id]?.type ?? apt.type}</td>
+                    <td className="column-type" style={{ width: columnWidths.type }}>{editValues[apt.id]?.type ?? apt.type}</td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-location ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'location')}
                       style={{ width: columnWidths.location }}
                     >
@@ -1488,7 +2392,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-price ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'price')}
                       style={{ width: columnWidths.price }}
                     >
@@ -1522,7 +2426,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       )}
                     </td>
                     <td 
-                      className={adminMode && !isEditing ? 'editable-cell' : ''}
+                      className={`column-distance ${adminMode && !isEditing ? 'editable-cell' : ''}`}
                       onClick={() => handleCellClick(apt.id, 'distance')}
                       style={{ width: columnWidths.distance }}
                     >
@@ -1563,7 +2467,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                         {apt.paid ? '✓ Paid' : 'Unpaid'}
                       </button>
                     </td>
-                    <td style={{ width: columnWidths.payment_date }}>{apt.payment_date ? formatDate(apt.payment_date) : '-'}</td>
+                    <td className="column-payment-date" style={{ width: columnWidths.payment_date }}>{apt.payment_date ? formatDate(apt.payment_date) : '-'}</td>
                     {adminMode && (
                       <td className="admin-actions" style={{ width: columnWidths.actions }}>
                         {hasChanges && (

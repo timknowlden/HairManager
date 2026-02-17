@@ -46,16 +46,8 @@ function Financial() {
       const data = await response.json();
       setFinancialData(data);
       
-      // Only expand on initial load, preserve state on filter changes
+      // All tabs start closed on page load
       if (isInitialLoad) {
-        if (data.financialYear && data.financialYear.length > 0) {
-          const mostRecent = data.financialYear[data.financialYear.length - 1].key;
-          setExpandedFinancialYears(new Set([mostRecent]));
-        }
-        if (data.calendarYear && data.calendarYear.length > 0) {
-          const mostRecent = data.calendarYear[data.calendarYear.length - 1].key;
-          setExpandedCalendarYears(new Set([mostRecent]));
-        }
         setIsInitialLoad(false);
       }
     } catch (err) {
@@ -207,6 +199,48 @@ function Financial() {
   }
 
   const monthOrder = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+  const calendarMonthOrder = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Helper functions to determine current periods
+  const getCurrentMonth = () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[new Date().getMonth()];
+  };
+
+  const getCurrentYear = () => {
+    return new Date().getFullYear().toString();
+  };
+
+  const getCurrentFinancialYear = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-11, where 0 is January
+    
+    // UK financial year runs from April (month 3) to March
+    // If month is Jan-Mar (0-2), financial year is previous year to current year
+    // If month is Apr-Dec (3-11), financial year is current year to next year
+    if (month < 3) {
+      return `${year - 1}-${year}`;
+    } else {
+      return `${year}-${year + 1}`;
+    }
+  };
+
+  const isCurrentMonth = (month) => {
+    return month === getCurrentMonth();
+  };
+
+  const isCurrentYear = (year) => {
+    return year.toString() === getCurrentYear();
+  };
+
+  const isCurrentFinancialYear = (fyKey) => {
+    return fyKey === getCurrentFinancialYear();
+  };
+
+  const CurrentBadge = () => (
+    <span className="current-badge">Current</span>
+  );
 
   return (
     <div className="financial-container">
@@ -260,25 +294,28 @@ function Financial() {
               return (
                 <>
                   {/* Financial Year Header Row */}
-                  <tr key={`${fy.key}-header`} className="financial-year-row">
+                  <tr key={`${fy.key}-header`} className={`financial-year-row ${isCurrentFinancialYear(fy.key) ? 'current-period' : ''}`}>
                     <td>
                       <button
                         type="button"
                         className="expand-button"
                         onClick={() => toggleFinancialYear(fy.key)}
-                        style={{ marginRight: '10px' }}
                       >
                         {isExpanded ? '−' : '+'}
                       </button>
                       {fy.key} Total
+                      {isCurrentFinancialYear(fy.key) && <CurrentBadge />}
                     </td>
                     <td className="amount-cell">{formatCurrency(fy.total)}</td>
                   </tr>
                   
                   {/* Monthly Breakdown (if expanded) */}
                   {isExpanded && monthEntries.map(([month, amount]) => (
-                    <tr key={`${fy.key}-${month}`} className="month-row">
-                      <td>{month}</td>
+                    <tr key={`${fy.key}-${month}`} className={`month-row ${isCurrentFinancialYear(fy.key) && isCurrentMonth(month) ? 'current-period' : ''}`}>
+                      <td>
+                        {month}
+                        {isCurrentFinancialYear(fy.key) && isCurrentMonth(month) && <CurrentBadge />}
+                      </td>
                       <td className="amount-cell">{formatCurrency(amount)}</td>
                     </tr>
                   ))}
@@ -333,25 +370,28 @@ function Financial() {
                   return (
                     <>
                       {/* Calendar Year Header Row */}
-                      <tr key={`${cy.key}-header`} className="financial-year-row">
+                      <tr key={`${cy.key}-header`} className={`financial-year-row ${isCurrentYear(cy.key) ? 'current-period' : ''}`}>
                         <td>
                           <button
                             type="button"
                             className="expand-button"
                             onClick={() => toggleCalendarYear(cy.key)}
-                            style={{ marginRight: '10px' }}
                           >
                             {isExpanded ? '−' : '+'}
                           </button>
                           {cy.key} Total
+                          {isCurrentYear(cy.key) && <CurrentBadge />}
                         </td>
                         <td className="amount-cell">{formatCurrency(cy.total)}</td>
                       </tr>
                       
                       {/* Monthly Breakdown (if expanded) */}
                       {isExpanded && monthEntries.map(([month, amount]) => (
-                        <tr key={`${cy.key}-${month}`} className="month-row">
-                          <td>{month}</td>
+                        <tr key={`${cy.key}-${month}`} className={`month-row ${isCurrentYear(cy.key) && isCurrentMonth(month) ? 'current-period' : ''}`}>
+                          <td>
+                            {month}
+                            {isCurrentYear(cy.key) && isCurrentMonth(month) && <CurrentBadge />}
+                          </td>
                           <td className="amount-cell">{formatCurrency(amount)}</td>
                         </tr>
                       ))}
@@ -403,7 +443,6 @@ function Financial() {
                             type="button"
                             className="expand-button"
                             onClick={() => toggleLocation(item.location)}
-                            style={{ marginRight: '10px' }}
                           >
                             {isExpanded ? '−' : '+'}
                           </button>
@@ -418,23 +457,26 @@ function Financial() {
                         const monthTotal = monthEntries.reduce((sum, [, amount]) => sum + amount, 0);
                         return (
                           <>
-                            <tr key={yearKey} className="month-row">
+                            <tr key={yearKey} className={`month-row ${isCurrentYear(yearData.year) ? 'current-period' : ''}`}>
                               <td style={{ paddingLeft: '40px' }}>
                                 <button
                                   type="button"
                                   className="expand-button"
                                   onClick={() => toggleLocationYear(item.location, yearData.year)}
-                                  style={{ marginRight: '10px' }}
                                 >
                                   {isYearExpanded ? '−' : '+'}
                                 </button>
                                 {yearData.year}
+                                {isCurrentYear(yearData.year) && <CurrentBadge />}
                               </td>
                               <td className="amount-cell">{formatCurrency(yearData.total)}</td>
                             </tr>
                             {isYearExpanded && monthEntries.map(([month, amount]) => (
-                              <tr key={`${yearKey}-${month}`} className="month-row">
-                                <td style={{ paddingLeft: '80px' }}>{month}</td>
+                              <tr key={`${yearKey}-${month}`} className={`month-row ${isCurrentYear(yearData.year) && isCurrentMonth(month) ? 'current-period' : ''}`}>
+                                <td style={{ paddingLeft: '80px' }}>
+                                  {month}
+                                  {isCurrentYear(yearData.year) && isCurrentMonth(month) && <CurrentBadge />}
+                                </td>
                                 <td className="amount-cell">{formatCurrency(amount)}</td>
                               </tr>
                             ))}
@@ -485,7 +527,6 @@ function Financial() {
                             type="button"
                             className="expand-button"
                             onClick={() => toggleServiceType(item.type)}
-                            style={{ marginRight: '10px' }}
                           >
                             {isExpanded ? '−' : '+'}
                           </button>
@@ -500,23 +541,26 @@ function Financial() {
                         const monthTotal = monthEntries.reduce((sum, [, amount]) => sum + amount, 0);
                         return (
                           <>
-                            <tr key={yearKey} className="month-row">
+                            <tr key={yearKey} className={`month-row ${isCurrentYear(yearData.year) ? 'current-period' : ''}`}>
                               <td style={{ paddingLeft: '40px' }}>
                                 <button
                                   type="button"
                                   className="expand-button"
                                   onClick={() => toggleServiceTypeYear(item.type, yearData.year)}
-                                  style={{ marginRight: '10px' }}
                                 >
                                   {isYearExpanded ? '−' : '+'}
                                 </button>
                                 {yearData.year}
+                                {isCurrentYear(yearData.year) && <CurrentBadge />}
                               </td>
                               <td className="amount-cell">{formatCurrency(yearData.total)}</td>
                             </tr>
                             {isYearExpanded && monthEntries.map(([month, amount]) => (
-                              <tr key={`${yearKey}-${month}`} className="month-row">
-                                <td style={{ paddingLeft: '80px' }}>{month}</td>
+                              <tr key={`${yearKey}-${month}`} className={`month-row ${isCurrentYear(yearData.year) && isCurrentMonth(month) ? 'current-period' : ''}`}>
+                                <td style={{ paddingLeft: '80px' }}>
+                                  {month}
+                                  {isCurrentYear(yearData.year) && isCurrentMonth(month) && <CurrentBadge />}
+                                </td>
                                 <td className="amount-cell">{formatCurrency(amount)}</td>
                               </tr>
                             ))}
@@ -567,7 +611,6 @@ function Financial() {
                             type="button"
                             className="expand-button"
                             onClick={() => toggleServiceName(item.name)}
-                            style={{ marginRight: '10px' }}
                           >
                             {isExpanded ? '−' : '+'}
                           </button>
@@ -582,23 +625,26 @@ function Financial() {
                         const monthTotal = monthEntries.reduce((sum, [, amount]) => sum + amount, 0);
                         return (
                           <>
-                            <tr key={yearKey} className="month-row">
+                            <tr key={yearKey} className={`month-row ${isCurrentYear(yearData.year) ? 'current-period' : ''}`}>
                               <td style={{ paddingLeft: '40px' }}>
                                 <button
                                   type="button"
                                   className="expand-button"
                                   onClick={() => toggleServiceNameYear(item.name, yearData.year)}
-                                  style={{ marginRight: '10px' }}
                                 >
                                   {isYearExpanded ? '−' : '+'}
                                 </button>
                                 {yearData.year}
+                                {isCurrentYear(yearData.year) && <CurrentBadge />}
                               </td>
                               <td className="amount-cell">{formatCurrency(yearData.total)}</td>
                             </tr>
                             {isYearExpanded && monthEntries.map(([month, amount]) => (
-                              <tr key={`${yearKey}-${month}`} className="month-row">
-                                <td style={{ paddingLeft: '80px' }}>{month}</td>
+                              <tr key={`${yearKey}-${month}`} className={`month-row ${isCurrentYear(yearData.year) && isCurrentMonth(month) ? 'current-period' : ''}`}>
+                                <td style={{ paddingLeft: '80px' }}>
+                                  {month}
+                                  {isCurrentYear(yearData.year) && isCurrentMonth(month) && <CurrentBadge />}
+                                </td>
                                 <td className="amount-cell">{formatCurrency(amount)}</td>
                               </tr>
                             ))}

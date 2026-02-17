@@ -425,6 +425,7 @@ function EntryForm({ onAppointmentsAdded }) {
   return (
     <div className="entry-form">
       <h2>New Appointment Entry</h2>
+      <p className="page-subtitle">Add new client appointments and services</p>
       
       <form onSubmit={handleSubmit} onKeyDown={(e) => {
         // Prevent Enter key from submitting form
@@ -503,6 +504,7 @@ function EntryForm({ onAppointmentsAdded }) {
               >
                 <div className="appointment-number">{index + 1}</div>
                 <div className="appointment-client-name">
+                  <label className="field-label-stacked">Client Name</label>
                   <div className="autocomplete-wrapper">
                     <div className="autocomplete-container">
                       <input
@@ -593,6 +595,7 @@ function EntryForm({ onAppointmentsAdded }) {
                   </div>
                 </div>
                 <div className="appointment-service">
+                  <label className="field-label-stacked">Service</label>
                   <div className="autocomplete-wrapper">
                     <div className="autocomplete-container">
                       <input
@@ -684,6 +687,7 @@ function EntryForm({ onAppointmentsAdded }) {
                   </div>
                 </div>
                 <div className="appointment-price">
+                  <label className="field-label-stacked">Price</label>
                   <input
                     type="number"
                     step="0.5"

@@ -130,7 +130,7 @@ router.post('/', async (req, res) => {
   }
 
   // Check if user already exists
-  db.get('SELECT id FROM users WHERE username = ?', [username], async (err, existingUser) => {
+  db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', [username], async (err, existingUser) => {
     if (err) {
       console.error('Error checking for existing user:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -237,7 +237,7 @@ router.put('/:id', async (req, res) => {
 
   // Check if username is being changed and if it already exists
   if (username) {
-    db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId], async (err, existingUser) => {
+    db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?', [username, userId], async (err, existingUser) => {
       if (err) {
         console.error('Error checking for existing username:', err);
         return res.status(500).json({ error: 'Database error' });
