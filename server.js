@@ -53,7 +53,7 @@ console.log('[SERVER INIT] Request logging middleware registered');
 // Profile routes are now handled by the profile router (routes/profile.js)
 // which includes authentication middleware
 
-// Test email endpoint removed - using SendGrid only now
+// Test email endpoint removed - using Resend API now
 /*
 app.post('/api/profile/test-email', async (req, res) => {
   console.log('\n[DIRECT PROFILE ROUTE] POST /api/profile/test-email - HANDLER CALLED');

@@ -98,7 +98,7 @@ function AdminManager({ onSettingsSaved }) {
     home_postcode: '',
     currency: 'GBP',
     google_maps_api_key: '',
-    email_relay_service: 'sendgrid',
+    email_relay_service: 'resend',
     email_relay_api_key: '',
     email_relay_from_email: '',
     email_relay_from_name: '',
@@ -173,7 +173,7 @@ function AdminManager({ onSettingsSaved }) {
         home_postcode: postcode,
         currency: data.currency || 'GBP',
         google_maps_api_key: data.google_maps_api_key || '',
-        email_relay_service: data.email_relay_service || 'sendgrid',
+        email_relay_service: data.email_relay_service || 'resend',
         email_relay_api_key: data.email_relay_api_key || '',
         email_relay_from_email: data.email_relay_from_email || '',
         email_relay_bcc_enabled: data.email_relay_bcc_enabled || false,
@@ -1372,11 +1372,11 @@ function AdminManager({ onSettingsSaved }) {
           </div>
         </div>
 
-        {/* Email Settings - SendGrid Only */}
+        {/* Email Settings - Resend */}
         <div className="form-section">
-          <h3>Email Settings (SendGrid)</h3>
+          <h3>Email Settings (Resend)</h3>
           <p className="field-help" style={{ marginBottom: '20px', fontStyle: 'italic' }}>
-            This app uses SendGrid to send invoice emails. SendGrid offers 100 free emails per day and bypasses all Microsoft authentication issues.
+            This app uses Resend to send invoice emails. Resend offers 3,000 free emails per month with excellent deliverability.
           </p>
 
           <div style={{ 
@@ -1388,10 +1388,10 @@ function AdminManager({ onSettingsSaved }) {
             borderLeft: '4px solid #4CAF50'
           }}>
             <strong style={{ color: '#2e7d32', display: 'block', marginBottom: '5px' }}>
-              ✓ Using SendGrid Email Service
+              ✓ Using Resend Email Service
             </strong>
             <p style={{ color: '#2e7d32', margin: 0, fontSize: '13px' }}>
-              All invoice emails are sent via SendGrid. No SMTP configuration needed!
+              All invoice emails are sent via Resend. No SMTP configuration needed!
             </p>
           </div>
           
@@ -1405,16 +1405,16 @@ function AdminManager({ onSettingsSaved }) {
                 onChange={handleInputChange}
                 disabled
               >
-                <option value="sendgrid">SendGrid (100 free emails/day)</option>
+                <option value="resend">Resend (3,000 free emails/month)</option>
               </select>
               <p className="field-help">
                 <a 
-                  href="https://signup.sendgrid.com/" 
+                  href="https://resend.com/signup" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{ color: '#2196F3', textDecoration: 'underline', fontWeight: '600' }}
                 >
-                  Sign up for free SendGrid account (100 emails/day free)
+                  Sign up for free Resend account (3,000 emails/month free)
                 </a>
               </p>
             </div>
@@ -1426,16 +1426,16 @@ function AdminManager({ onSettingsSaved }) {
                     name="email_relay_api_key"
                     value={formData.email_relay_api_key}
                     onChange={handleInputChange}
-                    placeholder="Enter your SendGrid API key"
+                    placeholder="Enter your Resend API key (re_...)"
                   />
                   <p className="field-help">
                     <a 
-                      href="https://app.sendgrid.com/settings/api_keys" 
+                      href="https://resend.com/api-keys" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{ color: '#2196F3', textDecoration: 'underline' }}
                     >
-                      Get your SendGrid API key
+                      Get your Resend API key
                     </a>
                   </p>
                 </div>
@@ -1452,16 +1452,20 @@ function AdminManager({ onSettingsSaved }) {
                     placeholder="e.g., invoices@yourdomain.com"
                   />
                   <p className="field-help">
-                    <strong>Must be verified in SendGrid!</strong> Go to SendGrid → Settings → Sender Authentication → Create a Sender
+                    <strong>Domain must be verified in Resend!</strong> Go to Resend → Domains → Add your domain
                     <br />
                     <a 
-                      href="https://app.sendgrid.com/settings/sender_auth/senders" 
+                      href="https://resend.com/domains" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{ color: '#2196F3', textDecoration: 'underline' }}
                     >
-                      Verify sender in SendGrid
+                      Verify domain in Resend
                     </a>
+                    <br />
+                    <span style={{ fontSize: '12px', color: '#666' }}>
+                      For testing, you can use onboarding@resend.dev as the from address
+                    </span>
                   </p>
                 </div>
                 <div className="form-group">

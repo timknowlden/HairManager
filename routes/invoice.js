@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { Resend } from 'resend';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,11 +23,9 @@ router.post('/send-email', async (req, res) => {
     // Also handle semicolon or comma-separated emails
     let toEmails = [];
     if (Array.isArray(to)) {
-      // Flatten array and split any strings that contain semicolons or commas
       toEmails = to
         .flatMap(email => {
           if (typeof email === 'string' && email.trim()) {
-            // Split by semicolon or comma, then trim and filter
             return email
               .split(/[;,]/)
               .map(e => e.trim())
@@ -34,9 +33,8 @@ router.post('/send-email', async (req, res) => {
           }
           return email ? [email] : [];
         })
-        .filter((email, index, self) => self.indexOf(email) === index); // Remove duplicates
+        .filter((email, index, self) => self.indexOf(email) === index);
     } else if (typeof to === 'string' && to.trim()) {
-      // Split by semicolon or comma, then trim and filter
       toEmails = to
         .split(/[;,]/)
         .map(e => e.trim())
@@ -64,20 +62,16 @@ router.post('/send-email', async (req, res) => {
         return res.status(400).json({ error: 'Profile settings not configured' });
       }
 
-      // Use SendGrid email relay service
+      // Use Resend email service
       const apiKey = profile.email_relay_api_key;
       const fromEmail = profile.email_relay_from_email || profile.email;
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
-      const ccEnabled = profile.email_relay_bcc_enabled === 1 || profile.email_relay_bcc_enabled === true; // Checkbox enables CC
-      // Use email_subject from profile if not provided in request, or use default
+      const ccEnabled = profile.email_relay_bcc_enabled === 1 || profile.email_relay_bcc_enabled === true;
       const emailSubject = subject || profile.email_subject || 'Invoice';
-      
-      // Build recipient list early so it's available in error handler
-      const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
 
       if (!apiKey) {
         return res.status(400).json({ 
-          error: 'SendGrid API key not configured. Please set it in Profile Settings.' 
+          error: 'Resend API key not configured. Please set it in Profile Settings.' 
         });
       }
 
@@ -88,8 +82,7 @@ router.post('/send-email', async (req, res) => {
       }
 
       try {
-        const sgMail = (await import('@sendgrid/mail')).default;
-        sgMail.setApiKey(apiKey);
+        const resend = new Resend(apiKey);
 
         // Convert base64 PDF to buffer
         const pdfBuffer = Buffer.from(pdfData, 'base64');
@@ -97,14 +90,11 @@ router.post('/send-email', async (req, res) => {
         // Check if body is HTML (contains HTML tags)
         const isHtml = body && body.includes('<') && body.includes('>');
         
-        // Convert to HTML if not already HTML
         let htmlBody;
         let textBody;
         
         if (isHtml) {
-          // Already HTML, use as-is
           htmlBody = body;
-          // Create plain text version by stripping HTML tags
           textBody = body
             .replace(/<br\s*\/?>/gi, '\n')
             .replace(/<\/p>/gi, '\n\n')
@@ -117,7 +107,6 @@ router.post('/send-email', async (req, res) => {
             .replace(/&quot;/g, '"')
             .trim();
         } else {
-          // Plain text, convert to HTML
           htmlBody = body 
             ? body.split('\n\n').map(paragraph => {
                 if (!paragraph.trim()) return '<br>';
@@ -127,87 +116,59 @@ router.post('/send-email', async (req, res) => {
           textBody = body || 'Please find the invoice attached.';
         }
 
-        // Build personalizations array for SendGrid v3 API
-        const personalizations = [{
-          to: toRecipients
-        }];
-
-        // Add BCC with from email if enabled
-        if (ccEnabled && fromEmail && fromEmail.trim()) {
-          personalizations[0].bcc = [{ email: fromEmail.trim() }];
-          console.log('BCC enabled, adding to BCC:', fromEmail.trim());
-        } else {
-          console.log('BCC disabled or fromEmail missing. ccEnabled:', ccEnabled, 'fromEmail:', fromEmail);
-        }
-
-        const msg = {
-          personalizations: personalizations,
-          from: {
-            email: fromEmail,
-            name: fromName
-          },
+        // Build the Resend email payload
+        const emailPayload = {
+          from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+          to: toEmails,
           subject: emailSubject,
-          content: [
-            {
-              type: 'text/plain',
-              value: textBody
-            },
-            {
-              type: 'text/html',
-              value: htmlBody
-            }
-          ],
+          html: htmlBody,
+          text: textBody,
           attachments: [
             {
-              content: pdfBuffer.toString('base64'),
+              content: pdfBuffer,
               filename: pdfFilename || 'invoice.pdf',
-              type: 'application/pdf',
-              disposition: 'attachment'
             }
           ]
         };
 
-        const result = await sgMail.send(msg);
-        console.log('Email sent via SendGrid');
-        
-        // Extract SendGrid message ID from response
-        // SendGrid returns message ID in x-message-id header
-        // Format can be: "base.recvd-..." or just "base"
-        // We'll store the base part (before first dot) for better matching
-        let sendgridMessageId = result[0]?.headers?.['x-message-id'] || 
-                                result[0]?.body?.message_id || 
-                                null;
-        
-        // Extract base message ID (before first dot) for consistent matching
-        if (sendgridMessageId && sendgridMessageId.includes('.')) {
-          sendgridMessageId = sendgridMessageId.split('.')[0];
+        // Add BCC with from email if enabled
+        if (ccEnabled && fromEmail && fromEmail.trim()) {
+          emailPayload.bcc = [fromEmail.trim()];
+          console.log('BCC enabled, adding to BCC:', fromEmail.trim());
         }
+
+        const { data, error: resendError } = await resend.emails.send(emailPayload);
+
+        if (resendError) {
+          throw resendError;
+        }
+
+        console.log('Email sent via Resend');
         
-        console.log('SendGrid message ID extracted:', sendgridMessageId);
+        // Extract Resend message ID from response
+        const resendMessageId = data?.id || null;
+        console.log('Resend message ID:', resendMessageId);
         
         // Save PDF to server
         const invoicesDir = process.env.NODE_ENV === 'production' 
           ? join(__dirname, '..', 'data', 'invoices')
           : join(__dirname, '..', 'invoices');
         
-        // Ensure invoices directory exists
         if (!existsSync(invoicesDir)) {
           await mkdir(invoicesDir, { recursive: true });
         }
         
-        // Generate filename: Invoice_{invoiceNumber}_{timestamp}.pdf
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const invoiceNum = invoiceNumber || 'unknown';
         const pdfFile = `Invoice_${invoiceNum}_${timestamp}.pdf`;
         const pdfPath = join(invoicesDir, pdfFile);
         
-        // Save PDF file
         await writeFile(pdfPath, pdfBuffer);
         console.log('PDF saved to:', pdfPath);
         
         // Log email to database
         const now = new Date().toISOString();
-        const db = req.app.locals.db;
+        const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
         for (const recipient of toRecipients) {
           db.run(
             `INSERT INTO email_logs 
@@ -218,8 +179,8 @@ router.post('/send-email', async (req, res) => {
               invoiceNum,
               recipient.email,
               emailSubject,
-              'sent', // Initial status
-              sendgridMessageId,
+              'sent',
+              resendMessageId,
               pdfPath,
               now,
               now
@@ -236,60 +197,35 @@ router.post('/send-email', async (req, res) => {
         
         return res.json({ 
           success: true, 
-          messageId: sendgridMessageId || 'sendgrid',
-          method: 'SendGrid',
+          messageId: resendMessageId || 'resend',
+          method: 'Resend',
           pdfPath: pdfPath
         });
       } catch (relayError) {
-        console.error('SendGrid error:', relayError);
-        let errorMessage = 'Failed to send email via SendGrid';
+        console.error('Resend error:', relayError);
+        let errorMessage = 'Failed to send email via Resend';
         let errorDetails = relayError.message;
         let suggestions = [];
         
-        if (relayError.response) {
-          const statusCode = relayError.response.statusCode;
-          const body = relayError.response.body;
-          
-          if (statusCode === 401) {
-            errorMessage = 'Invalid SendGrid API key. Please check your API key in Profile Settings.';
-          } else if (statusCode === 403) {
-            errorMessage = 'SendGrid API key does not have permission to send emails.';
-          } else if (statusCode === 400 && body?.errors) {
-            const firstError = body.errors[0];
-            if (firstError.message?.includes('sender')) {
-              errorMessage = 'Sender email not verified in SendGrid. Please verify your sender email address in SendGrid.';
-              suggestions.push('Go to SendGrid → Settings → Sender Authentication → Verify your sender email');
-            } else {
-              errorMessage = `SendGrid error: ${firstError.message || relayError.message}`;
-              errorDetails = firstError.message || relayError.message;
-            }
-          } else {
-            errorMessage = `SendGrid error: ${body?.errors?.[0]?.message || relayError.message}`;
-            errorDetails = body?.errors?.[0]?.message || relayError.message;
+        if (relayError.statusCode === 401 || relayError.name === 'validation_error') {
+          errorMessage = 'Invalid Resend API key. Please check your API key in Profile Settings.';
+        } else if (relayError.statusCode === 403) {
+          errorMessage = 'Resend API key does not have permission to send emails.';
+        } else if (relayError.statusCode === 422) {
+          errorMessage = `Resend validation error: ${relayError.message}`;
+          if (relayError.message?.includes('domain')) {
+            suggestions.push('Make sure your sending domain is verified in Resend');
+            suggestions.push('Go to resend.com/domains to verify your domain');
           }
-        }
-        
-        // Check for IP blocklist/bounce errors
-        if (errorDetails && (
-          errorDetails.includes('block list') || 
-          errorDetails.includes('blocklist') ||
-          errorDetails.includes('S3140') ||
-          errorDetails.includes('bounce') ||
-          errorDetails.includes('550 5.7.1')
-        )) {
-          errorMessage = 'Email delivery failed: SendGrid IP address is on recipient\'s blocklist';
-          suggestions = [
-            'This is a SendGrid infrastructure issue, not a problem with your email content or configuration',
-            'Even with Domain Authentication (SPF, DKIM, DMARC), some email providers may still block SendGrid\'s shared IP addresses',
-            'The email may still be delivered to other recipients - this is specific to certain email providers (often Outlook/Microsoft)',
-            'SendGrid monitors IP reputation and works to resolve blocklist issues automatically',
-            'If this persists, consider SendGrid\'s Dedicated IP option for better deliverability control, or contact SendGrid support'
-          ];
+        } else if (relayError.statusCode === 429) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+        } else {
+          errorMessage = `Resend error: ${relayError.message}`;
         }
         
         // Log failed email attempt
         const now = new Date().toISOString();
-        const db = req.app.locals.db;
+        const toRecipients = toEmails.map(email => ({ email: email.trim() })).filter(r => r.email);
         for (const recipient of toRecipients) {
           db.run(
             `INSERT INTO email_logs 
@@ -327,4 +263,3 @@ router.post('/send-email', async (req, res) => {
 });
 
 export default router;
-
