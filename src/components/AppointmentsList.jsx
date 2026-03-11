@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { FaWrench, FaSave, FaTimes, FaWindowClose, FaBan, FaFileInvoice, FaCheck, FaTrash, FaCalculator, FaArrowUp, FaArrowDown, FaSquare, FaSync, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { FaXmark } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,6 +69,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef(null);
   const datePickerButtonRef = useRef(null);
+  const datePickerPopupRef = useRef(null);
   const [datePickerPosition, setDatePickerPosition] = useState({ top: 0, left: 0 });
   
   // Calendar view state (for day picker grid)
@@ -155,8 +157,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Close date picker when clicking outside and update position on scroll/resize
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
-        // Only close if clicking outside the entire container (button + popup)
+      const inButton = datePickerRef.current?.contains(event.target);
+      const inPopup = datePickerPopupRef.current?.contains(event.target);
+      if (!inButton && !inPopup) {
         setShowDatePicker(false);
       }
     };
@@ -164,10 +167,24 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     const updatePosition = () => {
       if (showDatePicker && datePickerButtonRef.current) {
         const rect = datePickerButtonRef.current.getBoundingClientRect();
-        setDatePickerPosition({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX
-        });
+        const padding = 8;
+        const popupEstHeight = 560;
+        const popupWidth = 420;
+        const spaceBelow = window.innerHeight - rect.bottom - padding;
+        const spaceAbove = rect.top - padding;
+
+        let top;
+        if (spaceBelow >= popupEstHeight || spaceBelow >= spaceAbove) {
+          top = rect.bottom + 4;
+          top = Math.min(top, window.innerHeight - popupEstHeight - padding);
+        } else {
+          top = Math.max(padding, rect.top - popupEstHeight - 4);
+        }
+
+        let left = rect.left;
+        left = Math.max(padding, Math.min(left, window.innerWidth - popupWidth - padding));
+
+        setDatePickerPosition({ top, left });
       }
     };
 
@@ -178,8 +195,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       window.addEventListener('resize', updatePosition);
       // Initial position update
       updatePosition();
-      
+      // Re-position after popup has painted (handles layout edge cases)
+      const rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(updatePosition);
+      });
+
       return () => {
+        cancelAnimationFrame(rafId);
         document.removeEventListener('click', handleClickOutside, true);
         window.removeEventListener('scroll', updatePosition, true);
         window.removeEventListener('resize', updatePosition);
@@ -387,13 +409,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error(errorMessage);
       }
 
+      const updatedAppointment = await response.json();
       setEditingCell(null);
       setEditValues(prev => {
         const newValues = { ...prev };
         delete newValues[rowId];
         return newValues;
       });
-      fetchAppointments();
+      // Update local state to avoid refetch and scroll jump
+      setAppointments(prev => prev.map(apt =>
+        apt.id === rowId ? { ...apt, ...updatedAppointment } : apt
+      ));
     } catch (err) {
       console.error('Error updating appointment:', err);
       setError(err.message);
@@ -1874,8 +1900,9 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                     >
                       <FaCalendarAlt /> <span className="date-filter-btn-text">Date</span>
                     </button>
-                    {showDatePicker && (
+                    {showDatePicker && createPortal(
                       <div 
+                        ref={datePickerPopupRef}
                         className="date-picker-popup" 
                         onClick={(e) => e.stopPropagation()}
                         style={{
@@ -1895,7 +1922,10 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                             <FaTimes />
                           </button>
                         </div>
-                        <div className="date-picker-mode-switcher">
+                        <div className="date-picker-popup-body">
+                          <div className="date-picker-popup-left">
+                            <div className="date-picker-popup-left-top">
+                              <div className="date-picker-mode-switcher">
                           <button
                             type="button"
                             className={`date-picker-mode-switch-btn ${dateFilterMode === 'day' ? 'active' : ''}`}
@@ -1958,7 +1988,44 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                             Year
                           </button>
                         </div>
-                        <div className="date-picker-input-section">
+                            </div>
+                            <div className="date-picker-popup-left-bottom">
+                            <div className="date-picker-selected-date">
+                              <input
+                                type="text"
+                                value={formatSelectedDate()}
+                                readOnly
+                                placeholder="No date selected"
+                                className="date-picker-selected-input"
+                              />
+                            </div>
+                            <div className="date-picker-actions">
+                              <button
+                                type="button"
+                                className="date-picker-clear-btn"
+                                onClick={() => {
+                                  setDateFilterDay('');
+                                  setDateFilterMonth('');
+                                  setDateFilterYear('');
+                                  setDateFilterMode('day');
+                                  setFilters(prev => ({ ...prev, date: '' }));
+                                }}
+                              >
+                                Clear
+                              </button>
+                              {dateFilterMode === 'day' && (
+                                <button
+                                  type="button"
+                                  className="date-picker-today-btn"
+                                  onClick={goToToday}
+                                >
+                                  Today
+                                </button>
+                              )}
+                            </div>
+                            </div>
+                          </div>
+                          <div className="date-picker-input-section">
                           {dateFilterMode === 'day' && (
                             <div className="calendar-day-picker">
                               <div className="calendar-header-nav">
@@ -2125,41 +2192,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                               </div>
                             </div>
                           )}
+                          </div>
                         </div>
-                        <div className="date-picker-selected-date">
-                          <input
-                            type="text"
-                            value={formatSelectedDate()}
-                            readOnly
-                            placeholder="No date selected"
-                            className="date-picker-selected-input"
-                          />
-                        </div>
-                        <div className="date-picker-actions">
-                          <button
-                            type="button"
-                            className="date-picker-clear-btn"
-                            onClick={() => {
-                              setDateFilterDay('');
-                              setDateFilterMonth('');
-                              setDateFilterYear('');
-                              setDateFilterMode('day');
-                              setFilters(prev => ({ ...prev, date: '' }));
-                            }}
-                          >
-                            Clear
-                          </button>
-                          {dateFilterMode === 'day' && (
-                            <button
-                              type="button"
-                              className="date-picker-today-btn"
-                              onClick={goToToday}
-                            >
-                              Today
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      </div>,
+                      document.body,
+                      'date-picker-portal'
                     )}
                   </div>
                 </th>
@@ -2399,7 +2436,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       {isEditing && editingCell.column === 'price' ? (
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.5"
                           min="0"
                           value={editValues[apt.id]?.price ?? apt.price ?? ''}
                           onChange={(e) => {
@@ -2433,7 +2470,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
                       {isEditing && editingCell.column === 'distance' ? (
                         <input
                           type="number"
-                          step="0.1"
+                          step="1"
                           min="0"
                           value={editValues[apt.id]?.distance ?? apt.distance ?? ''}
                           onChange={(e) => {
