@@ -8,16 +8,37 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
-// Get all appointments for the logged-in user (with optional pagination)
+// UK tax year: 6 April to 5 April. tax_year=2025 means 2025-26 (6 Apr 2025 - 5 Apr 2026)
+function getTaxYearDateRange(startYear) {
+  const y = parseInt(startYear, 10);
+  if (isNaN(y)) return null;
+  return {
+    from: `${y}-04-06`,
+    to: `${y + 1}-04-05`
+  };
+}
+
+// Get all appointments for the logged-in user (with optional pagination and tax year filter)
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
   const limit = parseInt(req.query.limit) || null;
   const offset = parseInt(req.query.offset) || 0;
+  const taxYear = req.query.tax_year || null; // e.g. "2025" for 2025-26
   
   const startTime = Date.now();
-  let query = 'SELECT * FROM appointments WHERE user_id = ? ORDER BY date DESC, id ASC';
+  let query = 'SELECT * FROM appointments WHERE user_id = ?';
   const params = [userId];
+  
+  if (taxYear) {
+    const range = getTaxYearDateRange(taxYear);
+    if (range) {
+      query += ' AND date >= ? AND date <= ?';
+      params.push(range.from, range.to);
+    }
+  }
+  
+  query += ' ORDER BY date DESC, id ASC';
   
   if (limit !== null) {
     query += ' LIMIT ? OFFSET ?';

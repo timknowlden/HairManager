@@ -1108,6 +1108,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [filteredAppointments]);
 
+  // Scroll to bottom when appointments page first loads
+  useEffect(() => {
+    if (!loading && filteredAppointments.length > 0 && tableContainerRef.current) {
+      requestAnimationFrame(() => {
+        const container = tableContainerRef.current;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    }
+  }, [loading]);
+
   // Sync header table width with body table (accounting for scrollbar)
   useEffect(() => {
     const syncTableWidths = () => {
