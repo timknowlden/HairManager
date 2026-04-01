@@ -109,19 +109,20 @@ router.get('/:name', (req, res) => {
 router.post('/', checkLocationLimit, (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
-  const { 
-    location_name, 
-    address, 
-    city_town, 
-    post_code, 
-    distance, 
-    contact_name, 
-    email_address, 
-    contact_details, 
-    phone, 
-    place_via_ludham, 
-    mileage, 
-    notes 
+  const {
+    location_name,
+    address,
+    city_town,
+    post_code,
+    distance,
+    contact_name,
+    email_address,
+    contact_details,
+    phone,
+    place_via_ludham,
+    mileage,
+    notes,
+    price_offset
   } = req.body;
 
   if (!location_name) {
@@ -133,23 +134,24 @@ router.post('/', checkLocationLimit, (req, res) => {
   const emailJson = normalizeEmails(email_address);
 
   db.run(
-    `INSERT INTO address_data 
-     (user_id, location_name, address, city_town, post_code, distance, contact_name, email_address, contact_details, phone, place_via_ludham, mileage, notes) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO address_data
+     (user_id, location_name, address, city_town, post_code, distance, contact_name, email_address, contact_details, phone, place_via_ludham, mileage, notes, price_offset)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId,
-      location_name, 
-      address || '', 
-      city_town || '', 
-      post_code || '', 
-      distance || null, 
-      contact_name || '', 
-      emailJson, 
-      contact_details || '', 
-      phone || '', 
-      place_via_ludham || '', 
-      mileage || null, 
-      notes || ''
+      location_name,
+      address || '',
+      city_town || '',
+      post_code || '',
+      distance || null,
+      contact_name || '',
+      emailJson,
+      contact_details || '',
+      phone || '',
+      place_via_ludham || '',
+      mileage || null,
+      notes || '',
+      price_offset || 0
     ],
     function(err) {
       if (err) {
@@ -234,43 +236,45 @@ router.put('/:id', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
   const userId = req.userId;
-  const { 
-    location_name, 
-    address, 
-    city_town, 
-    post_code, 
-    distance, 
-    contact_name, 
-    email_address, 
-    contact_details, 
-    phone, 
-    place_via_ludham, 
-    mileage, 
-    notes 
+  const {
+    location_name,
+    address,
+    city_town,
+    post_code,
+    distance,
+    contact_name,
+    email_address,
+    contact_details,
+    phone,
+    place_via_ludham,
+    mileage,
+    notes,
+    price_offset
   } = req.body;
 
   // Normalize emails to JSON array
   const emailJson = normalizeEmails(email_address);
 
   db.run(
-    `UPDATE address_data SET 
-     location_name = ?, address = ?, city_town = ?, post_code = ?, distance = ?, 
-     contact_name = ?, email_address = ?, contact_details = ?, phone = ?, 
-     place_via_ludham = ?, mileage = ?, notes = ? 
+    `UPDATE address_data SET
+     location_name = ?, address = ?, city_town = ?, post_code = ?, distance = ?,
+     contact_name = ?, email_address = ?, contact_details = ?, phone = ?,
+     place_via_ludham = ?, mileage = ?, notes = ?, price_offset = ?
      WHERE id = ? AND user_id = ?`,
     [
-      location_name, 
-      address || '', 
-      city_town || '', 
-      post_code || '', 
-      distance || null, 
-      contact_name || '', 
-      emailJson, 
-      contact_details || '', 
-      phone || '', 
-      place_via_ludham || '', 
-      mileage || null, 
-      notes || '', 
+      location_name,
+      address || '',
+      city_town || '',
+      post_code || '',
+      distance || null,
+      contact_name || '',
+      emailJson,
+      contact_details || '',
+      phone || '',
+      place_via_ludham || '',
+      mileage || null,
+      notes || '',
+      price_offset || 0,
       id,
       userId
     ],

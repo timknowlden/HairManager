@@ -642,6 +642,34 @@ initDatabase(dbPath)
       console.log('\n[Warning] Could not read version from package.json');
     }
 
+    // Auto-apply any due scheduled price changes
+    const today = new Date().toISOString().split('T')[0];
+    db.all(
+      `SELECT sp.id, sp.service_id, sp.new_price, sp.user_id
+       FROM scheduled_prices sp
+       WHERE sp.applied = 0 AND sp.effective_date <= ?`,
+      [today],
+      (err, rows) => {
+        if (err) {
+          console.log('[Scheduled Pricing] Error checking scheduled prices:', err.message);
+        } else if (rows && rows.length > 0) {
+          let applied = 0;
+          rows.forEach(row => {
+            db.run('UPDATE services SET price = ? WHERE id = ? AND user_id = ?',
+              [row.new_price, row.service_id, row.user_id], function(err) {
+                if (!err && this.changes > 0) {
+                  db.run('UPDATE scheduled_prices SET applied = 1 WHERE id = ?', [row.id]);
+                  applied++;
+                }
+              });
+          });
+          console.log(`[Scheduled Pricing] Applied ${rows.length} scheduled price update(s)`);
+        } else {
+          console.log('[Scheduled Pricing] No pending price updates');
+        }
+      }
+    );
+
     app.listen(PORT, () => {
       console.log(`\nServer running on http://localhost:${PORT}`);
       console.log('Available API endpoints:');

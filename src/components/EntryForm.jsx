@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { FaTrash, FaPlus } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaUndo } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './EntryForm.css';
 
@@ -46,6 +46,12 @@ function EntryForm({ onAppointmentsAdded }) {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [currency, setCurrency] = useState('GBP');
+  const [priceAdjustment, setPriceAdjustment] = useState('');
+  // New service modal state
+  const [showNewServiceModal, setShowNewServiceModal] = useState(false);
+  const [newServiceRowIndex, setNewServiceRowIndex] = useState(null);
+  const [newServiceForm, setNewServiceForm] = useState({ service_name: '', type: 'Hair', price: '' });
+  const [newServiceError, setNewServiceError] = useState(null);
   // Autocomplete state for each appointment row
   const [autocompleteStates, setAutocompleteStates] = useState({});
   // Position state for autocomplete suggestions
@@ -216,11 +222,13 @@ function EntryForm({ onAppointmentsAdded }) {
     const updated = [...appointments];
     updated[index][field] = value;
     
-    // When service is selected, always reset price to match service price
+    // When service is selected, set price to service price + location offset
     if (field === 'service' && value) {
-      const selectedService = services.find(s => s.service_name === value);
-      if (selectedService) {
-        updated[index].price = selectedService.price.toFixed(2);
+      const matchedService = services.find(s => s.service_name === value);
+      if (matchedService) {
+        const loc = locations.find(l => l.location_name === selectedLocation);
+        const offset = loc?.price_offset || 0;
+        updated[index].price = Math.max(0, matchedService.price + offset).toFixed(2);
       }
     }
     
@@ -358,6 +366,68 @@ function EntryForm({ onAppointmentsAdded }) {
     }));
   };
 
+  const applyPriceAdjustment = () => {
+    const adjustment = parseFloat(priceAdjustment);
+    if (isNaN(adjustment)) return;
+    setAppointments(prev => prev.map(apt => {
+      const currentPrice = parseFloat(apt.price) || 0;
+      const newPrice = Math.max(0, currentPrice + adjustment);
+      return { ...apt, price: newPrice.toFixed(2) };
+    }));
+    setPriceAdjustment('');
+  };
+
+  const resetPricesToDefault = () => {
+    const loc = locations.find(l => l.location_name === selectedLocation);
+    const offset = loc?.price_offset || 0;
+    setAppointments(prev => prev.map(apt => {
+      const matchedService = services.find(s => s.service_name === apt.service);
+      if (matchedService) {
+        return { ...apt, price: Math.max(0, matchedService.price + offset).toFixed(2) };
+      }
+      return apt;
+    }));
+  };
+
+  const openNewServiceModal = (rowIndex) => {
+    setNewServiceRowIndex(rowIndex);
+    setNewServiceForm({ service_name: '', type: 'Hair', price: '' });
+    setNewServiceError(null);
+    setShowNewServiceModal(true);
+  };
+
+  const handleNewServiceSubmit = async (e) => {
+    e.preventDefault();
+    setNewServiceError(null);
+    const { service_name, type, price } = newServiceForm;
+    if (!service_name || !price) {
+      setNewServiceError('Service name and price are required');
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/services`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service_name, type, price: parseFloat(price) })
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create service');
+      }
+      // Refresh services list and apply to the row
+      await fetchServices();
+      const loc = locations.find(l => l.location_name === selectedLocation);
+      const offset = loc?.price_offset || 0;
+      const adjustedPrice = Math.max(0, parseFloat(price) + offset).toFixed(2);
+      const updated = [...appointments];
+      updated[newServiceRowIndex] = { ...updated[newServiceRowIndex], service: service_name, price: adjustedPrice };
+      setAppointments(updated);
+      setShowNewServiceModal(false);
+    } catch (err) {
+      setNewServiceError(err.message);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -441,7 +511,20 @@ function EntryForm({ onAppointmentsAdded }) {
             <select
               id="location"
               value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
+              onChange={(e) => {
+                const newLocation = e.target.value;
+                setSelectedLocation(newLocation);
+                // Reapply location price offset to all appointments with a service
+                const loc = locations.find(l => l.location_name === newLocation);
+                const offset = loc?.price_offset || 0;
+                setAppointments(prev => prev.map(apt => {
+                  const matchedService = services.find(s => s.service_name === apt.service);
+                  if (matchedService) {
+                    return { ...apt, price: Math.max(0, matchedService.price + offset).toFixed(2) };
+                  }
+                  return apt;
+                }));
+              }}
               required
               className="location-select"
             >
@@ -475,6 +558,33 @@ function EntryForm({ onAppointmentsAdded }) {
               <span className="section-icon">👥</span> Appointments
             </h3>
             <div className="section-stats">
+              <div className="price-adjustment">
+                <input
+                  type="number"
+                  step="0.5"
+                  value={priceAdjustment}
+                  onChange={(e) => setPriceAdjustment(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPriceAdjustment(); } }}
+                  placeholder="+/- price"
+                  className="price-adjustment-input"
+                />
+                <button
+                  type="button"
+                  onClick={applyPriceAdjustment}
+                  className="price-adjustment-btn"
+                  disabled={!priceAdjustment || isNaN(parseFloat(priceAdjustment))}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={resetPricesToDefault}
+                  className="price-reset-btn"
+                  title="Reset all prices to service defaults"
+                >
+                  <FaUndo />
+                </button>
+              </div>
               <span className="appointment-count">{appointments.length} {appointments.length === 1 ? 'appointment' : 'appointments'}</span>
               {(() => {
                 const totalPrice = appointments.reduce((sum, apt) => {
@@ -672,13 +782,29 @@ function EntryForm({ onAppointmentsAdded }) {
                                         onClick={() => selectService(index, service.service_name)}
                                         className={`autocomplete-suggestion ${selectedServiceAutocompleteIndex[index] === currentGlobalIndex ? 'selected' : ''}`}
                                       >
-                                        {service.service_name} - £{service.price.toFixed(2)}
+                                        {(() => {
+                                        const loc = locations.find(l => l.location_name === selectedLocation);
+                                        const offset = loc?.price_offset || 0;
+                                        const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
+                                        return offset !== 0
+                                          ? <>{service.service_name} - {sym}{service.price.toFixed(2)} <span className="price-offset-hint">({offset > 0 ? '+' : ''}{sym}{offset.toFixed(2)})</span></>
+                                          : <>{service.service_name} - {sym}{service.price.toFixed(2)}</>;
+                                      })()}
                                       </li>
                                     );
                                   })}
                                 </React.Fragment>
                               )
                             )}
+                            <li
+                              className="autocomplete-suggestion new-service-option"
+                              onClick={() => {
+                                setServiceAutocompleteStates(prev => ({ ...prev, [index]: false }));
+                                openNewServiceModal(index);
+                              }}
+                            >
+                              <FaPlus style={{ marginRight: 6 }} /> New Service...
+                            </li>
                           </ul>,
                           document.body
                         );
@@ -749,6 +875,55 @@ function EntryForm({ onAppointmentsAdded }) {
           {loading ? 'Creating...' : 'Create Appointments'}
         </button>
       </form>
+
+      {showNewServiceModal && createPortal(
+        <div className="modal-overlay" onClick={() => setShowNewServiceModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Add New Service</h3>
+            <form onSubmit={handleNewServiceSubmit}>
+              <div className="modal-form-group">
+                <label>Service Name *</label>
+                <input
+                  type="text"
+                  value={newServiceForm.service_name}
+                  onChange={(e) => setNewServiceForm(prev => ({ ...prev, service_name: e.target.value }))}
+                  placeholder="e.g., French Braid"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div className="modal-form-group">
+                <label>Type *</label>
+                <select
+                  value={newServiceForm.type}
+                  onChange={(e) => setNewServiceForm(prev => ({ ...prev, type: e.target.value }))}
+                >
+                  <option value="Hair">Hair</option>
+                  <option value="Nails">Nails</option>
+                </select>
+              </div>
+              <div className="modal-form-group">
+                <label>Price *</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={newServiceForm.price}
+                  onChange={(e) => setNewServiceForm(prev => ({ ...prev, price: e.target.value }))}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              {newServiceError && <div className="error-message">{newServiceError}</div>}
+              <div className="modal-actions">
+                <button type="submit" className="modal-submit-btn">Add Service</button>
+                <button type="button" className="modal-cancel-btn" onClick={() => setShowNewServiceModal(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

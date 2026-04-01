@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { FaEdit, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaCalendarAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './ServicesManager.css';
 
@@ -41,8 +41,15 @@ function ServicesManager() {
   });
   const formRef = useRef(null); // Ref for the form container
 
+  // Scheduled pricing state
+  const [schedulingMode, setSchedulingMode] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduledPriceInputs, setScheduledPriceInputs] = useState({});
+  const [scheduledPrices, setScheduledPrices] = useState([]);
+
   useEffect(() => {
     fetchServices();
+    fetchScheduledPrices();
   }, []);
 
   // Scroll to form when it opens
@@ -71,6 +78,70 @@ function ServicesManager() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchScheduledPrices = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/services/scheduled-prices/all`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setScheduledPrices(data);
+      }
+    } catch (err) {
+      console.error('Error fetching scheduled prices:', err);
+    }
+  };
+
+  const getScheduledPrice = (serviceId) => {
+    return scheduledPrices.find(sp => sp.service_id === serviceId);
+  };
+
+  const handleSaveScheduledPrices = async () => {
+    if (!scheduleDate) {
+      setError('Please select a date for the scheduled prices');
+      return;
+    }
+    const entries = Object.entries(scheduledPriceInputs).filter(([, val]) => val !== '' && val != null);
+    if (entries.length === 0) {
+      setError('Enter at least one scheduled price');
+      return;
+    }
+    setError(null);
+    let saved = 0;
+    for (const [serviceId, newPrice] of entries) {
+      try {
+        const response = await fetch(`${API_BASE}/services/scheduled-prices`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ service_id: parseInt(serviceId), new_price: parseFloat(newPrice), effective_date: scheduleDate })
+        });
+        if (response.ok) saved++;
+      } catch (err) {
+        console.error('Error scheduling price:', err);
+      }
+    }
+    setSuccess(`Scheduled ${saved} price change(s) for ${new Date(scheduleDate).toLocaleDateString('en-GB')}`);
+    setScheduledPriceInputs({});
+    setSchedulingMode(false);
+    setScheduleDate('');
+    fetchScheduledPrices();
+    setTimeout(() => setSuccess(null), 4000);
+  };
+
+  const handleDeleteScheduled = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE}/services/scheduled-prices/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        fetchScheduledPrices();
+      }
+    } catch (err) {
+      console.error('Error deleting scheduled price:', err);
     }
   };
 
@@ -356,11 +427,26 @@ Hair wash 	Hair	£5.00`;
             </button>
           )}
           <div className="header-buttons">
-            <button 
-              onClick={() => { setShowAddForm(true); setEditingId(null); resetForm(); }} 
+            <button
+              onClick={() => { setShowAddForm(true); setEditingId(null); resetForm(); }}
               className="add-btn"
             >
               + Add Service
+            </button>
+            <button
+              onClick={() => {
+                if (schedulingMode) {
+                  setSchedulingMode(false);
+                  setScheduleDate('');
+                  setScheduledPriceInputs({});
+                } else {
+                  setSchedulingMode(true);
+                }
+              }}
+              className={`schedule-btn ${schedulingMode ? 'active' : ''}`}
+            >
+              <FaCalendarAlt style={{ marginRight: 6 }} />
+              {schedulingMode ? 'Cancel Scheduling' : 'Schedule Prices'}
             </button>
           </div>
         </div>
@@ -368,6 +454,28 @@ Hair wash 	Hair	£5.00`;
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
+
+      {schedulingMode && (
+        <div className="schedule-bar">
+          <div className="schedule-bar-content">
+            <label>Effective date for all scheduled prices:</label>
+            <input
+              type="date"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="schedule-date-input"
+            />
+            <button
+              onClick={handleSaveScheduledPrices}
+              className="schedule-save-btn"
+              disabled={!scheduleDate || Object.values(scheduledPriceInputs).every(v => v === '' || v == null)}
+            >
+              Save Scheduled Prices
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="service-form-container" ref={formRef}>
@@ -472,9 +580,14 @@ Hair wash 	Hair	£5.00`;
                   onMouseDown={(e) => handleMouseDown(e, 'price')}
                 ></div>
               </th>
+              {schedulingMode && (
+                <th className="column-scheduled-price" style={{ width: 140, position: 'relative' }}>
+                  Scheduled Price
+                </th>
+              )}
               <th className="column-actions" style={{ width: columnWidths.actions, position: 'relative' }}>
                 Actions
-                <div 
+                <div
                   className="resize-handle"
                   onMouseDown={(e) => handleMouseDown(e, 'actions')}
                 ></div>
@@ -512,13 +625,14 @@ Hair wash 	Hair	£5.00`;
                   className="filter-input"
                 />
               </th>
+              {schedulingMode && <th className="column-scheduled-price"></th>}
               <th className="column-actions"></th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedServices.length === 0 ? (
               <tr>
-                <td colSpan="5" className="no-data">
+                <td colSpan={schedulingMode ? 6 : 5} className="no-data">
                   {services.length === 0 ? 'No services found' : 'No services match the current filters'}
                 </td>
               </tr>
@@ -529,6 +643,30 @@ Hair wash 	Hair	£5.00`;
                   <td className="column-service-name" style={{ width: columnWidths.service_name }}>{service.service_name}</td>
                   <td className="column-type" style={{ width: columnWidths.type }}>{service.type}</td>
                   <td className="column-price" style={{ width: columnWidths.price }}>{formatCurrency(service.price)}</td>
+                  {schedulingMode && (
+                    <td className="column-scheduled-price">
+                      {(() => {
+                        const existing = getScheduledPrice(service.id);
+                        return existing ? (
+                          <div className="existing-scheduled">
+                            <span className="scheduled-value">{formatCurrency(existing.new_price)}</span>
+                            <span className="scheduled-date">{new Date(existing.effective_date).toLocaleDateString('en-GB')}</span>
+                            <button onClick={() => handleDeleteScheduled(existing.id)} className="scheduled-remove-btn" title="Remove">×</button>
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={scheduledPriceInputs[service.id] || ''}
+                            onChange={(e) => setScheduledPriceInputs(prev => ({ ...prev, [service.id]: e.target.value }))}
+                            placeholder={service.price.toFixed(2)}
+                            className="scheduled-price-input"
+                          />
+                        );
+                      })()}
+                    </td>
+                  )}
                   <td className="actions-cell column-actions" style={{ width: columnWidths.actions }}>
                     <button onClick={() => handleEdit(service)} className="edit-btn" title="Edit">
                       <FaEdit />
@@ -543,6 +681,7 @@ Hair wash 	Hair	£5.00`;
           </tbody>
         </table>
       </div>
+
     </div>
   );
 }

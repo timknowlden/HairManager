@@ -37,6 +37,7 @@ function LocationsManager() {
     city_town: 120,
     post_code: 100,
     distance: 80,
+    price_offset: 90,
     contact_name: 120,
     email_address: 180,
     phone: 120,
@@ -61,7 +62,8 @@ function LocationsManager() {
     email_address: [], // Changed to array
     contact_details: '',
     phone: '',
-    notes: ''
+    notes: '',
+    price_offset: ''
   });
   const [currentEmailInput, setCurrentEmailInput] = useState(''); // For the email input field
   const formRef = useRef(null); // Ref for the form container
@@ -354,7 +356,8 @@ function LocationsManager() {
       const payload = {
         ...formData,
         post_code: formData.post_code ? formData.post_code.trim().toUpperCase().replace(/\s+/g, '') : '',
-        distance: formData.distance ? parseFloat(formData.distance) : null
+        distance: formData.distance ? parseFloat(formData.distance) : null,
+        price_offset: formData.price_offset ? parseFloat(formData.price_offset) : 0
       };
 
       let response;
@@ -403,7 +406,8 @@ function LocationsManager() {
       email_address: emailArray,
       contact_details: location.contact_details || '',
       phone: location.phone || '',
-      notes: location.notes || ''
+      notes: location.notes || '',
+      price_offset: location.price_offset || ''
     });
     setCurrentEmailInput(''); // Clear the input field
     setEditingId(location.id);
@@ -529,7 +533,8 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
       email_address: [],
       contact_details: '',
       phone: '',
-      notes: ''
+      notes: '',
+      price_offset: ''
     });
     setCurrentEmailInput('');
   };
@@ -875,6 +880,17 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   onChange={handleInputChange}
                 />
               </div>
+              <div className="form-group">
+                <label>Price Offset</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="price_offset"
+                  value={formData.price_offset}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 2 or -1.5"
+                />
+              </div>
             </div>
 
             <div className="form-row">
@@ -1042,12 +1058,23 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                 style={{ width: columnWidths.distance, position: 'relative' }}
               >
                 Distance {sortConfig.column === 'distance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                <div 
+                <div
                   className="resize-handle"
                   onMouseDown={(e) => handleMouseDown(e, 'distance')}
                 ></div>
               </th>
-              <th 
+              <th
+                className="sortable resizable column-price-offset"
+                onClick={() => handleSort('price_offset')}
+                style={{ width: columnWidths.price_offset, position: 'relative' }}
+              >
+                Price +/- {sortConfig.column === 'price_offset' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                <div
+                  className="resize-handle"
+                  onMouseDown={(e) => handleMouseDown(e, 'price_offset')}
+                ></div>
+              </th>
+              <th
                 className="sortable resizable column-contact-name" 
                 onClick={() => handleSort('contact_name')}
                 style={{ width: columnWidths.contact_name, position: 'relative' }}
@@ -1135,6 +1162,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   className="filter-input"
                 />
               </th>
+              <th className="column-price-offset"></th>
               <th className="column-contact-name">
                 <input
                   type="text"
@@ -1168,7 +1196,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
           <tbody>
             {filteredAndSortedLocations.length === 0 ? (
               <tr>
-                <td colSpan="10" className="no-data">
+                <td colSpan="11" className="no-data">
                   {locations.length === 0 ? 'No locations found' : 'No locations match the current filters'}
                 </td>
               </tr>
@@ -1182,6 +1210,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                     <td className="column-city-town" style={{ width: columnWidths.city_town }}>{loc.city_town}</td>
                     <td className="column-post-code" style={{ width: columnWidths.post_code }}>{loc.post_code}</td>
                     <td className="column-distance" style={{ width: columnWidths.distance }}>{loc.distance ? `${loc.distance} mi` : '-'}</td>
+                    <td className="column-price-offset" style={{ width: columnWidths.price_offset }}>{loc.price_offset ? (loc.price_offset > 0 ? `+${loc.price_offset}` : loc.price_offset) : '-'}</td>
                     <td className="column-contact-name" style={{ width: columnWidths.contact_name }}>{loc.contact_name || '-'}</td>
                     <td className="column-email" style={{ width: columnWidths.email_address }}>
                       {loc.email_address && (Array.isArray(loc.email_address) ? loc.email_address.length > 0 : loc.email_address) ? (
@@ -1233,7 +1262,7 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                   </tr>
                   {editingId === loc.id && (
                     <tr className="inline-editor-row">
-                      <td colSpan="10" className="inline-editor-cell">
+                      <td colSpan="11" className="inline-editor-cell">
                         <div className="inline-editor-container" ref={formRef}>
                           <h4>Edit Location</h4>
                           <form onSubmit={handleSubmit} className="location-form">
@@ -1277,6 +1306,17 @@ Kings Court	Hempstead Rd	Holt	NR25 6DQ	52.0 mi	Emily Marie`;
                                   name="distance"
                                   value={formData.distance}
                                   onChange={handleInputChange}
+                                />
+                              </div>
+                              <div className="form-group">
+                                <label>Price Offset</label>
+                                <input
+                                  type="number"
+                                  step="0.5"
+                                  name="price_offset"
+                                  value={formData.price_offset}
+                                  onChange={handleInputChange}
+                                  placeholder="e.g., 2 or -1.5"
                                 />
                               </div>
                             </div>

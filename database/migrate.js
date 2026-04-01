@@ -136,6 +136,23 @@ function migrateDatabase(customDbPath = null) {
       if (!columnNames.includes('mileage')) {
         migrations.push(runAsync(db, 'ALTER TABLE address_data ADD COLUMN mileage REAL'));
       }
+      if (!columnNames.includes('price_offset')) {
+        migrations.push(runAsync(db, 'ALTER TABLE address_data ADD COLUMN price_offset REAL DEFAULT 0'));
+      }
+
+      // Create scheduled_prices table if it doesn't exist
+      migrations.push(runAsync(db, `
+        CREATE TABLE IF NOT EXISTS scheduled_prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          service_id INTEGER NOT NULL,
+          new_price REAL NOT NULL,
+          effective_date TEXT NOT NULL,
+          applied INTEGER DEFAULT 0,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+        )
+      `));
 
       // Check if admin_settings table exists
       db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_settings'", [], (err, tables) => {

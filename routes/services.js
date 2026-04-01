@@ -185,5 +185,133 @@ router.delete('/bulk/all', (req, res) => {
   );
 });
 
+// --- Scheduled Pricing ---
+
+// Get all scheduled prices for the logged-in user
+router.get('/scheduled-prices/all', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.all(
+    `SELECT sp.*, s.service_name, s.type, s.price AS current_price
+     FROM scheduled_prices sp
+     JOIN services s ON sp.service_id = s.id
+     WHERE sp.user_id = ? AND sp.applied = 0
+     ORDER BY sp.effective_date ASC`,
+    [userId],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json(rows);
+    }
+  );
+});
+
+// Create a scheduled price
+router.post('/scheduled-prices', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const { service_id, new_price, effective_date } = req.body;
+
+  if (!service_id || new_price == null || !effective_date) {
+    res.status(400).json({ error: 'service_id, new_price, and effective_date are required' });
+    return;
+  }
+
+  db.run(
+    `INSERT INTO scheduled_prices (user_id, service_id, new_price, effective_date)
+     VALUES (?, ?, ?, ?)`,
+    [userId, service_id, new_price, effective_date],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.status(201).json({ id: this.lastID, service_id, new_price, effective_date });
+    }
+  );
+});
+
+// Delete a scheduled price
+router.delete('/scheduled-prices/:id', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const { id } = req.params;
+
+  db.run(
+    'DELETE FROM scheduled_prices WHERE id = ? AND user_id = ?',
+    [id, userId],
+    function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (this.changes === 0) {
+        res.status(404).json({ error: 'Scheduled price not found' });
+        return;
+      }
+      res.json({ message: 'Scheduled price deleted' });
+    }
+  );
+});
+
+// Apply due scheduled prices (called on server start and can be called manually)
+router.post('/scheduled-prices/apply', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const today = new Date().toISOString().split('T')[0];
+
+  db.all(
+    `SELECT sp.id, sp.service_id, sp.new_price
+     FROM scheduled_prices sp
+     WHERE sp.user_id = ? AND sp.applied = 0 AND sp.effective_date <= ?`,
+    [userId, today],
+    (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (rows.length === 0) {
+        res.json({ message: 'No scheduled prices to apply', applied: 0 });
+        return;
+      }
+
+      let applied = 0;
+      let errors = 0;
+
+      const processNext = (index) => {
+        if (index >= rows.length) {
+          res.json({ message: `Applied ${applied} scheduled price(s)`, applied, errors });
+          return;
+        }
+        const row = rows[index];
+        db.run(
+          'UPDATE services SET price = ? WHERE id = ? AND user_id = ?',
+          [row.new_price, row.service_id, userId],
+          function(err) {
+            if (err) {
+              errors++;
+              processNext(index + 1);
+              return;
+            }
+            db.run(
+              'UPDATE scheduled_prices SET applied = 1 WHERE id = ?',
+              [row.id],
+              function() {
+                applied++;
+                processNext(index + 1);
+              }
+            );
+          }
+        );
+      };
+
+      processNext(0);
+    }
+  );
+});
+
 export default router;
 
