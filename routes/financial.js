@@ -79,10 +79,12 @@ router.get('/', (req, res) => {
         }
         financialData.calendarYear[calendarYearKey].months[monthName] += apt.price;
 
-        // Financial year (Apr-Mar)
-        // UK financial year runs from April 1 to March 31
+        // Financial year (6 Apr - 5 Apr)
+        // UK tax year runs from April 6 to April 5
+        const day = date.getDate();
         let financialYearStart = year;
-        if (month < 3) { // Jan, Feb, Mar belong to previous financial year
+        if (month < 3 || (month === 3 && day < 6)) {
+          // Jan, Feb, Mar, or Apr 1-5 belong to previous financial year
           financialYearStart = year - 1;
         }
         const financialYearKey = `${financialYearStart}-${financialYearStart + 1}`;

@@ -47,6 +47,8 @@ function EntryForm({ onAppointmentsAdded }) {
   const [success, setSuccess] = useState(null);
   const [currency, setCurrency] = useState('GBP');
   const [priceAdjustment, setPriceAdjustment] = useState('');
+  const [showPriceAdjust, setShowPriceAdjust] = useState(false);
+  const priceAdjustRef = useRef(null);
   // New service modal state
   const [showNewServiceModal, setShowNewServiceModal] = useState(false);
   const [newServiceRowIndex, setNewServiceRowIndex] = useState(null);
@@ -75,6 +77,18 @@ function EntryForm({ onAppointmentsAdded }) {
     fetchClientNames();
     fetchProfileSettings();
   }, []);
+
+  // Close price adjust dropdown on outside click
+  useEffect(() => {
+    if (!showPriceAdjust) return;
+    const handleClick = (e) => {
+      if (priceAdjustRef.current && !priceAdjustRef.current.contains(e.target)) {
+        setShowPriceAdjust(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showPriceAdjust]);
 
   // Save form state to localStorage whenever it changes
   useEffect(() => {
@@ -558,33 +572,6 @@ function EntryForm({ onAppointmentsAdded }) {
               <span className="section-icon">👥</span> Appointments
             </h3>
             <div className="section-stats">
-              <div className="price-adjustment">
-                <input
-                  type="number"
-                  step="0.5"
-                  value={priceAdjustment}
-                  onChange={(e) => setPriceAdjustment(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPriceAdjustment(); } }}
-                  placeholder="+/- price"
-                  className="price-adjustment-input"
-                />
-                <button
-                  type="button"
-                  onClick={applyPriceAdjustment}
-                  className="price-adjustment-btn"
-                  disabled={!priceAdjustment || isNaN(parseFloat(priceAdjustment))}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  onClick={resetPricesToDefault}
-                  className="price-reset-btn"
-                  title="Reset all prices to service defaults"
-                >
-                  <FaUndo />
-                </button>
-              </div>
               <span className="appointment-count">{appointments.length} {appointments.length === 1 ? 'appointment' : 'appointments'}</span>
               {(() => {
                 const totalPrice = appointments.reduce((sum, apt) => {
@@ -595,6 +582,48 @@ function EntryForm({ onAppointmentsAdded }) {
                   <span className="total-price">Total: {currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'}{totalPrice.toFixed(2)}</span>
                 ) : null;
               })()}
+              <div className="price-adjust-wrapper" ref={priceAdjustRef}>
+                <button
+                  type="button"
+                  className={`price-adjust-toggle ${showPriceAdjust ? 'active' : ''}`}
+                  onClick={() => setShowPriceAdjust(!showPriceAdjust)}
+                >
+                  {currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£'} Adjust Prices
+                </button>
+                {showPriceAdjust && (
+                  <div className="price-adjust-dropdown">
+                    <div className="price-adjust-row">
+                      <label>Amount</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={priceAdjustment}
+                        onChange={(e) => setPriceAdjustment(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyPriceAdjustment(); setShowPriceAdjust(false); } }}
+                        placeholder="+2 or -1.50"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="price-adjust-actions">
+                      <button
+                        type="button"
+                        className="price-adjust-apply"
+                        disabled={!priceAdjustment || isNaN(parseFloat(priceAdjustment))}
+                        onClick={() => { applyPriceAdjustment(); setShowPriceAdjust(false); }}
+                      >
+                        Apply to All
+                      </button>
+                      <button
+                        type="button"
+                        className="price-adjust-reset"
+                        onClick={() => { resetPricesToDefault(); setShowPriceAdjust(false); }}
+                      >
+                        <FaUndo style={{ marginRight: 4 }} /> Reset Defaults
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           

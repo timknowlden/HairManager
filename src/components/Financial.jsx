@@ -216,10 +216,9 @@ function Financial() {
     const year = now.getFullYear();
     const month = now.getMonth(); // 0-11, where 0 is January
     
-    // UK financial year runs from April (month 3) to March
-    // If month is Jan-Mar (0-2), financial year is previous year to current year
-    // If month is Apr-Dec (3-11), financial year is current year to next year
-    if (month < 3) {
+    // UK tax year runs from April 6 to April 5
+    const day = now.getDate();
+    if (month < 3 || (month === 3 && day < 6)) {
       return `${year - 1}-${year}`;
     } else {
       return `${year}-${year + 1}`;

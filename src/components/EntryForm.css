@@ -194,6 +194,12 @@
   flex-wrap: wrap;
 }
 
+.section-stats > *,
+.section-stats .price-adjust-toggle {
+  box-sizing: border-box;
+  line-height: 1.4;
+}
+
 .appointment-count {
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
@@ -214,91 +220,118 @@
   border: 1px solid var(--color-success);
 }
 
-.price-adjustment {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.price-adjust-wrapper {
+  position: relative;
 }
 
-.price-adjustment-input,
-.price-adjustment-btn,
-.price-reset-btn {
-  height: 30px;
+.price-adjust-toggle {
+  color: #b45309;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  background: #fff7ed;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #f59e0b;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.price-adjust-toggle:hover,
+.price-adjust-toggle.active {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #d97706;
+}
+
+.price-adjust-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.12));
+  padding: 16px;
+  z-index: 100;
+  min-width: 220px;
+}
+
+.price-adjust-row {
+  margin-bottom: 12px;
+}
+
+.price-adjust-row label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.price-adjust-row input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
   box-sizing: border-box;
 }
 
-.price-adjustment-input {
-  width: 80px;
-  padding: 0 8px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--font-semibold);
-  text-align: center;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-}
-
-.price-adjustment-input:focus {
+.price-adjust-row input:focus {
   outline: none;
   border-color: var(--color-primary);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
-.price-adjustment-btn {
-  padding: 0 12px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
+.price-adjust-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-adjust-apply {
+  width: 100%;
+  padding: 8px;
+  background: var(--gradient-success, var(--color-success));
+  color: white;
+  border: none;
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: opacity 0.15s;
 }
 
-.price-adjustment-btn:hover:not(:disabled) {
-  background: var(--color-success-light);
-  color: var(--color-success-hover);
-  border-color: var(--color-success);
+.price-adjust-apply:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
-.price-adjustment-btn:disabled {
+.price-adjust-apply:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.price-reset-btn {
+.price-adjust-reset {
+  width: 100%;
+  padding: 8px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.price-reset-btn:hover {
-  background: var(--color-warning-light, #fff3cd);
-  color: var(--color-warning, #856404);
-  border-color: var(--color-warning, #856404);
-}
-
-.appointment-count,
-.total-price,
-.price-adjustment-input,
-.price-adjustment-btn,
-.price-reset-btn {
-  height: 30px;
-  line-height: 20px;
-  box-sizing: border-box;
+.price-adjust-reset:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
 }
 
 .entry-form .appointments-list {
