@@ -1,7 +1,13 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { writeFileSync, existsSync, copyFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { authenticateToken } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -100,6 +106,111 @@ router.post('/register', async (req, res) => {
       res.status(500).json({ error: 'Error creating user' });
     }
   });
+});
+
+// Check if this is a first-time setup (only default admin exists)
+router.get('/setup-status', (req, res) => {
+  const db = req.app.locals.db;
+  db.get('SELECT COUNT(*) as count FROM users', [], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    // First-time setup if only 1 user and it's the default admin
+    if (row.count <= 1) {
+      db.get("SELECT id, username FROM users WHERE LOWER(username) = 'admin' AND is_super_admin = 1", [], (err2, admin) => {
+        if (err2) return res.status(500).json({ error: err2.message });
+        res.json({ needsSetup: !!admin, defaultUsername: admin ? 'admin' : null, defaultPassword: admin ? 'admin123!' : null });
+      });
+    } else {
+      res.json({ needsSetup: false });
+    }
+  });
+});
+
+// Complete first-time setup: create new super admin and delete default
+router.post('/setup-complete', authenticateToken, async (req, res) => {
+  const db = req.app.locals.db;
+  const { newUsername, newPassword, newEmail } = req.body;
+
+  if (!newUsername || !newPassword) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  if (newUsername.toLowerCase() === 'admin') {
+    return res.status(400).json({ error: 'Please choose a different username' });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Check if target username already exists
+    const existing = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND username != ?', [newUsername, 'admin'], (err, row) => {
+        if (err) reject(err); else resolve(row);
+      });
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Username already taken' });
+    }
+
+    // Update the current admin user to the new credentials
+    await new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE users SET username = ?, password_hash = ?, email = ? WHERE id = ?',
+        [newUsername, passwordHash, newEmail || null, req.userId],
+        function(err) { if (err) reject(err); else resolve(); }
+      );
+    });
+
+    // Generate new token with updated info
+    const token = jwt.sign({ userId: req.userId, username: newUsername }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({
+      success: true,
+      token,
+      user: { id: req.userId, username: newUsername, email: newEmail || null, is_super_admin: 1 }
+    });
+  } catch (err) {
+    console.error('Setup complete error:', err);
+    res.status(500).json({ error: 'Failed to complete setup' });
+  }
+});
+
+// Upload and restore a database file
+router.post('/restore-database', authenticateToken, express.raw({ type: 'application/octet-stream', limit: '50mb' }), (req, res) => {
+  try {
+    if (!req.body || req.body.length === 0) {
+      return res.status(400).json({ error: 'No database file provided' });
+    }
+
+    // Validate it looks like a SQLite file (magic bytes: "SQLite format 3")
+    const header = req.body.slice(0, 16).toString('ascii');
+    if (!header.startsWith('SQLite format 3')) {
+      return res.status(400).json({ error: 'Invalid SQLite database file' });
+    }
+
+    const dataDir = process.env.NODE_ENV === 'production'
+      ? join(__dirname, '..', 'data')
+      : join(__dirname, '..');
+    const dbPath = join(dataDir, 'hairmanager.db');
+    const backupPath = join(dataDir, `hairmanager-backup-${Date.now()}.db`);
+
+    // Backup current database
+    if (existsSync(dbPath)) {
+      copyFileSync(dbPath, backupPath);
+    }
+
+    // Write the uploaded database
+    writeFileSync(dbPath, req.body);
+
+    res.json({ success: true, message: 'Database restored. The server will restart.' });
+
+    // Restart the process so the new database is loaded
+    setTimeout(() => process.exit(0), 500);
+  } catch (err) {
+    console.error('Database restore error:', err);
+    res.status(500).json({ error: 'Failed to restore database' });
+  }
 });
 
 // Login

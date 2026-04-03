@@ -12,6 +12,7 @@ import Invoice from './components/Invoice';
 import Financial from './components/Financial';
 import EmailLogs from './components/EmailLogs';
 import Login from './components/Login';
+import SetupWizard from './components/SetupWizard';
 import UsageIndicator from './components/UsageIndicator';
 import MyPlan from './components/MyPlan';
 import './App.css';
@@ -22,6 +23,7 @@ function App() {
       const location = useLocation();
       const { isAuthenticated, loading, user, logout, getAuthHeaders, isSuperAdmin } = useAuth();
       const [impersonation, setImpersonation] = useState(null);
+      const [needsSetup, setNeedsSetup] = useState(false);
       const [userPlan, setUserPlan] = useState(null);
       const [isLoadingPlan, setIsLoadingPlan] = useState(true);
       
@@ -48,6 +50,16 @@ function App() {
           setImpersonation(JSON.parse(impersonationData));
         }
       }, []);
+
+      // Check if first-time setup is needed
+      useEffect(() => {
+        if (isAuthenticated && user?.username?.toLowerCase() === 'admin') {
+          fetch(`${API_BASE}/auth/setup-status`)
+            .then(r => r.json())
+            .then(data => { if (data.needsSetup) setNeedsSetup(true); })
+            .catch(() => {});
+        }
+      }, [isAuthenticated, user]);
 
       // Fetch user's subscription plan
       useEffect(() => {
@@ -237,6 +249,13 @@ function App() {
 
       if (!isAuthenticated) {
         return <Login />;
+      }
+
+      if (needsSetup) {
+        return <SetupWizard onComplete={() => {
+          setNeedsSetup(false);
+          window.location.reload();
+        }} />;
       }
 
       const handleAppointmentsAdded = (newIds) => {

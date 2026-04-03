@@ -20,21 +20,42 @@ function Login() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [defaultCreds, setDefaultCreds] = useState(null);
   const { login, register } = useAuth();
 
-  // Load saved credentials on mount
+  // Check setup status and load saved credentials on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(REMEMBER_ME_KEY);
-      if (saved) {
-        const credentials = JSON.parse(saved);
-        setUsername(credentials.username || '');
-        setPassword(credentials.password || '');
-        setRememberMe(true);
+    const checkSetup = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/setup-status`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.needsSetup) {
+            setNeedsSetup(true);
+            setDefaultCreds({ username: data.defaultUsername, password: data.defaultPassword });
+            setUsername(data.defaultUsername);
+            setPassword(data.defaultPassword);
+            return; // Skip loading remembered credentials during setup
+          }
+        }
+      } catch (err) {
+        console.error('Error checking setup status:', err);
       }
-    } catch (err) {
-      console.error('Error loading saved credentials:', err);
-    }
+      // Load saved credentials if not in setup mode
+      try {
+        const saved = localStorage.getItem(REMEMBER_ME_KEY);
+        if (saved) {
+          const credentials = JSON.parse(saved);
+          setUsername(credentials.username || '');
+          setPassword(credentials.password || '');
+          setRememberMe(true);
+        }
+      } catch (err) {
+        console.error('Error loading saved credentials:', err);
+      }
+    };
+    checkSetup();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -257,7 +278,18 @@ function Login() {
       <div className="login-box">
         <h1>HairManager</h1>
         <h2>{isLogin ? 'Login' : 'Register'}</h2>
-        
+
+        {needsSetup && defaultCreds && (
+          <div className="setup-banner">
+            <div className="setup-banner-title">First Time Setup</div>
+            <p>Use the default credentials below to log in, then you'll be guided to create your own admin account.</p>
+            <div className="setup-creds">
+              <div><strong>Username:</strong> {defaultCreds.username}</div>
+              <div><strong>Password:</strong> {defaultCreds.password}</div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="username">Username</label>
