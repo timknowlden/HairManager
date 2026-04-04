@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { Resend } from 'resend';
 import { writeFileSync, existsSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -393,35 +394,76 @@ router.post('/request-password-reset', async (req, res) => {
   const db = req.app.locals.db;
   const { username, email } = req.body;
 
+  const genericMessage = 'If an account exists with that username or email, a password reset link has been sent.';
+
   if (!username && !email) {
     return res.status(400).json({ error: 'Username or email is required' });
   }
 
   // Find user by username or email
-  const query = email 
+  const query = email
     ? 'SELECT id, username, email FROM users WHERE email = ?'
-    : 'SELECT id, username, email FROM users WHERE username = ?';
+    : 'SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?)';
   const param = email || username;
 
-  db.get(query, [param], (err, user) => {
+  db.get(query, [param], async (err, user) => {
     if (err) {
       console.error('Error finding user:', err);
       return res.status(500).json({ error: 'Database error' });
     }
 
-    if (!user) {
+    if (!user || !user.email) {
       // Don't reveal if user exists for security
-      return res.json({ message: 'If an account exists with that username or email, a password reset link has been sent.' });
+      return res.json({ message: genericMessage });
     }
 
-    // Generate a simple reset token (in production, use a more secure method)
+    // Generate reset token
     const resetToken = jwt.sign({ userId: user.id, type: 'password-reset' }, JWT_SECRET, { expiresIn: '1h' });
 
-    // In a real application, you would send an email here with the reset token
-    // For now, we'll just return it (this is for development only)
-    res.json({
-      message: 'Password reset token generated. In production, this would be sent via email.',
-      resetToken: resetToken // Remove this in production
+    // Look up email settings from the user's admin_settings
+    db.get('SELECT email_relay_api_key, email_relay_from_email, email_relay_from_name, business_name FROM admin_settings WHERE user_id = ?', [user.id], async (err2, settings) => {
+      if (err2 || !settings || !settings.email_relay_api_key) {
+        // No email config — fall back to returning the token directly
+        console.log('[Password Reset] No email config found for user, returning token directly');
+        return res.json({
+          message: 'Email is not configured. Use the reset token below.',
+          resetToken: resetToken
+        });
+      }
+
+      try {
+        const resend = new Resend(settings.email_relay_api_key);
+        const fromEmail = settings.email_relay_from_email || 'noreply@example.com';
+        const fromName = settings.email_relay_from_name || settings.business_name || 'HairManager';
+
+        await resend.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to: [user.email],
+          subject: 'Password Reset - HairManager',
+          html: `
+            <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
+              <h2>Password Reset</h2>
+              <p>Hi ${user.username},</p>
+              <p>You requested a password reset. Use the token below to reset your password:</p>
+              <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; word-break: break-all; font-size: 13px;">
+                ${resetToken}
+              </div>
+              <p>Copy and paste this token into the password reset form.</p>
+              <p style="color: #6b7280; font-size: 13px;">This token expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+            </div>
+          `
+        });
+
+        console.log(`[Password Reset] Email sent to ${user.email}`);
+        res.json({ message: genericMessage });
+      } catch (emailErr) {
+        console.error('[Password Reset] Failed to send email:', emailErr);
+        // Fall back to returning the token if email fails
+        res.json({
+          message: 'Failed to send email. Use the reset token below.',
+          resetToken: resetToken
+        });
+      }
     });
   });
 });
