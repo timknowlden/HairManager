@@ -420,11 +420,15 @@ router.post('/request-password-reset', async (req, res) => {
     // Generate reset token
     const resetToken = jwt.sign({ userId: user.id, type: 'password-reset' }, JWT_SECRET, { expiresIn: '1h' });
 
-    // Look up email settings from the user's admin_settings
+    // Look up email settings: user's admin_settings first, then env var fallback
     db.get('SELECT email_relay_api_key, email_relay_from_email, email_relay_from_name, business_name FROM admin_settings WHERE user_id = ?', [user.id], async (err2, settings) => {
-      if (err2 || !settings || !settings.email_relay_api_key) {
-        // No email config — fall back to returning the token directly
-        console.log('[Password Reset] No email config found for user, returning token directly');
+      const apiKey = settings?.email_relay_api_key || process.env.RESEND_API_KEY;
+      const fromEmail = settings?.email_relay_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@hairmanager.app';
+      const fromName = settings?.email_relay_from_name || settings?.business_name || 'HairManager';
+
+      if (!apiKey) {
+        // No email config anywhere — fall back to returning the token directly
+        console.log('[Password Reset] No email config found (no user settings or RESEND_API_KEY env var), returning token directly');
         return res.json({
           message: 'Email is not configured. Use the reset token below.',
           resetToken: resetToken
@@ -432,9 +436,7 @@ router.post('/request-password-reset', async (req, res) => {
       }
 
       try {
-        const resend = new Resend(settings.email_relay_api_key);
-        const fromEmail = settings.email_relay_from_email || 'noreply@example.com';
-        const fromName = settings.email_relay_from_name || settings.business_name || 'HairManager';
+        const resend = new Resend(apiKey);
 
         await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
