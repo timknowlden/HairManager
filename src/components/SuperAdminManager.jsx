@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE } from '../config.js';
-import { 
-  FaPlus, FaEdit, FaTrash, FaKey, FaUserShield, FaUser, 
+import {
+  FaPlus, FaEdit, FaTrash, FaKey, FaUserShield, FaUser,
   FaDownload, FaUsers, FaCalendarAlt, FaMapMarkerAlt, FaCut,
-  FaSignInAlt, FaCrown, FaTimes, FaSearch, FaSortUp, FaSortDown, FaSort
+  FaSignInAlt, FaCrown, FaTimes, FaSearch, FaSortUp, FaSortDown, FaSort,
+  FaDatabase, FaUpload, FaExclamationTriangle
 } from 'react-icons/fa';
 import SubscriptionManager from './SubscriptionManager';
 import './SuperAdminManager.css';
@@ -406,16 +407,24 @@ function SuperAdminManager() {
         >
           <FaUsers /> Users
         </button>
-        <button 
+        <button
           className={`admin-tab ${activeTab === 'subscriptions' ? 'active' : ''}`}
           onClick={() => setActiveTab('subscriptions')}
         >
           <FaCrown /> Subscriptions
         </button>
+        <button
+          className={`admin-tab ${activeTab === 'database' ? 'active' : ''}`}
+          onClick={() => setActiveTab('database')}
+        >
+          <FaDatabase /> Database
+        </button>
       </div>
 
       {activeTab === 'subscriptions' ? (
         <SubscriptionManager />
+      ) : activeTab === 'database' ? (
+        <DatabaseSection getAuthHeaders={getAuthHeaders} />
       ) : (
         <>
       {error && <div className="error-message">{error}</div>}
@@ -673,6 +682,143 @@ function SuperAdminManager() {
       </div>
         </>
       )}
+    </div>
+  );
+}
+
+function DatabaseSection({ getAuthHeaders }) {
+  const [showRestore, setShowRestore] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [restoreError, setRestoreError] = useState('');
+  const [restoreLoading, setRestoreLoading] = useState(false);
+
+  const handleDownloadBackup = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/download-database`, {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().split('T')[0];
+      a.download = `hairmanager-backup-${timestamp}.db`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download backup: ' + err.message);
+    }
+  };
+
+  const handleRestore = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.db') && !file.name.endsWith('.sqlite') && !file.name.endsWith('.sqlite3')) {
+      setRestoreError('Please select a valid SQLite database file (.db, .sqlite, or .sqlite3)');
+      return;
+    }
+
+    setRestoreError('');
+    setRestoreLoading(true);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const response = await fetch(`${API_BASE}/auth/restore-database`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/octet-stream'
+        },
+        body: buffer
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Restore failed');
+      }
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      alert('Database restored successfully. The server is restarting — you will be redirected to login.');
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (err) {
+      setRestoreError(err.message);
+      setRestoreLoading(false);
+    }
+  };
+
+  return (
+    <div className="database-section">
+      <div className="database-card">
+        <div className="database-card-header">
+          <FaDownload className="database-card-icon" />
+          <h3>Download Backup</h3>
+        </div>
+        <p>Download a copy of the current database. Always do this before restoring.</p>
+        <button onClick={handleDownloadBackup} className="database-download-btn">
+          <FaDownload /> Download Current Database
+        </button>
+      </div>
+
+      <div className="database-card">
+        <div className="database-card-header">
+          <FaUpload className="database-card-icon danger" />
+          <h3>Restore from Backup</h3>
+        </div>
+        <p>Replace the current database with a backup file. This is a destructive operation.</p>
+
+        {!showRestore ? (
+          <button onClick={() => setShowRestore(true)} className="database-restore-btn">
+            <FaUpload /> Restore Database
+          </button>
+        ) : (
+          <div className="restore-confirmation">
+            <div className="restore-warning">
+              <FaExclamationTriangle className="warning-icon" />
+              <div>
+                <strong>Warning: This action cannot be undone</strong>
+                <ul>
+                  <li>All current data will be permanently replaced</li>
+                  <li>The server will restart automatically</li>
+                  <li>All active sessions will be logged out</li>
+                  <li>A backup of the current database is saved on the server</li>
+                </ul>
+                <p>Download a backup first if you haven't already.</p>
+              </div>
+            </div>
+
+            <div className="restore-confirm-input">
+              <label>Type <strong>RESTORE</strong> to confirm:</label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="RESTORE"
+              />
+            </div>
+
+            {restoreError && <div className="error-message">{restoreError}</div>}
+
+            <div className="restore-actions">
+              <label className={`database-upload-btn ${confirmText !== 'RESTORE' || restoreLoading ? 'disabled' : ''}`}>
+                {restoreLoading ? 'Restoring...' : 'Choose Database File & Restore'}
+                <input
+                  type="file"
+                  accept=".db,.sqlite,.sqlite3"
+                  onChange={handleRestore}
+                  disabled={confirmText !== 'RESTORE' || restoreLoading}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <button onClick={() => { setShowRestore(false); setConfirmText(''); setRestoreError(''); }} className="database-cancel-btn">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

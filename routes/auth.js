@@ -213,6 +213,26 @@ router.post('/restore-database', authenticateToken, express.raw({ type: 'applica
   }
 });
 
+// Download current database as backup
+router.get('/download-database', authenticateToken, (req, res) => {
+  try {
+    const dataDir = process.env.NODE_ENV === 'production'
+      ? join(__dirname, '..', 'data')
+      : join(__dirname, '..');
+    const dbPath = join(dataDir, 'hairmanager.db');
+
+    if (!existsSync(dbPath)) {
+      return res.status(404).json({ error: 'Database file not found' });
+    }
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    res.download(dbPath, `hairmanager-backup-${timestamp}.db`);
+  } catch (err) {
+    console.error('Database download error:', err);
+    res.status(500).json({ error: 'Failed to download database' });
+  }
+});
+
 // Login
 router.post('/login', async (req, res) => {
   const db = req.app.locals.db;

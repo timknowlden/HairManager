@@ -713,3 +713,210 @@
     min-width: 700px;
   }
 }
+
+/* Database Section */
+.database-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.database-card {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.database-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.database-card-header h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
+}
+
+.database-card-icon {
+  font-size: 20px;
+  color: var(--color-primary);
+}
+
+.database-card-icon.danger {
+  color: var(--color-danger, #dc3545);
+}
+
+.database-card p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  margin: 0 0 16px;
+}
+
+.database-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--gradient-success, var(--color-success));
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.database-download-btn:hover {
+  opacity: 0.85;
+}
+
+.database-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.database-restore-btn:hover {
+  border-color: var(--color-danger, #dc3545);
+  color: var(--color-danger, #dc3545);
+}
+
+/* Restore confirmation */
+.restore-confirmation {
+  margin-top: 8px;
+}
+
+.restore-warning {
+  display: flex;
+  gap: 12px;
+  background: #fef2f2;
+  border: 2px solid var(--color-danger, #dc3545);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.restore-warning .warning-icon {
+  color: var(--color-danger, #dc3545);
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.restore-warning strong {
+  display: block;
+  color: var(--color-danger, #dc3545);
+  margin-bottom: 8px;
+}
+
+.restore-warning ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.restore-warning ul li {
+  margin-bottom: 4px;
+}
+
+.restore-warning p {
+  margin: 10px 0 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+}
+
+.restore-confirm-input {
+  margin-bottom: 16px;
+}
+
+.restore-confirm-input label {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.restore-confirm-input input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-family: monospace;
+  letter-spacing: 2px;
+  box-sizing: border-box;
+}
+
+.restore-confirm-input input:focus {
+  outline: none;
+  border-color: var(--color-danger, #dc3545);
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+}
+
+.restore-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.database-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background: var(--color-danger, #dc3545);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.database-upload-btn:hover:not(.disabled) {
+  opacity: 0.85;
+}
+
+.database-upload-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.database-cancel-btn {
+  padding: 10px 20px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.database-cancel-btn:hover {
+  background: var(--color-bg-secondary);
+}
+
+@media (max-width: 768px) {
+  .database-section {
+    grid-template-columns: 1fr;
+  }
+}
