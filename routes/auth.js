@@ -400,17 +400,19 @@ router.post('/request-password-reset', async (req, res) => {
     return res.status(400).json({ error: 'Username or email is required' });
   }
 
-  // Find user by username or email
-  const query = email
-    ? 'SELECT id, username, email FROM users WHERE email = ?'
-    : 'SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?)';
-  const param = email || username;
+  // Find user by username or email (search both fields with the input)
+  const input = (email || username || '').trim();
 
-  db.get(query, [param], async (err, user) => {
+  db.get(
+    'SELECT id, username, email FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)',
+    [input, input],
+    async (err, user) => {
     if (err) {
-      console.error('Error finding user:', err);
+      console.error('[Password Reset] Error finding user:', err);
       return res.status(500).json({ error: 'Database error' });
     }
+
+    console.log('[Password Reset] Lookup for:', input, '-> found:', user ? `${user.username} (${user.email})` : 'no match');
 
     if (!user || !user.email) {
       // Don't reveal if user exists for security
