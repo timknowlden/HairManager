@@ -238,6 +238,10 @@ function Login() {
                   required
                   autoFocus
                   placeholder="Paste your reset token here"
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
+                  data-form-type="other"
                 />
               </div>
 
