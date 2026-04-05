@@ -22,6 +22,7 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [defaultCreds, setDefaultCreds] = useState(null);
+  const [tokenFromLink, setTokenFromLink] = useState(false);
   const { login, register } = useAuth();
 
   // Check for reset token in URL query params
@@ -31,7 +32,7 @@ function Login() {
     if (token) {
       setShowResetPassword(true);
       setResetToken(token);
-      // Clean the URL
+      setTokenFromLink(true);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -228,22 +229,24 @@ function Login() {
             </form>
           ) : (
             <form onSubmit={handleResetPassword}>
-              <div className="form-group">
-                <label htmlFor="resetToken">Reset Token</label>
-                <input
-                  id="resetToken"
-                  type="text"
-                  value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
-                  required
-                  autoFocus
-                  placeholder="Paste your reset token here"
-                  autoComplete="off"
-                  data-1p-ignore
-                  data-lpignore="true"
-                  data-form-type="other"
-                />
-              </div>
+              {tokenFromLink ? (
+                <input type="hidden" value={resetToken} />
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="resetToken">Reset Token</label>
+                  <textarea
+                    id="resetToken"
+                    value={resetToken}
+                    onChange={(e) => setResetToken(e.target.value)}
+                    required
+                    autoFocus
+                    placeholder="Paste your reset token here"
+                    autoComplete="off"
+                    rows={3}
+                    style={{ fontFamily: 'monospace', fontSize: '12px', resize: 'vertical' }}
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="newPassword">New Password</label>
