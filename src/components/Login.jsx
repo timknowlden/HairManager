@@ -24,6 +24,18 @@ function Login() {
   const [defaultCreds, setDefaultCreds] = useState(null);
   const { login, register } = useAuth();
 
+  // Check for reset token in URL query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('reset');
+    if (token) {
+      setShowResetPassword(true);
+      setResetToken(token);
+      // Clean the URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   // Check setup status and load saved credentials on mount
   useEffect(() => {
     const checkSetup = async () => {

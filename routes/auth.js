@@ -440,6 +440,9 @@ router.post('/request-password-reset', async (req, res) => {
       try {
         const resend = new Resend(apiKey);
 
+        const appUrl = process.env.APP_URL || '';
+        const resetLink = appUrl ? `${appUrl.replace(/\/$/, '')}/?reset=${encodeURIComponent(resetToken)}` : '';
+
         await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
           to: [user.email],
@@ -448,12 +451,21 @@ router.post('/request-password-reset', async (req, res) => {
             <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
               <h2>Password Reset</h2>
               <p>Hi ${user.username},</p>
-              <p>You requested a password reset. Use the token below to reset your password:</p>
-              <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; word-break: break-all; font-size: 13px;">
-                ${resetToken}
-              </div>
-              <p>Copy and paste this token into the password reset form.</p>
-              <p style="color: #6b7280; font-size: 13px;">This token expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+              <p>You requested a password reset.</p>
+              ${resetLink ? `
+                <a href="${resetLink}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0;">Reset My Password</a>
+                <p style="color: #6b7280; font-size: 13px;">Or copy this link into your browser:</p>
+                <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin: 10px 0; font-size: 12px; word-break: break-all; color: #4b5563;">
+                  ${resetLink}
+                </div>
+              ` : `
+                <p>Use the token below to reset your password:</p>
+                <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0; font-family: monospace; word-break: break-all; font-size: 13px;">
+                  ${resetToken}
+                </div>
+                <p>Copy and paste this token into the password reset form.</p>
+              `}
+              <p style="color: #6b7280; font-size: 13px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
             </div>
           `
         });
