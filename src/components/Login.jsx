@@ -28,11 +28,12 @@ function Login() {
 
   // Check for reset token in URL query params
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('reset')) {
+    const search = window.location.search || '';
+    if (search.includes('reset')) {
+      const params = new URLSearchParams(search);
       const token = params.get('reset');
       setShowResetPassword(true);
-      if (token) {
+      if (token && token.length > 10) {
         setResetToken(token);
         setTokenFromLink(true);
       } else {
