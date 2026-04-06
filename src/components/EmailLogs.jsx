@@ -501,7 +501,7 @@ function EmailLogs() {
                           const status = invoiceStatus[invoiceNum];
                           if (!status) return '-';
                           if (status.paid) return <span className="paid-badge">Paid</span>;
-                          return <span className="unpaid-badge">{status.unpaidCount} unpaid (£{status.unpaidTotal?.toFixed(2)})</span>;
+                          return <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid — £${status.unpaidTotal?.toFixed(2)} outstanding`}>{status.unpaidCount} unpaid</span>;
                         })()}
                       </td>
                       <td>

@@ -577,11 +577,11 @@
 .unpaid-badge {
   background: rgba(239, 68, 68, 0.1);
   color: #dc2626;
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  white-space: nowrap;
+  display: inline-block;
 }
 
 .resend-btn {
