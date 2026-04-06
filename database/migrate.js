@@ -154,6 +154,20 @@ function migrateDatabase(customDbPath = null) {
         )
       `));
 
+      // Add is_followup column to email_logs (safe to run even if column exists)
+      migrations.push(
+        new Promise((resolve) => {
+          db.all("PRAGMA table_info(email_logs)", [], (err, columns) => {
+            if (!err && columns && !columns.some(col => col.name === 'is_followup')) {
+              console.log('[MIGRATION] Adding is_followup column to email_logs table');
+              db.run('ALTER TABLE email_logs ADD COLUMN is_followup INTEGER DEFAULT 0', () => resolve());
+            } else {
+              resolve();
+            }
+          });
+        })
+      );
+
       // Create expense_categories table if it doesn't exist
       migrations.push(runAsync(db, `
         CREATE TABLE IF NOT EXISTS expense_categories (
