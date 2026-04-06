@@ -14,6 +14,7 @@ import EmailLogs from './components/EmailLogs';
 import Login from './components/Login';
 import SetupWizard from './components/SetupWizard';
 import Expenses from './components/Expenses';
+import MobileReceiptUpload from './components/MobileReceiptUpload';
 import TaxReport from './components/TaxReport';
 import UsageIndicator from './components/UsageIndicator';
 import MyPlan from './components/MyPlan';
@@ -249,6 +250,11 @@ function App() {
             <div style={{ textAlign: 'center', padding: '50px' }}>Loading...</div>
           </div>
         );
+      }
+
+      // Mobile receipt upload - accessible without login (token-based auth)
+      if (location.pathname === '/upload-receipt') {
+        return <MobileReceiptUpload />;
       }
 
       if (!isAuthenticated) {

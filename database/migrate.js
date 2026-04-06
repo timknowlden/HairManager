@@ -182,6 +182,17 @@ function migrateDatabase(customDbPath = null) {
         })
       );
 
+      // Create pending_receipts table for mobile uploads
+      migrations.push(runAsync(db, `
+        CREATE TABLE IF NOT EXISTS pending_receipts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          image_data TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `));
+
       // Create expense_categories table if it doesn't exist
       migrations.push(runAsync(db, `
         CREATE TABLE IF NOT EXISTS expense_categories (

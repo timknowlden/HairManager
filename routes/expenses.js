@@ -1,7 +1,94 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// --- Public routes (token-based auth for mobile upload) ---
+
+// POST /api/expenses/mobile-upload - Upload receipt from mobile (no login, uses short-lived token)
+router.post('/mobile-upload', express.json({ limit: '10mb' }), (req, res) => {
+  const { token, image } = req.body;
+  if (!token || !image) {
+    return res.status(400).json({ error: 'Token and image are required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.type !== 'receipt-upload') {
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
+
+    const db = req.app.locals.db;
+    const userId = decoded.userId;
+    const now = new Date().toISOString();
+
+    // Store as a pending receipt (no expense yet)
+    db.run(
+      'INSERT INTO pending_receipts (user_id, image_data, created_at) VALUES (?, ?, ?)',
+      [userId, image, now],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, id: this.lastID });
+      }
+    );
+  } catch (err) {
+    return res.status(401).json({ error: 'Token expired or invalid' });
+  }
+});
+
+// GET /api/expenses/pending-receipts - Get pending receipts for current user
+router.get('/pending-receipts', authenticateToken, (req, res) => {
+  const db = req.app.locals.db;
+  db.all(
+    'SELECT id, created_at FROM pending_receipts WHERE user_id = ? ORDER BY created_at DESC',
+    [req.userId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+// GET /api/expenses/pending-receipts/:id - Get a specific pending receipt image
+router.get('/pending-receipts/:id', authenticateToken, (req, res) => {
+  const db = req.app.locals.db;
+  db.get(
+    'SELECT image_data FROM pending_receipts WHERE id = ? AND user_id = ?',
+    [req.params.id, req.userId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      res.json({ image_data: row.image_data });
+    }
+  );
+});
+
+// DELETE /api/expenses/pending-receipts/:id - Delete a pending receipt
+router.delete('/pending-receipts/:id', authenticateToken, (req, res) => {
+  const db = req.app.locals.db;
+  db.run(
+    'DELETE FROM pending_receipts WHERE id = ? AND user_id = ?',
+    [req.params.id, req.userId],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    }
+  );
+});
+
+// POST /api/expenses/upload-token - Generate a short-lived token for mobile upload
+router.post('/upload-token', authenticateToken, (req, res) => {
+  const token = jwt.sign(
+    { userId: req.userId, type: 'receipt-upload' },
+    JWT_SECRET,
+    { expiresIn: '30m' }
+  );
+  res.json({ token });
+});
+
+// --- Authenticated routes ---
 router.use(authenticateToken);
 
 const DEFAULT_CATEGORIES = [

@@ -61,6 +61,15 @@ export function initDatabase(dbPath) {
       )
     `))
     .then(() => runAsync(db, `
+      CREATE TABLE IF NOT EXISTS pending_receipts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        image_data TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `))
+    .then(() => runAsync(db, `
       CREATE TABLE IF NOT EXISTS expense_categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,

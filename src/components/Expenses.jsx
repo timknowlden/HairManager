@@ -27,7 +27,9 @@ function Expenses() {
   });
   const [dragging, setDragging] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [viewReceipt, setViewReceipt] = useState(null); // base64 data for lightbox
+  const [uploadToken, setUploadToken] = useState('');
+  const [pendingReceipts, setPendingReceipts] = useState([]);
+  const [viewReceipt, setViewReceipt] = useState(null);
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -38,6 +40,10 @@ function Expenses() {
   useEffect(() => {
     fetchCategories();
     fetchExpenses();
+    fetchPendingReceipts();
+    // Poll for pending receipts every 10 seconds
+    const interval = setInterval(fetchPendingReceipts, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -51,6 +57,30 @@ function Expenses() {
       }, 150);
     }
   }, [showForm, editingId]);
+
+  const fetchPendingReceipts = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/expenses/pending-receipts`, { headers: getAuthHeaders() });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingReceipts(data);
+      }
+    } catch (err) { /* silent */ }
+  };
+
+  const usePendingReceipt = async (receiptId) => {
+    try {
+      const response = await fetch(`${API_BASE}/expenses/pending-receipts/${receiptId}`, { headers: getAuthHeaders() });
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({ ...prev, receipt_path: data.image_data }));
+        setShowForm(true);
+        // Delete from pending
+        await fetch(`${API_BASE}/expenses/pending-receipts/${receiptId}`, { method: 'DELETE', headers: getAuthHeaders() });
+        fetchPendingReceipts();
+      }
+    } catch (err) { console.error(err); }
+  };
 
   const fetchExpenses = async () => {
     setLoading(true);
@@ -264,7 +294,16 @@ function Expenses() {
           <button onClick={() => navigate('/tax-report')} className="add-btn tax-report-link-btn">
             <FaFileAlt /> Tax Report
           </button>
-          <button onClick={() => setShowQR(true)} className="add-btn export-btn" title="Mobile upload link">
+          <button onClick={async () => {
+            try {
+              const response = await fetch(`${API_BASE}/expenses/upload-token`, { method: 'POST', headers: getAuthHeaders() });
+              if (response.ok) {
+                const data = await response.json();
+                setUploadToken(data.token);
+              }
+            } catch (err) { console.error(err); }
+            setShowQR(true);
+          }} className="add-btn export-btn" title="Mobile upload link">
             <FaQrcode /> Mobile Upload
           </button>
         </div>
@@ -300,6 +339,19 @@ function Expenses() {
           <span className="filter-total">Total: {formatCurrency(totalExpenses)}</span>
         </div>
       </div>
+
+      {pendingReceipts.length > 0 && (
+        <div className="pending-receipts-bar">
+          <span><FaCamera style={{ marginRight: 6 }} /> {pendingReceipts.length} receipt{pendingReceipts.length !== 1 ? 's' : ''} uploaded from mobile</span>
+          <div className="pending-receipts-actions">
+            {pendingReceipts.map(r => (
+              <button key={r.id} onClick={() => usePendingReceipt(r.id)} className="use-receipt-btn">
+                Use receipt #{r.id}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -497,26 +549,29 @@ function Expenses() {
         </div>
       )}
 
-      {showQR && (
-        <div className="qr-modal-overlay" onClick={() => setShowQR(false)}>
-          <div className="qr-modal" onClick={e => e.stopPropagation()}>
-            <div className="qr-modal-header">
-              <h3>Mobile Receipt Upload</h3>
-              <button className="qr-modal-close" onClick={() => setShowQR(false)}><FaTimes /></button>
-            </div>
-            <div className="qr-modal-body">
-              <p>Scan this QR code on your phone to open the Expenses page and upload receipts using your camera.</p>
-              <div className="qr-code-container">
-                <QRCodeSVG value={window.location.href} size={200} />
+      {showQR && (() => {
+        const uploadUrl = `${window.location.origin}/upload-receipt?token=${uploadToken}`;
+        return (
+          <div className="qr-modal-overlay" onClick={() => setShowQR(false)}>
+            <div className="qr-modal" onClick={e => e.stopPropagation()}>
+              <div className="qr-modal-header">
+                <h3>Mobile Receipt Upload</h3>
+                <button className="qr-modal-close" onClick={() => setShowQR(false)}><FaTimes /></button>
               </div>
-              <div className="qr-link">
-                <input type="text" readOnly value={window.location.href} onClick={e => e.target.select()} />
-                <button onClick={() => { navigator.clipboard.writeText(window.location.href); }}>Copy</button>
+              <div className="qr-modal-body">
+                <p>Scan this QR code on your phone to take a photo of a receipt. The link expires in 30 minutes.</p>
+                <div className="qr-code-container">
+                  <QRCodeSVG value={uploadUrl} size={200} />
+                </div>
+                <div className="qr-link">
+                  <input type="text" readOnly value={uploadUrl} onClick={e => e.target.select()} />
+                  <button onClick={() => { navigator.clipboard.writeText(uploadUrl); }}>Copy</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
