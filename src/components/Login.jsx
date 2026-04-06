@@ -23,6 +23,7 @@ function Login() {
   const [needsSetup, setNeedsSetup] = useState(false);
   const [defaultCreds, setDefaultCreds] = useState(null);
   const [tokenFromLink, setTokenFromLink] = useState(false);
+  const [showTokenEntry, setShowTokenEntry] = useState(false);
   const { login, register } = useAuth();
 
   // Check for reset token in URL query params
@@ -34,6 +35,8 @@ function Login() {
       if (token) {
         setResetToken(token);
         setTokenFromLink(true);
+      } else {
+        setShowTokenEntry(true);
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -207,7 +210,7 @@ function Login() {
           <h1>HairManager</h1>
           <h2>Reset Password</h2>
           
-          {!resetToken ? (
+          {!resetToken && !showTokenEntry ? (
             <form onSubmit={handleRequestReset}>
               <div className="form-group">
                 <label htmlFor="resetEmail">Username or Email</label>
