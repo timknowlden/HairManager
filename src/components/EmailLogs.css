@@ -255,10 +255,9 @@
 
 .email-logs-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 900px;
   border-collapse: collapse;
   background: var(--color-bg-primary);
-  table-layout: fixed;
 }
 
 .email-logs-table thead {

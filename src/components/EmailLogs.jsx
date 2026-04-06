@@ -14,7 +14,8 @@ function EmailLogs() {
   const [filters, setFilters] = useState({
     status: '',
     recipient: '',
-    invoiceNumber: ''
+    invoiceNumber: '',
+    payment: ''
   });
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'desc' });
   const [expandedLogs, setExpandedLogs] = useState(new Set());
@@ -117,6 +118,11 @@ function EmailLogs() {
     if (filters.recipient && !log.recipient_email.toLowerCase().includes(filters.recipient.toLowerCase())) return false;
     const invoiceNum = getInvoiceNumber(log);
     if (filters.invoiceNumber && !invoiceNum.includes(filters.invoiceNumber)) return false;
+    if (filters.payment) {
+      const status = invoiceStatus[invoiceNum];
+      if (filters.payment === 'paid' && (!status || !status.paid)) return false;
+      if (filters.payment === 'unpaid' && (!status || status.paid)) return false;
+    }
     return true;
   });
 
@@ -371,9 +377,20 @@ function EmailLogs() {
             onChange={(e) => setFilters({ ...filters, invoiceNumber: e.target.value })}
           />
         </div>
-        {(filters.status || filters.recipient || filters.invoiceNumber) && (
+        <div className="filter-group">
+          <label>Payment:</label>
+          <select
+            value={filters.payment}
+            onChange={(e) => setFilters({ ...filters, payment: e.target.value })}
+          >
+            <option value="">All</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+        </div>
+        {(filters.status || filters.recipient || filters.invoiceNumber || filters.payment) && (
           <button
-            onClick={() => setFilters({ status: '', recipient: '', invoiceNumber: '' })}
+            onClick={() => setFilters({ status: '', recipient: '', invoiceNumber: '', payment: '' })}
             className="clear-filters-btn"
           >
             Clear Filters
@@ -427,12 +444,22 @@ function EmailLogs() {
               >
                 ID {sortConfig.key === 'id' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
               </th>
-              <th className="invoice-col">Invoice #</th>
-              <th className="recipient-col">Recipient</th>
+              <th className="invoice-col sortable-header" onClick={() => handleSort('invoice_number')} style={{ cursor: 'pointer' }}>
+                Invoice # {sortConfig.key === 'invoice_number' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
+              <th className="recipient-col sortable-header" onClick={() => handleSort('recipient_email')} style={{ cursor: 'pointer' }}>
+                Recipient {sortConfig.key === 'recipient_email' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
               <th className="subject-col">Subject</th>
-              <th>Status</th>
-              <th>Sent At</th>
-              <th>Updated At</th>
+              <th className="sortable-header" onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
+                Status {sortConfig.key === 'status' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
+              <th className="sortable-header" onClick={() => handleSort('sent_at')} style={{ cursor: 'pointer' }}>
+                Sent At {sortConfig.key === 'sent_at' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
+              <th className="sortable-header" onClick={() => handleSort('updated_at')} style={{ cursor: 'pointer' }}>
+                Updated At {sortConfig.key === 'updated_at' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
+              </th>
               <th>PDF</th>
               <th>Payment</th>
               {adminMode && <th>Actions</th>}
