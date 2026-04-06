@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt, FaCamera, FaImage } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './Expenses.css';
 import { API_BASE } from '../config.js';
@@ -21,8 +21,10 @@ function Expenses() {
     category_id: '',
     amount: '',
     vendor: '',
-    notes: ''
+    notes: '',
+    receipt_path: ''
   });
+  const [dragging, setDragging] = useState(false);
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -126,7 +128,8 @@ function Expenses() {
       category_id: expense.category_id || '',
       amount: expense.amount || '',
       vendor: expense.vendor || '',
-      notes: expense.notes || ''
+      notes: expense.notes || '',
+      receipt_path: expense.receipt_path || ''
     });
     setEditingId(expense.id);
     setShowForm(true);
@@ -153,8 +156,21 @@ function Expenses() {
       category_id: '',
       amount: '',
       vendor: '',
-      notes: ''
+      notes: '',
+      receipt_path: ''
     });
+  };
+
+  const handleReceiptFile = (file) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Receipt file must be under 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData(prev => ({ ...prev, receipt_path: reader.result }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const cancelForm = () => {
@@ -342,14 +358,55 @@ function Expenses() {
                 />
               </div>
             </div>
-            <div className="form-group">
-              <label>Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                rows="2"
-                placeholder="Optional notes"
-              />
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows="2"
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="form-group receipt-upload-group">
+                <label>Receipt</label>
+                <div
+                  className={`receipt-drop-zone ${dragging ? 'dragging' : ''} ${formData.receipt_path ? 'has-file' : ''}`}
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleReceiptFile(file);
+                  }}
+                >
+                  {formData.receipt_path ? (
+                    <div className="receipt-preview">
+                      {formData.receipt_path.startsWith('data:image') ? (
+                        <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb" />
+                      ) : (
+                        <div className="receipt-file-icon"><FaFileAlt /> PDF</div>
+                      )}
+                      <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <FaCamera className="receipt-drop-icon" />
+                      <span className="receipt-drop-text">Drop receipt or click</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        capture="environment"
+                        onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
+                        className="receipt-file-input"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="form-actions">
               <button type="submit" className="expense-submit-btn">
@@ -399,6 +456,7 @@ function Expenses() {
                   <td>
                     {expense.description}
                     {expense.notes && <span className="expense-notes" title={expense.notes}> *</span>}
+                    {expense.receipt_path && <span className="receipt-indicator" title="Has receipt"> <FaImage /></span>}
                   </td>
                   <td><span className="category-badge">{expense.category_name || '-'}</span></td>
                   <td>{expense.vendor || '-'}</td>

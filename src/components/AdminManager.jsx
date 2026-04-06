@@ -105,7 +105,8 @@ function AdminManager({ onSettingsSaved }) {
     email_relay_bcc_enabled: false,
     email_subject: '',
     email_signature: '',
-    default_email_content: ''
+    default_email_content: '',
+    reminder_email_template: ''
   });
 
   useEffect(() => {
@@ -180,7 +181,8 @@ function AdminManager({ onSettingsSaved }) {
         email_relay_from_name: data.email_relay_from_name || '',
         email_subject: data.email_subject || '',
         email_signature: data.email_signature || '',
-        default_email_content: data.default_email_content || ''
+        default_email_content: data.default_email_content || '',
+        reminder_email_template: data.reminder_email_template || ''
       });
       
       // Update Tiptap editors with loaded content (use setTimeout to ensure editors are ready)
@@ -1706,6 +1708,31 @@ function AdminManager({ onSettingsSaved }) {
                   </div>
                   <p className="field-help">
                     When enabled, a copy of every invoice email will be sent to your "From Email Address" above
+                  </p>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="reminder_email_template">Payment Reminder Template</label>
+                  <textarea
+                    id="reminder_email_template"
+                    name="reminder_email_template"
+                    value={formData.reminder_email_template}
+                    onChange={handleInputChange}
+                    rows={6}
+                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', padding: '10px' }}
+                    placeholder="This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.
+
+A breakdown of the outstanding items is included below.
+
+Please arrange payment at your earliest convenience.
+
+Thank you."
+                  />
+                  <p className="field-help">
+                    Default message for payment reminder emails. The unpaid items table is always appended automatically.<br />
+                    Available variables: {'{invoiceNumber}'}, {'{unpaidCount}'}, {'{unpaidTotal}'}, {'{location}'}, {'{date}'}, {'{businessName}'}
                   </p>
                 </div>
               </div>

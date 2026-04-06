@@ -26,11 +26,13 @@ function EmailLogs() {
   const [resendMessage, setResendMessage] = useState('');
   const [resendSubject, setResendSubject] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [reminderTemplate, setReminderTemplate] = useState('');
   const [selectedLogs, setSelectedLogs] = useState(new Set());
 
   useEffect(() => {
     fetchLogs();
     fetchInvoiceStatus();
+    fetchReminderTemplate();
   }, []);
 
   const fetchLogs = async () => {
@@ -53,6 +55,20 @@ function EmailLogs() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReminderTemplate = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/profile`, { headers: getAuthHeaders() });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.reminder_email_template) {
+          setReminderTemplate(data.reminder_email_template);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching reminder template:', err);
     }
   };
 
@@ -550,7 +566,8 @@ function EmailLogs() {
                                   onClick={() => {
                                     setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
                                     setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                                    setResendMessage(`This is a friendly reminder that Invoice ${invoiceNum} has ${status.unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling £${status.unpaidTotal?.toFixed(2) || '0.00'}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`);
+                                    const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                                    setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status.unpaidCount).replace(/\{unpaidTotal\}/g, `£${status.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status.location || '').replace(/\{date\}/g, status.date || ''));
                                   }}
                                 >
                                   <FaRedoAlt /> Remind

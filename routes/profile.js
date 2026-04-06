@@ -177,7 +177,8 @@ router.put('/', (req, res) => {
     email_relay_from_email,
     email_relay_from_name,
     email_relay_bcc_enabled,
-    email_subject
+    email_subject,
+    reminder_email_template
   } = req.body;
 
       const userId = req.userId;
@@ -255,7 +256,7 @@ router.put('/', (req, res) => {
                  sort_code = ?, account_number = ?, home_address = ?, 
                  home_postcode = ?, currency = ?, google_maps_api_key = ?, email_password = ?, 
                  email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
-                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, email_subject = ?, postcode_resync_needed = ?, updated_at = ?
+                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, email_subject = ?, reminder_email_template = ?, postcode_resync_needed = ?, updated_at = ?
                  WHERE id = ? AND user_id = ?`,
                 [
                   name || '',
@@ -276,6 +277,7 @@ router.put('/', (req, res) => {
                   email_relay_from_name || '',
                   bccEnabled,
                   email_subject || '',
+                  reminder_email_template || '',
                   postcodeResyncNeeded,
                   now,
                   existing.id,

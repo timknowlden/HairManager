@@ -154,6 +154,20 @@ function migrateDatabase(customDbPath = null) {
         )
       `));
 
+      // Add reminder_email_template column to admin_settings
+      migrations.push(
+        new Promise((resolve) => {
+          db.all("PRAGMA table_info(admin_settings)", [], (err, columns) => {
+            if (!err && columns && !columns.some(col => col.name === 'reminder_email_template')) {
+              console.log('[MIGRATION] Adding reminder_email_template column to admin_settings');
+              db.run('ALTER TABLE admin_settings ADD COLUMN reminder_email_template TEXT', () => resolve());
+            } else {
+              resolve();
+            }
+          });
+        })
+      );
+
       // Add is_followup column to email_logs (safe to run even if column exists)
       migrations.push(
         new Promise((resolve) => {

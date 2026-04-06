@@ -731,7 +731,7 @@ router.post('/resend-unpaid', async (req, res) => {
 
     // Get email settings
     const settings = await new Promise((resolve, reject) => {
-      db.get('SELECT email_relay_api_key, email_relay_from_email, email_relay_from_name, business_name FROM admin_settings WHERE user_id = ?',
+      db.get('SELECT email_relay_api_key, email_relay_from_email, email_relay_from_name, business_name, reminder_email_template FROM admin_settings WHERE user_id = ?',
         [userId], (err, row) => err ? reject(err) : resolve(row));
     });
 
@@ -752,36 +752,60 @@ router.post('/resend-unpaid', async (req, res) => {
 
     // Build unpaid items list for the email body
     const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
-    const itemsList = unpaidApts.map(a => `${a.client_name} - ${a.service}: £${(a.price || 0).toFixed(2)}`).join('\n');
+    // Build the unpaid items HTML table
+    const itemsTable = `
+      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Client</th>
+            <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Service</th>
+            <th style="text-align: right; padding: 8px; border-bottom: 2px solid #e5e7eb;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${unpaidApts.map(a => `
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.client_name}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.service}</td>
+              <td style="text-align: right; padding: 8px; border-bottom: 1px solid #e5e7eb;">£${(a.price || 0).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="background: #f3f4f6;">
+            <td colspan="2" style="padding: 8px; font-weight: bold;">Outstanding Total</td>
+            <td style="text-align: right; padding: 8px; font-weight: bold;">£${unpaidTotal.toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    `;
 
-    const emailBody = body || `
+    // Apply variable substitution to body or template
+    const applyVariables = (text) => {
+      return text
+        .replace(/\{invoiceNumber\}/g, invoice_number)
+        .replace(/\{unpaidCount\}/g, unpaidApts.length)
+        .replace(/\{unpaidTotal\}/g, `£${unpaidTotal.toFixed(2)}`)
+        .replace(/\{totalAppointments\}/g, unpaidApts.length + 'appointments')
+        .replace(/\{location\}/g, apt.location || '')
+        .replace(/\{date\}/g, apt.date || '')
+        .replace(/\{businessName\}/g, fromName)
+        .replace(/\n/g, '<br>');
+    };
+
+    let messageHtml;
+    if (body) {
+      messageHtml = applyVariables(body);
+    } else if (settings?.reminder_email_template) {
+      messageHtml = applyVariables(settings.reminder_email_template);
+    } else {
+      messageHtml = `This is a reminder that the following items from Invoice ${invoice_number} remain unpaid.`;
+    }
+
+    const emailBody = `
       <div style="font-family: sans-serif; max-width: 600px;">
-        <p>This is a reminder that the following items from Invoice ${invoice_number} remain unpaid:</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-          <thead>
-            <tr style="background: #f3f4f6;">
-              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Client</th>
-              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Service</th>
-              <th style="text-align: right; padding: 8px; border-bottom: 2px solid #e5e7eb;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${unpaidApts.map(a => `
-              <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.client_name}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.service}</td>
-                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #e5e7eb;">£${(a.price || 0).toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="background: #f3f4f6;">
-              <td colspan="2" style="padding: 8px; font-weight: bold;">Outstanding Total</td>
-              <td style="text-align: right; padding: 8px; font-weight: bold;">£${unpaidTotal.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        <p>Please arrange payment at your earliest convenience.</p>
+        <div>${messageHtml}</div>
+        ${itemsTable}
       </div>
     `;
 
