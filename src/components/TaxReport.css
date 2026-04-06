@@ -302,6 +302,85 @@
   padding: 20px 0;
 }
 
+/* Tax Estimate */
+.tax-estimate-section {
+  border: 2px solid var(--color-warning, #f59e0b);
+}
+
+.tax-estimate-section .section-header-bar {
+  background: var(--color-warning-light, rgba(245, 158, 11, 0.05));
+}
+
+.tax-estimate-disclaimer {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0 0 16px;
+}
+
+.tax-rates-editor {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tax-rate-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tax-rate-row label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-secondary);
+}
+
+.tax-rate-row input {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tax-breakdown {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.tax-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-light, var(--color-border));
+}
+
+.tax-row:last-child {
+  border-bottom: none;
+}
+
+.tax-row.total {
+  border-top: 2px solid var(--color-border);
+  margin-top: 4px;
+  padding-top: 12px;
+  color: var(--color-danger, #dc3545);
+  font-size: var(--text-base);
+}
+
+.tax-row.take-home {
+  color: var(--color-success-hover);
+  font-size: var(--text-base);
+}
+
 /* Print styles */
 @media print {
   .tax-report-controls,

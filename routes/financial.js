@@ -387,12 +387,12 @@ router.get('/tax-report/:taxYear', (req, res) => {
           // Calculate mileage
           let totalMiles = 0;
           const tripLog = trips.map(t => {
-            const roundTrip = (t.distance || 0) * 2;
+            const roundTrip = t.distance || 0; // distance is already round-trip
             totalMiles += roundTrip;
             return {
               date: t.date,
               location: t.location,
-              distanceOneWay: t.distance,
+              roundTripDistance: t.distance,
               roundTrip
             };
           });
@@ -406,7 +406,7 @@ router.get('/tax-report/:taxYear', (req, res) => {
           const byLocation = {};
           tripLog.forEach(t => {
             if (!byLocation[t.location]) {
-              byLocation[t.location] = { location: t.location, trips: 0, totalMiles: 0, distanceOneWay: t.distanceOneWay };
+              byLocation[t.location] = { location: t.location, trips: 0, totalMiles: 0, roundTripDistance: t.roundTripDistance };
             }
             byLocation[t.location].trips++;
             byLocation[t.location].totalMiles += t.roundTrip;

@@ -117,17 +117,24 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   const [sortConfig, setSortConfig] = useState({ column: 'id', direction: 'asc' });
 
   // Check for ?id= query param to jump to an appointment
+  const [pendingGoToId, setPendingGoToId] = useState(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
     if (idParam) {
       setGoToId(idParam);
+      setPendingGoToId(idParam);
       window.history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => {
-        goToAppointment(idParam);
-      }, 500);
     }
   }, []);
+
+  // Trigger go-to after appointments load
+  useEffect(() => {
+    if (pendingGoToId && appointments.length > 0) {
+      setTimeout(() => goToAppointment(pendingGoToId), 100);
+      setPendingGoToId(null);
+    }
+  }, [appointments, pendingGoToId]);
 
   useEffect(() => {
     fetchAppointments();

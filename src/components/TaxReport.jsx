@@ -16,6 +16,14 @@ function TaxReport() {
   const [mileageRate, setMileageRate] = useState(0.45);
   const [mileageRateOver10k, setMileageRateOver10k] = useState(0.25);
   const [editingMileageRate, setEditingMileageRate] = useState(false);
+  // UK tax allowances (2025/26 defaults)
+  const [personalAllowance, setPersonalAllowance] = useState(12570);
+  const [basicRate, setBasicRate] = useState(0.20);
+  const [basicRateLimit, setBasicRateLimit] = useState(50270);
+  const [higherRate, setHigherRate] = useState(0.40);
+  const [niThreshold, setNiThreshold] = useState(12570);
+  const [niRate, setNiRate] = useState(0.06);
+  const [editingTaxRates, setEditingTaxRates] = useState(false);
   const reportRef = useRef(null);
 
   const taxYears = useMemo(() => {
@@ -82,6 +90,32 @@ function TaxReport() {
       box29_netProfit: paidIncome - totalAllowable
     };
   }, [report, mileageCalc]);
+
+  // Estimated tax bill
+  const taxEstimate = useMemo(() => {
+    if (!sa103Calc) return null;
+    const netProfit = sa103Calc.box29_netProfit;
+    if (netProfit <= 0) return { incomeTax: 0, nationalInsurance: 0, total: 0, netProfit };
+
+    // Income tax
+    const taxableIncome = Math.max(0, netProfit - personalAllowance);
+    const basicBand = Math.min(taxableIncome, basicRateLimit - personalAllowance);
+    const higherBand = Math.max(0, taxableIncome - (basicRateLimit - personalAllowance));
+    const incomeTax = (basicBand * basicRate) + (higherBand * higherRate);
+
+    // Class 4 NI
+    const niableProfit = Math.max(0, netProfit - niThreshold);
+    const nationalInsurance = niableProfit * niRate;
+
+    return {
+      netProfit,
+      taxableIncome,
+      incomeTax,
+      nationalInsurance,
+      total: incomeTax + nationalInsurance,
+      takeHome: netProfit - incomeTax - nationalInsurance
+    };
+  }, [sa103Calc, personalAllowance, basicRate, basicRateLimit, higherRate, niThreshold, niRate]);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -161,6 +195,81 @@ function TaxReport() {
                   <span className="sa103-box">Box 29</span>
                   <span className="sa103-label">Net profit</span>
                   <span className="sa103-value">{formatCurrency(sa103Calc.box29_netProfit)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* Tax Estimate */}
+          {taxEstimate && (
+          <div className="report-section tax-estimate-section">
+            <div className="section-header-bar" onClick={() => toggleSection('taxEstimate')}>
+              <h3><FaPoundSign /> Estimated Tax Bill</h3>
+              <div className="section-summary">
+                <span className="summary-value">{formatCurrency(taxEstimate.total)}</span>
+                <button className="edit-rate-btn" onClick={(e) => { e.stopPropagation(); setEditingTaxRates(!editingTaxRates); }} title="Edit rates">
+                  <FaPencilAlt />
+                </button>
+                {expandedSections.taxEstimate ? <FaChevronUp /> : <FaChevronDown />}
+              </div>
+            </div>
+            {expandedSections.taxEstimate !== false && (
+              <div className="section-content">
+                <p className="tax-estimate-disclaimer">Estimate only — based on self-employment income. Does not account for other income, student loans, or other deductions.</p>
+                {editingTaxRates && (
+                  <div className="tax-rates-editor">
+                    <div className="tax-rate-row">
+                      <label>Personal Allowance</label>
+                      <input type="number" value={personalAllowance} onChange={e => setPersonalAllowance(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="tax-rate-row">
+                      <label>Basic Rate (%)</label>
+                      <input type="number" step="0.01" value={(basicRate * 100).toFixed(0)} onChange={e => setBasicRate((parseFloat(e.target.value) || 0) / 100)} />
+                    </div>
+                    <div className="tax-rate-row">
+                      <label>Basic Rate Limit</label>
+                      <input type="number" value={basicRateLimit} onChange={e => setBasicRateLimit(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="tax-rate-row">
+                      <label>Higher Rate (%)</label>
+                      <input type="number" step="0.01" value={(higherRate * 100).toFixed(0)} onChange={e => setHigherRate((parseFloat(e.target.value) || 0) / 100)} />
+                    </div>
+                    <div className="tax-rate-row">
+                      <label>NI Threshold</label>
+                      <input type="number" value={niThreshold} onChange={e => setNiThreshold(parseFloat(e.target.value) || 0)} />
+                    </div>
+                    <div className="tax-rate-row">
+                      <label>Class 4 NI Rate (%)</label>
+                      <input type="number" step="0.01" value={(niRate * 100).toFixed(0)} onChange={e => setNiRate((parseFloat(e.target.value) || 0) / 100)} />
+                    </div>
+                  </div>
+                )}
+                <div className="tax-breakdown">
+                  <div className="tax-row">
+                    <span>Net profit</span>
+                    <span>{formatCurrency(taxEstimate.netProfit)}</span>
+                  </div>
+                  <div className="tax-row">
+                    <span>Less personal allowance ({formatCurrency(personalAllowance)})</span>
+                    <span>{formatCurrency(taxEstimate.taxableIncome)}</span>
+                  </div>
+                  <div className="tax-row">
+                    <span>Income tax ({(basicRate * 100).toFixed(0)}%)</span>
+                    <span>{formatCurrency(taxEstimate.incomeTax)}</span>
+                  </div>
+                  <div className="tax-row">
+                    <span>Class 4 NI ({(niRate * 100).toFixed(0)}%)</span>
+                    <span>{formatCurrency(taxEstimate.nationalInsurance)}</span>
+                  </div>
+                  <div className="tax-row total">
+                    <span><strong>Estimated tax bill</strong></span>
+                    <span><strong>{formatCurrency(taxEstimate.total)}</strong></span>
+                  </div>
+                  <div className="tax-row take-home">
+                    <span><strong>Estimated take-home</strong></span>
+                    <span><strong>{formatCurrency(taxEstimate.takeHome)}</strong></span>
+                  </div>
                 </div>
               </div>
             )}
@@ -278,7 +387,7 @@ function TaxReport() {
                   <thead>
                     <tr>
                       <th>Location</th>
-                      <th>Distance (one way)</th>
+                      <th>Round Trip</th>
                       <th>Trips</th>
                       <th>Total Miles</th>
                     </tr>
@@ -287,7 +396,7 @@ function TaxReport() {
                     {report.mileage.byLocation.map(loc => (
                       <tr key={loc.location}>
                         <td>{loc.location}</td>
-                        <td>{loc.distanceOneWay} mi</td>
+                        <td>{loc.roundTripDistance} mi</td>
                         <td>{loc.trips}</td>
                         <td>{loc.totalMiles.toFixed(1)} mi</td>
                       </tr>
