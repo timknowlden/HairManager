@@ -294,7 +294,7 @@ function Login() {
           )}
 
           <div className="switch-mode">
-            <button type="button" onClick={() => { setShowResetPassword(false); setResetToken(''); setError(''); setSuccess(''); }} className="link-button">
+            <button type="button" onClick={() => { setShowResetPassword(false); setShowTokenEntry(false); setTokenFromLink(false); setResetToken(''); setError(''); setSuccess(''); }} className="link-button">
               Back to Login
             </button>
           </div>
@@ -387,7 +387,7 @@ function Login() {
                 </button>
               </div>
               <div>
-                <button type="button" onClick={() => setShowResetPassword(true)} className="link-button">
+                <button type="button" onClick={() => { setShowResetPassword(true); setShowTokenEntry(false); setResetToken(''); setTokenFromLink(false); }} className="link-button">
                   Forgot Password?
                 </button>
               </div>
