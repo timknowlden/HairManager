@@ -524,15 +524,6 @@ function App() {
                         <FaCut /> Services
                       </button>
                       <button
-                        className={`profile-dropdown-item ${activeTab === 'expenses' ? 'active' : ''}`}
-                        onClick={() => {
-                          navigate('/expenses');
-                          setShowProfileMenu(false);
-                        }}
-                      >
-                        <FaReceipt /> Expenses
-                      </button>
-                      <button
                         className="profile-dropdown-item"
                         onClick={() => {
                           logout();

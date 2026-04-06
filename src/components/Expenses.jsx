@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './Expenses.css';
 import { API_BASE } from '../config.js';
 
 function Expenses() {
+  const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -237,8 +239,11 @@ function Expenses() {
           <button onClick={() => { setShowForm(true); setEditingId(null); resetForm(); }} className="add-btn">
             <FaPlus /> Add Expense
           </button>
-          <button onClick={handleExportCSV} className="export-btn">
+          <button onClick={handleExportCSV} className="add-btn export-btn">
             <FaDownload /> Export CSV
+          </button>
+          <button onClick={() => navigate('/tax-report')} className="add-btn tax-report-link-btn">
+            <FaFileAlt /> Tax Report
           </button>
         </div>
       </div>

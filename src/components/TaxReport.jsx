@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { FaFileAlt, FaDownload, FaChevronDown, FaChevronUp, FaCar, FaReceipt, FaPoundSign } from 'react-icons/fa';
+import { FaFileAlt, FaDownload, FaChevronDown, FaChevronUp, FaCar, FaReceipt, FaPoundSign, FaPencilAlt } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import './TaxReport.css';
 import { API_BASE } from '../config.js';
@@ -13,6 +13,9 @@ function TaxReport() {
   const [expandedSections, setExpandedSections] = useState({
     income: true, mileage: true, expenses: true, sa103: true
   });
+  const [mileageRate, setMileageRate] = useState(0.45);
+  const [mileageRateOver10k, setMileageRateOver10k] = useState(0.25);
+  const [editingMileageRate, setEditingMileageRate] = useState(false);
   const reportRef = useRef(null);
 
   const taxYears = useMemo(() => {
@@ -55,6 +58,30 @@ function TaxReport() {
       setLoading(false);
     }
   };
+
+  // Recalculate mileage with custom rates
+  const mileageCalc = useMemo(() => {
+    if (!report?.mileage) return null;
+    const totalMiles = report.mileage.totalMiles;
+    const milesAt1 = Math.min(totalMiles, 10000);
+    const milesAt2 = Math.max(0, totalMiles - 10000);
+    const allowance = (milesAt1 * mileageRate) + (milesAt2 * mileageRateOver10k);
+    return { milesAt1, milesAt2, allowance };
+  }, [report, mileageRate, mileageRateOver10k]);
+
+  // Recalculate SA103 with custom mileage
+  const sa103Calc = useMemo(() => {
+    if (!report?.sa103 || !mileageCalc) return null;
+    const paidIncome = report.income.paid;
+    const totalAllowable = report.expenses.total + mileageCalc.allowance;
+    return {
+      ...report.sa103,
+      box9_turnover: paidIncome,
+      box17_travelCosts: mileageCalc.allowance,
+      box27_totalAllowableExpenses: totalAllowable,
+      box29_netProfit: paidIncome - totalAllowable
+    };
+  }, [report, mileageCalc]);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -102,6 +129,7 @@ function TaxReport() {
       {report && (
         <>
           {/* SA103 Summary - at the top */}
+          {sa103Calc && (
           <div className="report-section sa103-section">
             <div className="section-header-bar" onClick={() => toggleSection('sa103')}>
               <h3><FaPoundSign /> SA103 Summary — Tax Year {report.sa103.taxYear}</h3>
@@ -111,39 +139,40 @@ function TaxReport() {
               <div className="sa103-grid">
                 <div className="sa103-row">
                   <span className="sa103-box">Box 9</span>
-                  <span className="sa103-label">Turnover (total income)</span>
-                  <span className="sa103-value">{formatCurrency(report.sa103.box9_turnover)}</span>
+                  <span className="sa103-label">Turnover (paid income only)</span>
+                  <span className="sa103-value">{formatCurrency(sa103Calc.box9_turnover)}</span>
                 </div>
                 <div className="sa103-row">
                   <span className="sa103-box">Box 17</span>
                   <span className="sa103-label">Travel costs (mileage allowance)</span>
-                  <span className="sa103-value">{formatCurrency(report.sa103.box17_travelCosts)}</span>
+                  <span className="sa103-value">{formatCurrency(sa103Calc.box17_travelCosts)}</span>
                 </div>
                 <div className="sa103-row">
                   <span className="sa103-box">Box 20</span>
                   <span className="sa103-label">Other business expenses</span>
-                  <span className="sa103-value">{formatCurrency(report.sa103.box20_otherExpenses)}</span>
+                  <span className="sa103-value">{formatCurrency(sa103Calc.box20_otherExpenses)}</span>
                 </div>
                 <div className="sa103-row total">
                   <span className="sa103-box">Box 27</span>
                   <span className="sa103-label">Total allowable expenses</span>
-                  <span className="sa103-value">{formatCurrency(report.sa103.box27_totalAllowableExpenses)}</span>
+                  <span className="sa103-value">{formatCurrency(sa103Calc.box27_totalAllowableExpenses)}</span>
                 </div>
                 <div className="sa103-row net-profit">
                   <span className="sa103-box">Box 29</span>
                   <span className="sa103-label">Net profit</span>
-                  <span className="sa103-value">{formatCurrency(report.sa103.box29_netProfit)}</span>
+                  <span className="sa103-value">{formatCurrency(sa103Calc.box29_netProfit)}</span>
                 </div>
               </div>
             )}
           </div>
+          )}
 
           {/* Income Section */}
           <div className="report-section">
             <div className="section-header-bar" onClick={() => toggleSection('income')}>
               <h3><FaPoundSign /> Income</h3>
               <div className="section-summary">
-                <span className="summary-value">{formatCurrency(report.income.total)}</span>
+                <span className="summary-value">{formatCurrency(report.income.paid)}</span>
                 <span className="summary-count">{report.income.appointmentCount} appointments</span>
                 {expandedSections.income ? <FaChevronUp /> : <FaChevronDown />}
               </div>
@@ -186,29 +215,63 @@ function TaxReport() {
             <div className="section-header-bar" onClick={() => toggleSection('mileage')}>
               <h3><FaCar /> Mileage</h3>
               <div className="section-summary">
-                <span className="summary-value">{formatCurrency(report.mileage.mileageAllowance)}</span>
+                <span className="summary-value">{formatCurrency(mileageCalc?.allowance || 0)}</span>
                 <span className="summary-count">{report.mileage.totalMiles.toFixed(1)} miles</span>
                 {expandedSections.mileage ? <FaChevronUp /> : <FaChevronDown />}
               </div>
             </div>
             {expandedSections.mileage && (
               <div className="section-content">
+                {mileageCalc && (
                 <div className="mileage-calc">
                   <div className="mileage-rate">
-                    <span>{report.mileage.milesAt45p.toFixed(1)} miles @ 45p</span>
-                    <span>{formatCurrency(report.mileage.milesAt45p * 0.45)}</span>
+                    <span>
+                      {mileageCalc.milesAt1.toFixed(1)} miles @{' '}
+                      {editingMileageRate ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={mileageRate}
+                          onChange={(e) => setMileageRate(parseFloat(e.target.value) || 0)}
+                          className="mileage-rate-input"
+                        />
+                      ) : (
+                        <>{(mileageRate * 100).toFixed(0)}p</>
+                      )}
+                      {' '}
+                      <button className="edit-rate-btn" onClick={() => setEditingMileageRate(!editingMileageRate)} title="Edit rate">
+                        <FaPencilAlt />
+                      </button>
+                    </span>
+                    <span>{formatCurrency(mileageCalc.milesAt1 * mileageRate)}</span>
                   </div>
-                  {report.mileage.milesAt25p > 0 && (
+                  {mileageCalc.milesAt2 > 0 && (
                     <div className="mileage-rate">
-                      <span>{report.mileage.milesAt25p.toFixed(1)} miles @ 25p</span>
-                      <span>{formatCurrency(report.mileage.milesAt25p * 0.25)}</span>
+                      <span>
+                        {mileageCalc.milesAt2.toFixed(1)} miles @{' '}
+                        {editingMileageRate ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={mileageRateOver10k}
+                            onChange={(e) => setMileageRateOver10k(parseFloat(e.target.value) || 0)}
+                            className="mileage-rate-input"
+                          />
+                        ) : (
+                          <>{(mileageRateOver10k * 100).toFixed(0)}p</>
+                        )}
+                      </span>
+                      <span>{formatCurrency(mileageCalc.milesAt2 * mileageRateOver10k)}</span>
                     </div>
                   )}
                   <div className="mileage-rate total">
                     <span><strong>Total mileage allowance</strong></span>
-                    <span><strong>{formatCurrency(report.mileage.mileageAllowance)}</strong></span>
+                    <span><strong>{formatCurrency(mileageCalc.allowance)}</strong></span>
                   </div>
                 </div>
+                )}
 
                 <h4>By Location</h4>
                 <table className="report-table">
