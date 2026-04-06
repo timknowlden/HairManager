@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './EmailLogs.css';
 import { API_BASE } from '../config.js';
-import { FaWrench, FaTrash, FaSync } from 'react-icons/fa';
+import { FaWrench, FaTrash, FaSync, FaRedoAlt, FaTimes } from 'react-icons/fa';
 
 function EmailLogs() {
   const { getAuthHeaders } = useAuth();
@@ -18,10 +18,16 @@ function EmailLogs() {
   const [expandedLogs, setExpandedLogs] = useState(new Set());
   const [webhookEvents, setWebhookEvents] = useState({});
   const [adminMode, setAdminMode] = useState(false);
+  const [invoiceStatus, setInvoiceStatus] = useState({});
+  const [resendModal, setResendModal] = useState(null); // { invoice_number, recipient }
+  const [resendMessage, setResendMessage] = useState('');
+  const [resendSubject, setResendSubject] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
   const [selectedLogs, setSelectedLogs] = useState(new Set());
 
   useEffect(() => {
     fetchLogs();
+    fetchInvoiceStatus();
   }, []);
 
   const fetchLogs = async () => {
@@ -44,6 +50,48 @@ function EmailLogs() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvoiceStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/email-logs/invoice-status`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInvoiceStatus(data);
+      }
+    } catch (err) {
+      console.error('Error fetching invoice status:', err);
+    }
+  };
+
+  const handleResendUnpaid = async () => {
+    if (!resendModal) return;
+    setResendLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/email-logs/resend-unpaid`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_number: resendModal.invoice_number,
+          to: resendModal.recipient,
+          subject: resendSubject,
+          body: resendMessage || undefined
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setResendModal(null);
+      setResendMessage('');
+      setResendSubject('');
+      fetchLogs();
+      fetchInvoiceStatus();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -384,13 +432,15 @@ function EmailLogs() {
               <th>Sent At</th>
               <th>Updated At</th>
               <th>PDF</th>
+              <th>Payment</th>
+              <th></th>
               {adminMode && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {sortedLogs.length === 0 ? (
               <tr>
-                <td colSpan={adminMode ? 9 : 8} className="no-logs">No email logs found</td>
+                <td colSpan={adminMode ? 11 : 10} className="no-logs">No email logs found</td>
               </tr>
             ) : (
               sortedLogs.map(log => {
@@ -446,6 +496,33 @@ function EmailLogs() {
                           </a>
                         ) : '-'}
                       </td>
+                      <td>
+                        {(() => {
+                          const status = invoiceStatus[invoiceNum];
+                          if (!status) return '-';
+                          if (status.paid) return <span className="paid-badge">Paid</span>;
+                          return <span className="unpaid-badge">{status.unpaidCount} unpaid (£{status.unpaidTotal?.toFixed(2)})</span>;
+                        })()}
+                      </td>
+                      <td>
+                        {(() => {
+                          const status = invoiceStatus[invoiceNum];
+                          if (!status || status.paid || log.is_followup) return null;
+                          return (
+                            <button
+                              className="resend-btn"
+                              title="Send payment reminder"
+                              onClick={() => {
+                                setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
+                                setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
+                                setResendMessage('');
+                              }}
+                            >
+                              <FaRedoAlt /> Remind
+                            </button>
+                          );
+                        })()}
+                      </td>
                       {adminMode && (
                         <td className="actions-cell">
                           <button
@@ -460,7 +537,7 @@ function EmailLogs() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${log.id}-expanded`} className="expanded-details-row">
-                        <td colSpan={adminMode ? 9 : 8} className="expanded-details-cell" style={{ width: '100%' }}>
+                        <td colSpan={adminMode ? 11 : 10} className="expanded-details-cell" style={{ width: '100%' }}>
                           <div className="webhook-details">
                             <h4>Webhook Events ({events.length})</h4>
                             {events.length === 0 ? (
@@ -507,6 +584,65 @@ function EmailLogs() {
           </tbody>
         </table>
       </div>
+
+      {resendModal && (
+        <div className="resend-modal-overlay" onClick={() => setResendModal(null)}>
+          <div className="resend-modal" onClick={e => e.stopPropagation()}>
+            <div className="resend-modal-header">
+              <h3>Send Payment Reminder</h3>
+              <button className="resend-modal-close" onClick={() => setResendModal(null)}><FaTimes /></button>
+            </div>
+            <div className="resend-modal-body">
+              <div className="resend-field">
+                <label>To</label>
+                <input
+                  type="text"
+                  value={resendModal.recipient}
+                  onChange={(e) => setResendModal(prev => ({ ...prev, recipient: e.target.value }))}
+                />
+              </div>
+              <div className="resend-field">
+                <label>Subject</label>
+                <input
+                  type="text"
+                  value={resendSubject}
+                  onChange={(e) => setResendSubject(e.target.value)}
+                />
+              </div>
+              <div className="resend-field">
+                <label>Message (optional - leave blank for default reminder)</label>
+                <textarea
+                  value={resendMessage}
+                  onChange={(e) => setResendMessage(e.target.value)}
+                  rows={6}
+                  placeholder="Leave blank to use the default payment reminder template with unpaid items listed..."
+                />
+              </div>
+              {(() => {
+                const status = invoiceStatus[resendModal.invoice_number];
+                if (status) {
+                  return (
+                    <div className="resend-summary">
+                      <strong>Invoice {resendModal.invoice_number}</strong> — {status.unpaidCount} unpaid appointment{status.unpaidCount !== 1 ? 's' : ''}, £{status.unpaidTotal?.toFixed(2)} outstanding
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+            <div className="resend-modal-footer">
+              <button
+                onClick={handleResendUnpaid}
+                disabled={resendLoading}
+                className="resend-send-btn"
+              >
+                {resendLoading ? 'Sending...' : 'Send Reminder'}
+              </button>
+              <button onClick={() => setResendModal(null)} className="resend-cancel-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

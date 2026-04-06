@@ -1,4 +1,5 @@
 import express from 'express';
+import { Resend } from 'resend';
 import { authenticateToken } from '../middleware/auth.js';
 import { readFileSync } from 'fs';
 
@@ -637,6 +638,210 @@ router.post('/check-status', async (req, res) => {
   } catch (error) {
     console.error('Error in check-status endpoint:', error);
     res.status(500).json({ error: 'Failed to check email status' });
+  }
+});
+
+// GET /api/email-logs/invoice-status - Get paid status for all invoices
+router.get('/invoice-status', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  // Get all unique invoice numbers from email logs
+  db.all(
+    "SELECT DISTINCT invoice_number FROM email_logs WHERE user_id = ? AND invoice_number IS NOT NULL AND invoice_number != ''",
+    [userId],
+    (err, invoices) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      if (invoices.length === 0) return res.json({});
+
+      const results = {};
+      let pending = invoices.length;
+
+      invoices.forEach(({ invoice_number }) => {
+        // Find the appointment to get date and location
+        db.get(
+          'SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
+          [parseInt(invoice_number), userId],
+          (err2, apt) => {
+            if (err2 || !apt) {
+              results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
+              if (--pending === 0) res.json(results);
+              return;
+            }
+
+            // Get all appointments for that date + location
+            db.all(
+              'SELECT id, client_name, service, price, paid FROM appointments WHERE date = ? AND location = ? AND user_id = ?',
+              [apt.date, apt.location, userId],
+              (err3, allApts) => {
+                if (err3 || !allApts) {
+                  results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
+                } else {
+                  const total = allApts.length;
+                  const paidCount = allApts.filter(a => a.paid === 1).length;
+                  const unpaidCount = total - paidCount;
+                  const unpaidApts = allApts.filter(a => a.paid !== 1);
+                  const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
+                  results[invoice_number] = {
+                    paid: unpaidCount === 0,
+                    total,
+                    paidCount,
+                    unpaidCount,
+                    unpaidTotal,
+                    date: apt.date,
+                    location: apt.location
+                  };
+                }
+                if (--pending === 0) res.json(results);
+              }
+            );
+          }
+        );
+      });
+    }
+  );
+});
+
+// POST /api/email-logs/resend-unpaid - Resend invoice for unpaid appointments only
+router.post('/resend-unpaid', async (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const { invoice_number, to, subject, body } = req.body;
+
+  if (!invoice_number || !to) {
+    return res.status(400).json({ error: 'Invoice number and recipient(s) required' });
+  }
+
+  try {
+    // Find original appointment to get date + location
+    const apt = await new Promise((resolve, reject) => {
+      db.get('SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
+        [parseInt(invoice_number), userId], (err, row) => err ? reject(err) : resolve(row));
+    });
+
+    if (!apt) return res.status(404).json({ error: 'Original invoice appointment not found' });
+
+    // Get unpaid appointments for that date + location
+    const unpaidApts = await new Promise((resolve, reject) => {
+      db.all('SELECT id, client_name, service, price FROM appointments WHERE date = ? AND location = ? AND user_id = ? AND paid != 1',
+        [apt.date, apt.location, userId], (err, rows) => err ? reject(err) : resolve(rows));
+    });
+
+    if (unpaidApts.length === 0) {
+      return res.status(400).json({ error: 'All appointments on this invoice are already paid' });
+    }
+
+    // Get email settings
+    const settings = await new Promise((resolve, reject) => {
+      db.get('SELECT email_relay_api_key, email_relay_from_email, email_relay_from_name, business_name FROM admin_settings WHERE user_id = ?',
+        [userId], (err, row) => err ? reject(err) : resolve(row));
+    });
+
+    const apiKey = settings?.email_relay_api_key || process.env.RESEND_API_KEY;
+    const fromEmail = settings?.email_relay_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@hairmanager.app';
+    const fromName = settings?.email_relay_from_name || settings?.business_name || 'HairManager';
+
+    if (!apiKey) return res.status(400).json({ error: 'Email not configured' });
+
+    // Get the original PDF path to attach if available
+    const originalLog = await new Promise((resolve, reject) => {
+      db.get('SELECT pdf_file_path FROM email_logs WHERE invoice_number = ? AND user_id = ? AND is_followup = 0 ORDER BY sent_at DESC LIMIT 1',
+        [invoice_number, userId], (err, row) => err ? reject(err) : resolve(row));
+    });
+
+    const resend = new Resend(apiKey);
+    const toEmails = Array.isArray(to) ? to : to.split(/[;,]/).map(e => e.trim()).filter(Boolean);
+
+    // Build unpaid items list for the email body
+    const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
+    const itemsList = unpaidApts.map(a => `${a.client_name} - ${a.service}: £${(a.price || 0).toFixed(2)}`).join('\n');
+
+    const emailBody = body || `
+      <div style="font-family: sans-serif; max-width: 600px;">
+        <p>This is a reminder that the following items from Invoice ${invoice_number} remain unpaid:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <thead>
+            <tr style="background: #f3f4f6;">
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Client</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 2px solid #e5e7eb;">Service</th>
+              <th style="text-align: right; padding: 8px; border-bottom: 2px solid #e5e7eb;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unpaidApts.map(a => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.client_name}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${a.service}</td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #e5e7eb;">£${(a.price || 0).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background: #f3f4f6;">
+              <td colspan="2" style="padding: 8px; font-weight: bold;">Outstanding Total</td>
+              <td style="text-align: right; padding: 8px; font-weight: bold;">£${unpaidTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p>Please arrange payment at your earliest convenience.</p>
+      </div>
+    `;
+
+    const emailSubject = subject || `Payment Reminder - Invoice ${invoice_number}`;
+
+    // Build email payload
+    const emailPayload = {
+      from: `${fromName} <${fromEmail}>`,
+      to: toEmails,
+      subject: emailSubject,
+      html: emailBody
+    };
+
+    // Attach original PDF if available
+    if (originalLog?.pdf_file_path) {
+      try {
+        const pdfData = readFileSync(originalLog.pdf_file_path);
+        emailPayload.attachments = [{
+          filename: `Invoice_${invoice_number}.pdf`,
+          content: pdfData.toString('base64')
+        }];
+      } catch (pdfErr) {
+        console.log('[Resend Unpaid] Could not attach original PDF:', pdfErr.message);
+      }
+    }
+
+    const { data, error: resendError } = await resend.emails.send(emailPayload);
+
+    if (resendError) {
+      console.error('[Resend Unpaid] Error:', resendError);
+      return res.status(500).json({ error: 'Failed to send reminder email' });
+    }
+
+    const resendMessageId = data?.id || null;
+    const now = new Date().toISOString();
+
+    // Create follow-up email log entries
+    for (const email of toEmails) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO email_logs (user_id, invoice_number, recipient_email, subject, status, sendgrid_message_id, is_followup, sent_at, updated_at)
+           VALUES (?, ?, ?, ?, 'sent', ?, 1, ?, ?)`,
+          [userId, invoice_number, email, emailSubject, resendMessageId, now, now],
+          (err) => err ? reject(err) : resolve()
+        );
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Payment reminder sent to ${toEmails.length} recipient(s)`,
+      unpaidCount: unpaidApts.length,
+      unpaidTotal
+    });
+  } catch (err) {
+    console.error('[Resend Unpaid] Error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

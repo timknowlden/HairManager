@@ -346,6 +346,11 @@ function migrateDatabase(customDbPath = null) {
                         }
                       });
                     }
+                    const hasIsFollowup = columns.some(col => col.name === 'is_followup');
+                    if (!hasIsFollowup) {
+                      console.log('[MIGRATION] Adding is_followup column to email_logs table');
+                      db.run('ALTER TABLE email_logs ADD COLUMN is_followup INTEGER DEFAULT 0');
+                    }
                   }
                 });
                 

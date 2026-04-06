@@ -146,6 +146,7 @@ export function initDatabase(dbPath) {
         error_message TEXT,
         pdf_file_path TEXT,
         webhook_event_data TEXT,
+        is_followup INTEGER DEFAULT 0,
         sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
