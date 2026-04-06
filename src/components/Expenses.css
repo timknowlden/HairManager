@@ -491,6 +491,34 @@
   gap: 6px;
 }
 
+.receipt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receipt-scan-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.receipt-scan-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.receipt-scan-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .receipt-remove {
   background: var(--color-danger, #dc3545);
   color: white;

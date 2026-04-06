@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import Anthropic from '@anthropic-ai/sdk';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -90,6 +91,98 @@ router.post('/upload-token', authenticateToken, (req, res) => {
 
 // --- Authenticated routes ---
 router.use(authenticateToken);
+
+// POST /api/expenses/scan-receipt - Use AI to extract expense details from a receipt image
+router.post('/scan-receipt', express.json({ limit: '10mb' }), async (req, res) => {
+  const { image } = req.body;
+
+  if (!image) {
+    return res.status(400).json({ error: 'Image data is required' });
+  }
+
+  const apiKey = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(400).json({ error: 'AI API key not configured. Set AI_API_KEY environment variable.' });
+  }
+
+  try {
+    const anthropic = new Anthropic({ apiKey });
+
+    // Extract the media type and base64 data
+    const match = image.match(/^data:(image\/[^;]+|application\/pdf);base64,(.+)$/);
+    if (!match) {
+      return res.status(400).json({ error: 'Invalid image format' });
+    }
+
+    const mediaType = match[1];
+    const base64Data = match[2];
+
+    // For PDFs, we need to use document type
+    const isPdf = mediaType === 'application/pdf';
+
+    const content = isPdf ? [
+      {
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: base64Data }
+      },
+      {
+        type: 'text',
+        text: `Extract the following details from this receipt/invoice PDF. Return ONLY a JSON object with these fields:
+{
+  "date": "YYYY-MM-DD format, or empty string if not found",
+  "amount": numeric total amount (the final total paid, not subtotals),
+  "vendor": "shop/business name",
+  "description": "brief description of what was purchased",
+  "category": "one of: Travel, Supplies & Materials, Equipment, Insurance, Phone & Internet, Professional Fees, Marketing, Repairs & Maintenance, Office Costs, Training, Clothing & Uniform, Other"
+}
+Return ONLY the JSON, no other text.`
+      }
+    ] : [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: base64Data }
+      },
+      {
+        type: 'text',
+        text: `Extract the following details from this receipt image. Return ONLY a JSON object with these fields:
+{
+  "date": "YYYY-MM-DD format, or empty string if not found",
+  "amount": numeric total amount (the final total paid, not subtotals),
+  "vendor": "shop/business name",
+  "description": "brief description of what was purchased",
+  "category": "one of: Travel, Supplies & Materials, Equipment, Insurance, Phone & Internet, Professional Fees, Marketing, Repairs & Maintenance, Office Costs, Training, Clothing & Uniform, Other"
+}
+Return ONLY the JSON, no other text.`
+      }
+    ];
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      messages: [{ role: 'user', content }]
+    });
+
+    const text = response.content[0]?.text || '';
+
+    // Parse JSON from response (handle markdown code blocks)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(422).json({ error: 'Could not parse receipt data', raw: text });
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    res.json({
+      date: parsed.date || '',
+      amount: typeof parsed.amount === 'number' ? parsed.amount.toFixed(2) : parsed.amount || '',
+      vendor: parsed.vendor || '',
+      description: parsed.description || '',
+      category: parsed.category || 'Other'
+    });
+  } catch (err) {
+    console.error('[Receipt Scan] Error:', err);
+    res.status(500).json({ error: 'Failed to scan receipt: ' + (err.message || 'Unknown error') });
+  }
+});
 
 const DEFAULT_CATEGORIES = [
   { name: 'Travel', hmrc_category: 'travel' },

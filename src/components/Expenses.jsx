@@ -30,6 +30,7 @@ function Expenses() {
   const [uploadToken, setUploadToken] = useState('');
   const [pendingReceipts, setPendingReceipts] = useState([]);
   const [viewReceipt, setViewReceipt] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -192,6 +193,36 @@ function Expenses() {
       notes: '',
       receipt_path: ''
     });
+  };
+
+  const scanReceipt = async (imageData) => {
+    setScanning(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/expenses/scan-receipt`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      // Auto-fill form fields
+      setFormData(prev => ({
+        ...prev,
+        date: data.date || prev.date,
+        amount: data.amount || prev.amount,
+        vendor: data.vendor || prev.vendor,
+        description: data.description || prev.description,
+        category_id: data.category ? (categories.find(c => c.name === data.category)?.id || prev.category_id) : prev.category_id
+      }));
+      setSuccess('Receipt scanned — fields auto-filled. Please review.');
+      setTimeout(() => setSuccess(null), 4000);
+    } catch (err) {
+      setError('Scan failed: ' + err.message);
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleReceiptFile = (file) => {
@@ -373,9 +404,14 @@ function Expenses() {
                       )}
                       <span className="receipt-click-hint">Click to enlarge</span>
                     </div>
-                    <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
-                      <FaTrash /> Remove
-                    </button>
+                    <div className="receipt-actions">
+                      <button type="button" className="receipt-scan-btn" disabled={scanning} onClick={() => scanReceipt(formData.receipt_path)}>
+                        {scanning ? 'Scanning...' : 'Scan with AI'}
+                      </button>
+                      <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
+                        <FaTrash /> Remove
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="receipt-empty-state">
