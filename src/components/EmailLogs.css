@@ -584,6 +584,16 @@
   display: inline-block;
 }
 
+.payment-cell {
+  white-space: nowrap;
+}
+
+.payment-unpaid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .invoice-link {
   color: var(--color-primary, #6366f1);
   text-decoration: none;

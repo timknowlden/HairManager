@@ -435,14 +435,13 @@ function EmailLogs() {
               <th>Updated At</th>
               <th>PDF</th>
               <th>Payment</th>
-              <th></th>
               {adminMode && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {sortedLogs.length === 0 ? (
               <tr>
-                <td colSpan={adminMode ? 11 : 10} className="no-logs">No email logs found</td>
+                <td colSpan={adminMode ? 10 : 9} className="no-logs">No email logs found</td>
               </tr>
             ) : (
               sortedLogs.map(log => {
@@ -509,31 +508,28 @@ function EmailLogs() {
                           </a>
                         ) : '-'}
                       </td>
-                      <td>
+                      <td className="payment-cell">
                         {(() => {
                           const status = invoiceStatus[invoiceNum];
                           if (!status) return '-';
                           if (status.paid) return <span className="paid-badge">Paid</span>;
-                          return <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid — £${status.unpaidTotal?.toFixed(2)} outstanding`}>{status.unpaidCount} unpaid</span>;
-                        })()}
-                      </td>
-                      <td>
-                        {(() => {
-                          const status = invoiceStatus[invoiceNum];
-                          if (!status || status.paid || log.is_followup) return null;
                           return (
-                            <button
-                              className="resend-btn"
-                              title="Send payment reminder"
-                              onClick={() => {
-                                const s = invoiceStatus[invoiceNum];
-                                setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
-                                setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                                setResendMessage(`This is a friendly reminder that Invoice ${invoiceNum} has ${s?.unpaidCount || 'some'} outstanding appointment${s?.unpaidCount !== 1 ? 's' : ''} totalling £${s?.unpaidTotal?.toFixed(2) || '0.00'}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`);
-                              }}
-                            >
-                              <FaRedoAlt /> Remind
-                            </button>
+                            <div className="payment-unpaid">
+                              <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid — £${status.unpaidTotal?.toFixed(2)} outstanding`}>{status.unpaidCount} unpaid</span>
+                              {!log.is_followup && (
+                                <button
+                                  className="resend-btn"
+                                  title="Send payment reminder"
+                                  onClick={() => {
+                                    setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
+                                    setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
+                                    setResendMessage(`This is a friendly reminder that Invoice ${invoiceNum} has ${status.unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling £${status.unpaidTotal?.toFixed(2) || '0.00'}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`);
+                                  }}
+                                >
+                                  <FaRedoAlt /> Remind
+                                </button>
+                              )}
+                            </div>
                           );
                         })()}
                       </td>
@@ -551,7 +547,7 @@ function EmailLogs() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${log.id}-expanded`} className="expanded-details-row">
-                        <td colSpan={adminMode ? 11 : 10} className="expanded-details-cell" style={{ width: '100%' }}>
+                        <td colSpan={adminMode ? 10 : 9} className="expanded-details-cell" style={{ width: '100%' }}>
                           <div className="webhook-details">
                             <h4>Webhook Events ({events.length})</h4>
                             {events.length === 0 ? (
