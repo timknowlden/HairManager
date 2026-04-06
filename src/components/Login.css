@@ -61,11 +61,29 @@
   border-color: var(--color-border-dark);
 }
 
-.login-box .form-group input:focus {
+.login-box .form-group input:focus,
+.login-box .form-group textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
   background: var(--color-bg-secondary);
+}
+
+.login-box .form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: monospace;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-primary);
+  resize: vertical;
+}
+
+.login-box .form-group textarea:hover {
+  border-color: var(--color-border-dark);
 }
 
 .login-box .form-group.remember-me-group {
