@@ -28,6 +28,26 @@
   font-size: var(--text-base);
 }
 
+.tax-report-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gradient-purple, var(--color-primary));
+  color: white;
+  margin-top: 12px;
+  transition: all var(--transition-fast);
+}
+
+.tax-report-btn:hover {
+  opacity: 0.85;
+}
+
 .financial-filters {
   display: flex;
   gap: 20px;

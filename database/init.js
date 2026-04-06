@@ -61,6 +61,33 @@ export function initDatabase(dbPath) {
       )
     `))
     .then(() => runAsync(db, `
+      CREATE TABLE IF NOT EXISTS expense_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        hmrc_category TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(user_id, name)
+      )
+    `))
+    .then(() => runAsync(db, `
+      CREATE TABLE IF NOT EXISTS expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        description TEXT NOT NULL,
+        category_id INTEGER,
+        amount REAL NOT NULL,
+        receipt_path TEXT,
+        vendor TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL
+      )
+    `))
+    .then(() => runAsync(db, `
       CREATE TABLE IF NOT EXISTS address_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,

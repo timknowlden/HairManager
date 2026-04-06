@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope, FaUserShield, FaArrowLeft, FaEye, FaCrown, FaBars, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaList, FaMapMarkerAlt, FaCut, FaUser, FaSignOutAlt, FaChartLine, FaEnvelope, FaUserShield, FaArrowLeft, FaEye, FaCrown, FaBars, FaTimes, FaReceipt } from 'react-icons/fa';
 import { useAuth } from './contexts/AuthContext';
 import EntryForm from './components/EntryForm';
 import AppointmentsList from './components/AppointmentsList';
@@ -13,6 +13,8 @@ import Financial from './components/Financial';
 import EmailLogs from './components/EmailLogs';
 import Login from './components/Login';
 import SetupWizard from './components/SetupWizard';
+import Expenses from './components/Expenses';
+import TaxReport from './components/TaxReport';
 import UsageIndicator from './components/UsageIndicator';
 import MyPlan from './components/MyPlan';
 import './App.css';
@@ -37,7 +39,9 @@ function App() {
         '/super-admin': 'super-admin',
         '/invoice': 'invoice',
         '/email-logs': 'email-logs',
-        '/my-plan': 'my-plan'
+        '/my-plan': 'my-plan',
+        '/expenses': 'expenses',
+        '/tax-report': 'tax-report'
       };
       
       // Get active tab from URL
@@ -323,6 +327,12 @@ function App() {
           >
             <FaCut /> Services
           </button>
+          <button
+            className={`expenses-nav-btn ${activeTab === 'expenses' ? 'active' : ''}`}
+            onClick={() => navigate('/expenses')}
+          >
+            <FaReceipt /> Expenses
+          </button>
           {(isSuperAdmin || hasPaidPlan) && (
             <button
               className={`financial-nav-btn ${activeTab === 'financial' ? 'active' : ''}`}
@@ -374,6 +384,12 @@ function App() {
                 onClick={() => navigate('/services')}
               >
                 <FaCut /> Services
+              </button>
+              <button
+                className={`mobile-nav-item ${activeTab === 'expenses' ? 'active' : ''}`}
+                onClick={() => navigate('/expenses')}
+              >
+                <FaReceipt /> Expenses
               </button>
               {isSuperAdmin && (
                 <button
@@ -508,6 +524,15 @@ function App() {
                         <FaCut /> Services
                       </button>
                       <button
+                        className={`profile-dropdown-item ${activeTab === 'expenses' ? 'active' : ''}`}
+                        onClick={() => {
+                          navigate('/expenses');
+                          setShowProfileMenu(false);
+                        }}
+                      >
+                        <FaReceipt /> Expenses
+                      </button>
+                      <button
                         className="profile-dropdown-item"
                         onClick={() => {
                           logout();
@@ -541,6 +566,12 @@ function App() {
         )}
         {location.pathname === '/services' && (
           <ServicesManager />
+        )}
+        {location.pathname === '/expenses' && (
+          <Expenses />
+        )}
+        {location.pathname === '/tax-report' && (hasPaidPlan || isSuperAdmin) && (
+          <TaxReport />
         )}
         {location.pathname === '/admin' && (
           <AdminManager onSettingsSaved={fetchProfileSettings} />

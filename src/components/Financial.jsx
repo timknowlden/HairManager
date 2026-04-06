@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { FaChartLine } from 'react-icons/fa';
+import { FaChartLine, FaFileAlt } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Financial.css';
 
 import { API_BASE } from '../config.js';
 
 function Financial() {
+  const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -246,6 +248,12 @@ function Financial() {
       <div className="financial-header">
         <h2>Financial Summary</h2>
         <p className="financial-subtitle">Earnings breakdown by financial year, calendar year, and month</p>
+        <button
+          onClick={() => navigate('/tax-report')}
+          className="tax-report-btn"
+        >
+          <FaFileAlt /> Tax Report (SA103)
+        </button>
       </div>
 
       <div className="financial-filters">

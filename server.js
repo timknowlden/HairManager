@@ -17,6 +17,7 @@ import financialRoutes from './routes/financial.js';
 import emailLogsRoutes from './routes/email-logs.js';
 import adminUsersRoutes from './routes/admin-users.js';
 import subscriptionsRoutes from './routes/subscriptions.js';
+import expensesRoutes from './routes/expenses.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -605,6 +606,8 @@ initDatabase(dbPath)
       
       app.use('/api/financial', financialRoutes);
       console.log('✓ Financial routes registered');
+      app.use('/api/expenses', expensesRoutes);
+      console.log('✓ Expenses routes registered');
     } catch (err) {
       console.error('ERROR registering routes:', err);
       console.error(err.stack);

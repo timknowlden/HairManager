@@ -154,6 +154,37 @@ function migrateDatabase(customDbPath = null) {
         )
       `));
 
+      // Create expense_categories table if it doesn't exist
+      migrations.push(runAsync(db, `
+        CREATE TABLE IF NOT EXISTS expense_categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          hmrc_category TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE(user_id, name)
+        )
+      `));
+
+      // Create expenses table if it doesn't exist
+      migrations.push(runAsync(db, `
+        CREATE TABLE IF NOT EXISTS expenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          description TEXT NOT NULL,
+          category_id INTEGER,
+          amount REAL NOT NULL,
+          receipt_path TEXT,
+          vendor TEXT,
+          notes TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL
+        )
+      `));
+
       // Check if admin_settings table exists
       db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_settings'", [], (err, tables) => {
         if (err) {

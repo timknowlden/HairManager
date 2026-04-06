@@ -319,5 +319,162 @@ router.get('/', (req, res) => {
   );
 });
 
+// UK Tax Year Report for self-assessment
+router.get('/tax-report/:taxYear', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const startYear = parseInt(req.params.taxYear, 10);
+
+  if (isNaN(startYear)) {
+    return res.status(400).json({ error: 'Invalid tax year' });
+  }
+
+  const dateFrom = `${startYear}-04-06`;
+  const dateTo = `${startYear + 1}-04-05`;
+
+  // Fetch appointments, mileage, and expenses in parallel
+  const results = {};
+
+  // 1. Income from appointments
+  db.all(
+    `SELECT date, client_name, service, type, price, location, paid
+     FROM appointments
+     WHERE user_id = ? AND date >= ? AND date <= ?
+     ORDER BY date ASC`,
+    [userId, dateFrom, dateTo],
+    (err, appointments) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // Calculate income totals
+      const totalIncome = appointments.reduce((sum, a) => sum + (a.price || 0), 0);
+      const paidIncome = appointments.filter(a => a.paid).reduce((sum, a) => sum + (a.price || 0), 0);
+      const unpaidIncome = totalIncome - paidIncome;
+
+      // Monthly breakdown (Apr-Mar order)
+      const monthlyIncome = {};
+      appointments.forEach(a => {
+        const d = new Date(a.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+        if (!monthlyIncome[key]) monthlyIncome[key] = { key, label, total: 0, count: 0 };
+        monthlyIncome[key].total += a.price || 0;
+        monthlyIncome[key].count++;
+      });
+
+      // Sort months in tax year order (Apr first)
+      const sortedMonths = Object.values(monthlyIncome).sort((a, b) => a.key.localeCompare(b.key));
+
+      results.income = {
+        total: totalIncome,
+        paid: paidIncome,
+        unpaid: unpaidIncome,
+        appointmentCount: appointments.length,
+        monthly: sortedMonths
+      };
+
+      // 2. Mileage - unique trips (one per location per day)
+      db.all(
+        `SELECT a.date, a.location, ad.distance
+         FROM appointments a
+         LEFT JOIN address_data ad ON a.location = ad.location_name AND a.user_id = ad.user_id
+         WHERE a.user_id = ? AND a.date >= ? AND a.date <= ? AND ad.distance IS NOT NULL AND ad.distance > 0
+         GROUP BY a.date, a.location
+         ORDER BY a.date ASC`,
+        [userId, dateFrom, dateTo],
+        (err2, trips) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+
+          // Calculate mileage
+          let totalMiles = 0;
+          const tripLog = trips.map(t => {
+            const roundTrip = (t.distance || 0) * 2;
+            totalMiles += roundTrip;
+            return {
+              date: t.date,
+              location: t.location,
+              distanceOneWay: t.distance,
+              roundTrip
+            };
+          });
+
+          // HMRC mileage rates: 45p first 10,000 miles, 25p thereafter
+          const milesAt45p = Math.min(totalMiles, 10000);
+          const milesAt25p = Math.max(0, totalMiles - 10000);
+          const mileageAllowance = (milesAt45p * 0.45) + (milesAt25p * 0.25);
+
+          // Mileage by location summary
+          const byLocation = {};
+          tripLog.forEach(t => {
+            if (!byLocation[t.location]) {
+              byLocation[t.location] = { location: t.location, trips: 0, totalMiles: 0, distanceOneWay: t.distanceOneWay };
+            }
+            byLocation[t.location].trips++;
+            byLocation[t.location].totalMiles += t.roundTrip;
+          });
+
+          results.mileage = {
+            totalMiles,
+            milesAt45p,
+            milesAt25p,
+            mileageAllowance,
+            tripCount: trips.length,
+            tripLog,
+            byLocation: Object.values(byLocation).sort((a, b) => b.totalMiles - a.totalMiles)
+          };
+
+          // 3. Expenses
+          db.all(
+            `SELECT e.*, ec.name as category_name, ec.hmrc_category
+             FROM expenses e
+             LEFT JOIN expense_categories ec ON e.category_id = ec.id
+             WHERE e.user_id = ? AND e.date >= ? AND e.date <= ?
+             ORDER BY e.date ASC`,
+            [userId, dateFrom, dateTo],
+            (err3, expenses) => {
+              if (err3) return res.status(500).json({ error: err3.message });
+
+              const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+              // Group by category
+              const byCategory = {};
+              expenses.forEach(e => {
+                const cat = e.category_name || 'Uncategorised';
+                if (!byCategory[cat]) byCategory[cat] = { category: cat, hmrc_category: e.hmrc_category, total: 0, count: 0 };
+                byCategory[cat].total += e.amount || 0;
+                byCategory[cat].count++;
+              });
+
+              results.expenses = {
+                total: totalExpenses,
+                count: expenses.length,
+                byCategory: Object.values(byCategory).sort((a, b) => b.total - a.total),
+                items: expenses
+              };
+
+              // 4. SA103 Summary
+              const totalAllowableExpenses = totalExpenses + mileageAllowance;
+              const netProfit = totalIncome - totalAllowableExpenses;
+
+              results.sa103 = {
+                taxYear: `${startYear}/${startYear + 1}`,
+                dateFrom,
+                dateTo,
+                box9_turnover: totalIncome,
+                box10_otherIncome: 0,
+                box17_travelCosts: mileageAllowance,
+                box20_otherExpenses: totalExpenses,
+                box27_totalAllowableExpenses: totalAllowableExpenses,
+                box29_netProfit: netProfit
+              };
+
+              res.json(results);
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
 export default router;
 
