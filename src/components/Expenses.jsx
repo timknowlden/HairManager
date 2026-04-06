@@ -294,18 +294,6 @@ function Expenses() {
           <button onClick={() => navigate('/tax-report')} className="add-btn tax-report-link-btn">
             <FaFileAlt /> Tax Report
           </button>
-          <button onClick={async () => {
-            try {
-              const response = await fetch(`${API_BASE}/expenses/upload-token`, { method: 'POST', headers: getAuthHeaders() });
-              if (response.ok) {
-                const data = await response.json();
-                setUploadToken(data.token);
-              }
-            } catch (err) { console.error(err); }
-            setShowQR(true);
-          }} className="add-btn export-btn" title="Mobile upload link">
-            <FaQrcode /> Mobile Upload
-          </button>
         </div>
       </div>
 
@@ -390,18 +378,50 @@ function Expenses() {
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <FaCamera className="receipt-drop-icon" />
-                    <span className="receipt-drop-text">Drop receipt image or PDF here, or click to browse</span>
-                    <span className="receipt-drop-hint">Supports camera capture on mobile</span>
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      capture="environment"
-                      onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
-                      className="receipt-file-input"
-                    />
-                  </>
+                  <div className="receipt-empty-state">
+                    <div className="receipt-desktop-upload">
+                      <FaCamera className="receipt-drop-icon" />
+                      <span className="receipt-drop-text">Drop receipt image or PDF here, or click to browse</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        capture="environment"
+                        onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
+                        className="receipt-file-input"
+                      />
+                    </div>
+                    <div className="receipt-mobile-divider">or upload from your phone</div>
+                    <div className="receipt-mobile-section" onClick={e => e.stopPropagation()}>
+                      {uploadToken ? (
+                        <div className="receipt-qr-inline">
+                          <QRCodeSVG value={`${window.location.origin}/upload-receipt?token=${uploadToken}`} size={120} />
+                          <div className="receipt-qr-links">
+                            <button type="button" className="receipt-email-link" onClick={() => {
+                              const url = `${window.location.origin}/upload-receipt?token=${uploadToken}`;
+                              window.location.href = `mailto:?subject=Upload Receipt&body=Use this link to upload a receipt:%0A%0A${encodeURIComponent(url)}`;
+                            }}>
+                              Email link to phone
+                            </button>
+                            <button type="button" className="receipt-copy-link" onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/upload-receipt?token=${uploadToken}`);
+                            }}>
+                              Copy link
+                            </button>
+                            <span className="receipt-qr-expiry">Expires in 30 min</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" className="receipt-generate-qr" onClick={async () => {
+                          try {
+                            const response = await fetch(`${API_BASE}/expenses/upload-token`, { method: 'POST', headers: getAuthHeaders() });
+                            if (response.ok) { const data = await response.json(); setUploadToken(data.token); }
+                          } catch (err) { console.error(err); }
+                        }}>
+                          <FaQrcode /> Generate mobile upload link
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -549,29 +569,6 @@ function Expenses() {
         </div>
       )}
 
-      {showQR && (() => {
-        const uploadUrl = `${window.location.origin}/upload-receipt?token=${uploadToken}`;
-        return (
-          <div className="qr-modal-overlay" onClick={() => setShowQR(false)}>
-            <div className="qr-modal" onClick={e => e.stopPropagation()}>
-              <div className="qr-modal-header">
-                <h3>Mobile Receipt Upload</h3>
-                <button className="qr-modal-close" onClick={() => setShowQR(false)}><FaTimes /></button>
-              </div>
-              <div className="qr-modal-body">
-                <p>Scan this QR code on your phone to take a photo of a receipt. The link expires in 30 minutes.</p>
-                <div className="qr-code-container">
-                  <QRCodeSVG value={uploadUrl} size={200} />
-                </div>
-                <div className="qr-link">
-                  <input type="text" readOnly value={uploadUrl} onClick={e => e.target.select()} />
-                  <button onClick={() => { navigator.clipboard.writeText(uploadUrl); }}>Copy</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
