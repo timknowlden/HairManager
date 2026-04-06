@@ -232,6 +232,11 @@ function Login() {
               <button type="submit" disabled={loading} className="submit-button">
                 {loading ? 'Please wait...' : 'Request Reset Token'}
               </button>
+              <div className="switch-mode">
+                <button type="button" onClick={() => setShowTokenEntry(true)} className="link-button">
+                  I already have a reset token
+                </button>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleResetPassword}>
