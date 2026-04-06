@@ -513,9 +513,10 @@ function EmailLogs() {
                               className="resend-btn"
                               title="Send payment reminder"
                               onClick={() => {
+                                const s = invoiceStatus[invoiceNum];
                                 setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
                                 setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                                setResendMessage('');
+                                setResendMessage(`This is a friendly reminder that Invoice ${invoiceNum} has ${s?.unpaidCount || 'some'} outstanding appointment${s?.unpaidCount !== 1 ? 's' : ''} totalling £${s?.unpaidTotal?.toFixed(2) || '0.00'}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`);
                               }}
                             >
                               <FaRedoAlt /> Remind
