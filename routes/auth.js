@@ -459,7 +459,7 @@ router.post('/request-password-reset', async (req, res) => {
                   ${resetLink}
                 </div>
                 <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                <p style="color: #6b7280; font-size: 13px;">Or paste this token manually on the reset page:</p>
+                <p style="color: #6b7280; font-size: 13px;">Or paste this token manually on the <a href="${appUrl.replace(/\/$/, '')}/?reset" style="color: #6366f1;">reset page</a>:</p>
                 <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; margin: 10px 0; font-family: monospace; word-break: break-all; font-size: 11px; color: #4b5563;">
                   ${resetToken}
                 </div>
