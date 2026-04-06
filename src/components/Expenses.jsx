@@ -27,6 +27,7 @@ function Expenses() {
   });
   const [dragging, setDragging] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [viewReceipt, setViewReceipt] = useState(null); // base64 data for lightbox
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -322,11 +323,16 @@ function Expenses() {
               >
                 {formData.receipt_path ? (
                   <div className="receipt-preview-full">
-                    {formData.receipt_path.startsWith('data:image') ? (
-                      <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb-full" />
-                    ) : (
-                      <div className="receipt-file-icon"><FaFileAlt /> PDF attached</div>
-                    )}
+                    <div className="receipt-preview-content" onClick={() => setViewReceipt(formData.receipt_path)} title="Click to enlarge">
+                      {formData.receipt_path.startsWith('data:image') ? (
+                        <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb-full" />
+                      ) : formData.receipt_path.startsWith('data:application/pdf') ? (
+                        <iframe src={formData.receipt_path} className="receipt-pdf-preview" title="Receipt PDF" />
+                      ) : (
+                        <div className="receipt-file-icon"><FaFileAlt /> PDF attached</div>
+                      )}
+                      <span className="receipt-click-hint">Click to enlarge</span>
+                    </div>
                     <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
                       <FaTrash /> Remove
                     </button>
@@ -460,7 +466,7 @@ function Expenses() {
                   <td>
                     {expense.description}
                     {expense.notes && <span className="expense-notes" title={expense.notes}> *</span>}
-                    {expense.receipt_path && <span className="receipt-indicator" title="Has receipt"> <FaImage /></span>}
+                    {expense.receipt_path && <button type="button" className="receipt-indicator-btn" title="View receipt" onClick={() => setViewReceipt(expense.receipt_path)}><FaImage /></button>}
                   </td>
                   <td><span className="category-badge">{expense.category_name || '-'}</span></td>
                   <td>{expense.vendor || '-'}</td>
@@ -475,6 +481,21 @@ function Expenses() {
           </tbody>
         </table>
       </div>
+
+      {viewReceipt && (
+        <div className="receipt-lightbox" onClick={() => setViewReceipt(null)}>
+          <button className="receipt-lightbox-close" onClick={() => setViewReceipt(null)}><FaTimes /></button>
+          <div className="receipt-lightbox-content" onClick={e => e.stopPropagation()}>
+            {viewReceipt.startsWith('data:image') ? (
+              <img src={viewReceipt} alt="Receipt" />
+            ) : viewReceipt.startsWith('data:application/pdf') ? (
+              <iframe src={viewReceipt} title="Receipt PDF" />
+            ) : (
+              <p>Unable to preview this file type</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {showQR && (
         <div className="qr-modal-overlay" onClick={() => setShowQR(false)}>

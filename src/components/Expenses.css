@@ -403,10 +403,87 @@
   white-space: nowrap;
 }
 
-.receipt-indicator {
+.receipt-preview-content {
+  cursor: pointer;
+  position: relative;
+}
+
+.receipt-click-hint {
+  display: block;
+  font-size: var(--text-xs);
   color: var(--color-primary);
-  font-size: 12px;
+  margin-top: 4px;
+}
+
+.receipt-pdf-preview {
+  width: 200px;
+  height: 150px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.receipt-indicator-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
   opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.receipt-indicator-btn:hover {
+  opacity: 1;
+}
+
+/* Receipt Lightbox */
+.receipt-lightbox {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.receipt-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.receipt-lightbox-content {
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.receipt-lightbox-content img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.receipt-lightbox-content iframe {
+  width: 80vw;
+  height: 85vh;
+  border: none;
+  border-radius: 8px;
+  background: white;
 }
 
 /* QR Modal */
