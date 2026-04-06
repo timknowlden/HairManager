@@ -304,6 +304,65 @@ router.get('/', (req, res) => {
   );
 });
 
+// GET /api/email-logs/invoice-status - Get paid status for all invoices
+// IMPORTANT: Must be before /:id routes to avoid being caught by param matching
+router.get('/invoice-status', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  db.all(
+    "SELECT DISTINCT invoice_number FROM email_logs WHERE user_id = ? AND invoice_number IS NOT NULL AND invoice_number != ''",
+    [userId],
+    (err, invoices) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (invoices.length === 0) return res.json({});
+
+      const results = {};
+      let pending = invoices.length;
+
+      invoices.forEach(({ invoice_number }) => {
+        db.get(
+          'SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
+          [parseInt(invoice_number), userId],
+          (err2, apt) => {
+            if (err2 || !apt) {
+              results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
+              if (--pending === 0) res.json(results);
+              return;
+            }
+
+            db.all(
+              'SELECT id, client_name, service, price, paid FROM appointments WHERE date = ? AND location = ? AND user_id = ?',
+              [apt.date, apt.location, userId],
+              (err3, allApts) => {
+                if (err3 || !allApts) {
+                  results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
+                } else {
+                  const total = allApts.length;
+                  const paidCount = allApts.filter(a => a.paid === 1).length;
+                  const unpaidCount = total - paidCount;
+                  const unpaidApts = allApts.filter(a => a.paid !== 1);
+                  const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
+                  results[invoice_number] = {
+                    paid: unpaidCount === 0,
+                    total,
+                    paidCount,
+                    unpaidCount,
+                    unpaidTotal,
+                    date: apt.date,
+                    location: apt.location
+                  };
+                }
+                if (--pending === 0) res.json(results);
+              }
+            );
+          }
+        );
+      });
+    }
+  );
+});
+
 // GET /api/email-logs/:id/webhook-events - Get all webhook events for a specific email log
 router.get('/:id/webhook-events', (req, res) => {
   const db = req.app.locals.db;
@@ -642,68 +701,6 @@ router.post('/check-status', async (req, res) => {
 });
 
 // GET /api/email-logs/invoice-status - Get paid status for all invoices
-router.get('/invoice-status', (req, res) => {
-  const db = req.app.locals.db;
-  const userId = req.userId;
-
-  // Get all unique invoice numbers from email logs
-  db.all(
-    "SELECT DISTINCT invoice_number FROM email_logs WHERE user_id = ? AND invoice_number IS NOT NULL AND invoice_number != ''",
-    [userId],
-    (err, invoices) => {
-      if (err) return res.status(500).json({ error: err.message });
-
-      if (invoices.length === 0) return res.json({});
-
-      const results = {};
-      let pending = invoices.length;
-
-      invoices.forEach(({ invoice_number }) => {
-        // Find the appointment to get date and location
-        db.get(
-          'SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
-          [parseInt(invoice_number), userId],
-          (err2, apt) => {
-            if (err2 || !apt) {
-              results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
-              if (--pending === 0) res.json(results);
-              return;
-            }
-
-            // Get all appointments for that date + location
-            db.all(
-              'SELECT id, client_name, service, price, paid FROM appointments WHERE date = ? AND location = ? AND user_id = ?',
-              [apt.date, apt.location, userId],
-              (err3, allApts) => {
-                if (err3 || !allApts) {
-                  results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
-                } else {
-                  const total = allApts.length;
-                  const paidCount = allApts.filter(a => a.paid === 1).length;
-                  const unpaidCount = total - paidCount;
-                  const unpaidApts = allApts.filter(a => a.paid !== 1);
-                  const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
-                  results[invoice_number] = {
-                    paid: unpaidCount === 0,
-                    total,
-                    paidCount,
-                    unpaidCount,
-                    unpaidTotal,
-                    date: apt.date,
-                    location: apt.location
-                  };
-                }
-                if (--pending === 0) res.json(results);
-              }
-            );
-          }
-        );
-      });
-    }
-  );
-});
-
-// POST /api/email-logs/resend-unpaid - Resend invoice for unpaid appointments only
 router.post('/resend-unpaid', async (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
