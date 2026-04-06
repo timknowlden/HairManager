@@ -116,6 +116,19 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // Sort state - default to ID ascending (1 at top)
   const [sortConfig, setSortConfig] = useState({ column: 'id', direction: 'asc' });
 
+  // Check for ?id= query param to jump to an appointment
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    if (idParam) {
+      setGoToId(idParam);
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => {
+        goToAppointment(idParam);
+      }, 500);
+    }
+  }, []);
+
   useEffect(() => {
     fetchAppointments();
     fetchProfileSettings();

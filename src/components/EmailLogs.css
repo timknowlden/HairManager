@@ -584,6 +584,16 @@
   display: inline-block;
 }
 
+.invoice-link {
+  color: var(--color-primary, #6366f1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.invoice-link:hover {
+  text-decoration: underline;
+}
+
 .resend-btn {
   padding: 5px 12px;
   background: var(--color-warning-light, rgba(245, 158, 11, 0.1));

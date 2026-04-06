@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './EmailLogs.css';
 import { API_BASE } from '../config.js';
+import { useNavigate } from 'react-router-dom';
 import { FaWrench, FaTrash, FaSync, FaRedoAlt, FaTimes } from 'react-icons/fa';
 
 function EmailLogs() {
+  const navigate = useNavigate();
   const { getAuthHeaders } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -469,7 +471,18 @@ function EmailLogs() {
                         </button>
                         {log.id}
                       </td>
-                      <td className="invoice-cell">{invoiceNum}</td>
+                      <td className="invoice-cell">
+                        {invoiceNum ? (
+                          <a
+                            href="#"
+                            className="invoice-link"
+                            onClick={(e) => { e.preventDefault(); navigate(`/appointments?id=${invoiceNum}`); }}
+                            title="View in appointments"
+                          >
+                            {invoiceNum}
+                          </a>
+                        ) : '-'}
+                      </td>
                       <td className="recipient-cell">{log.recipient_email}</td>
                       <td className="subject-cell">{log.subject || '-'}</td>
                       <td>
