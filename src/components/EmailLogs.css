@@ -1,6 +1,6 @@
 .email-logs {
   padding: var(--space-xl) var(--space-lg);
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   background: var(--color-bg-primary);
   border-radius: var(--radius-xl);

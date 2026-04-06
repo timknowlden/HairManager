@@ -148,7 +148,7 @@ button {
 
 /* ===== GLOBAL PAGE CONTAINER ===== */
 .page-container {
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   padding: var(--space-xl) var(--space-lg);
   color: var(--color-text-primary);

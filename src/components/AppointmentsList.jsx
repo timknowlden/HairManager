@@ -128,10 +128,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, []);
 
-  // Trigger go-to after appointments load
+  // Trigger go-to after appointments load — set date filter to ensure it's visible
   useEffect(() => {
     if (pendingGoToId && appointments.length > 0) {
-      setTimeout(() => goToAppointment(pendingGoToId), 100);
+      const apt = appointments.find(a => String(a.id) === String(pendingGoToId));
+      if (apt?.date) {
+        // Set date filter to that appointment's date so it's in view
+        setFilters(prev => ({ ...prev, date: apt.date }));
+        setDateFilterMode('day');
+        setDateFilterDay(apt.date);
+      }
+      setTimeout(() => goToAppointment(pendingGoToId), 300);
       setPendingGoToId(null);
     }
   }, [appointments, pendingGoToId]);

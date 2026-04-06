@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt, FaCamera, FaImage } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt, FaCamera, FaImage, FaQrcode, FaTimes } from 'react-icons/fa';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext';
 import './Expenses.css';
 import { API_BASE } from '../config.js';
@@ -25,6 +26,7 @@ function Expenses() {
     receipt_path: ''
   });
   const [dragging, setDragging] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -261,6 +263,9 @@ function Expenses() {
           <button onClick={() => navigate('/tax-report')} className="add-btn tax-report-link-btn">
             <FaFileAlt /> Tax Report
           </button>
+          <button onClick={() => setShowQR(true)} className="add-btn export-btn" title="Mobile upload link">
+            <FaQrcode /> Mobile Upload
+          </button>
         </div>
       </div>
 
@@ -302,6 +307,46 @@ function Expenses() {
         <div className="expense-form-container" ref={formRef}>
           <h3>{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
           <form onSubmit={handleSubmit} className="expense-form">
+            <div className="form-group receipt-upload-group-full">
+              <label>Receipt</label>
+              <div
+                className={`receipt-drop-zone receipt-drop-zone-full ${dragging ? 'dragging' : ''} ${formData.receipt_path ? 'has-file' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleReceiptFile(file);
+                }}
+              >
+                {formData.receipt_path ? (
+                  <div className="receipt-preview-full">
+                    {formData.receipt_path.startsWith('data:image') ? (
+                      <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb-full" />
+                    ) : (
+                      <div className="receipt-file-icon"><FaFileAlt /> PDF attached</div>
+                    )}
+                    <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
+                      <FaTrash /> Remove
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <FaCamera className="receipt-drop-icon" />
+                    <span className="receipt-drop-text">Drop receipt image or PDF here, or click to browse</span>
+                    <span className="receipt-drop-hint">Supports camera capture on mobile</span>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      capture="environment"
+                      onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
+                      className="receipt-file-input"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
             <div className="form-row">
               <div className="form-group">
                 <label>Date *</label>
@@ -358,55 +403,14 @@ function Expenses() {
                 />
               </div>
             </div>
-            <div className="form-row">
-              <div className="form-group" style={{ flex: 1 }}>
-                <label>Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  rows="2"
-                  placeholder="Optional notes"
-                />
-              </div>
-              <div className="form-group receipt-upload-group">
-                <label>Receipt</label>
-                <div
-                  className={`receipt-drop-zone ${dragging ? 'dragging' : ''} ${formData.receipt_path ? 'has-file' : ''}`}
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    const file = e.dataTransfer.files[0];
-                    if (file) handleReceiptFile(file);
-                  }}
-                >
-                  {formData.receipt_path ? (
-                    <div className="receipt-preview">
-                      {formData.receipt_path.startsWith('data:image') ? (
-                        <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb" />
-                      ) : (
-                        <div className="receipt-file-icon"><FaFileAlt /> PDF</div>
-                      )}
-                      <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
-                        <FaTrash />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <FaCamera className="receipt-drop-icon" />
-                      <span className="receipt-drop-text">Drop receipt or click</span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        capture="environment"
-                        onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
-                        className="receipt-file-input"
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
+            <div className="form-group">
+              <label>Notes</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                rows="2"
+                placeholder="Optional notes"
+              />
             </div>
             <div className="form-actions">
               <button type="submit" className="expense-submit-btn">
@@ -471,6 +475,27 @@ function Expenses() {
           </tbody>
         </table>
       </div>
+
+      {showQR && (
+        <div className="qr-modal-overlay" onClick={() => setShowQR(false)}>
+          <div className="qr-modal" onClick={e => e.stopPropagation()}>
+            <div className="qr-modal-header">
+              <h3>Mobile Receipt Upload</h3>
+              <button className="qr-modal-close" onClick={() => setShowQR(false)}><FaTimes /></button>
+            </div>
+            <div className="qr-modal-body">
+              <p>Scan this QR code on your phone to open the Expenses page and upload receipts using your camera.</p>
+              <div className="qr-code-container">
+                <QRCodeSVG value={window.location.href} size={200} />
+              </div>
+              <div className="qr-link">
+                <input type="text" readOnly value={window.location.href} onClick={e => e.target.select()} />
+                <button onClick={() => { navigator.clipboard.writeText(window.location.href); }}>Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
