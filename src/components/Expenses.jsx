@@ -554,10 +554,10 @@ function Expenses() {
               <th className="sortable" onClick={() => handleSort('vendor')}>
                 Vendor {sortConfig.column === 'vendor' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th className="sortable" onClick={() => handleSort('amount')}>
+              <th className="sortable amount-header" onClick={() => handleSort('amount')}>
                 Amount {sortConfig.column === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
-              <th>Actions</th>
+              <th className="actions-header">Actions</th>
             </tr>
           </thead>
           <tbody>

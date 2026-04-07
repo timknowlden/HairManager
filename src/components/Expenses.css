@@ -251,7 +251,21 @@
   background: var(--color-bg-secondary);
 }
 
+.expenses-table-container td {
+  vertical-align: middle;
+}
+
+.amount-header {
+  text-align: right;
+}
+
+.actions-header {
+  width: 90px;
+  text-align: center;
+}
+
 .amount-cell {
+  text-align: right;
   font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;
 }
@@ -279,6 +293,8 @@
 .actions-cell {
   display: flex;
   gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .edit-btn, .delete-btn {
