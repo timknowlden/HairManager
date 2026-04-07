@@ -168,6 +168,22 @@ function migrateDatabase(customDbPath = null) {
         })
       );
 
+      // Add AI provider settings to admin_settings
+      migrations.push(
+        new Promise((resolve) => {
+          db.all("PRAGMA table_info(admin_settings)", [], (err, columns) => {
+            if (!err && columns) {
+              const adds = [];
+              if (!columns.some(c => c.name === 'ai_provider')) adds.push('ALTER TABLE admin_settings ADD COLUMN ai_provider TEXT');
+              if (!columns.some(c => c.name === 'ai_api_key')) adds.push('ALTER TABLE admin_settings ADD COLUMN ai_api_key TEXT');
+              if (adds.length === 0) return resolve();
+              let done = 0;
+              adds.forEach(sql => db.run(sql, () => { if (++done === adds.length) resolve(); }));
+            } else resolve();
+          });
+        })
+      );
+
       // Add is_followup column to email_logs (safe to run even if column exists)
       migrations.push(
         new Promise((resolve) => {

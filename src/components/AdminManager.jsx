@@ -106,7 +106,9 @@ function AdminManager({ onSettingsSaved }) {
     email_subject: '',
     email_signature: '',
     default_email_content: '',
-    reminder_email_template: ''
+    reminder_email_template: '',
+    ai_provider: '',
+    ai_api_key: ''
   });
 
   useEffect(() => {
@@ -182,7 +184,9 @@ function AdminManager({ onSettingsSaved }) {
         email_subject: data.email_subject || '',
         email_signature: data.email_signature || '',
         default_email_content: data.default_email_content || '',
-        reminder_email_template: data.reminder_email_template || ''
+        reminder_email_template: data.reminder_email_template || '',
+        ai_provider: data.ai_provider || '',
+        ai_api_key: data.ai_api_key || ''
       });
       
       // Update Tiptap editors with loaded content (use setTimeout to ensure editors are ready)
@@ -1733,6 +1737,47 @@ Thank you."
                   <p className="field-help">
                     Default message for payment reminder emails. The unpaid items table is always appended automatically.<br />
                     Available variables: {'{invoiceNumber}'}, {'{unpaidCount}'}, {'{unpaidTotal}'}, {'{location}'}, {'{date}'}, {'{businessName}'}
+                  </p>
+                </div>
+              </div>
+
+              <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '12px', marginTop: '24px' }}>AI Receipt Scanning</h3>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="ai_provider">AI Provider</label>
+                  <select
+                    id="ai_provider"
+                    name="ai_provider"
+                    value={formData.ai_provider}
+                    onChange={handleInputChange}
+                  >
+                    <option value="">Not configured</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai">OpenAI (GPT-4o)</option>
+                    <option value="google">Google (Gemini) — has free tier</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="ai_api_key">API Key</label>
+                  <input
+                    type="password"
+                    id="ai_api_key"
+                    name="ai_api_key"
+                    value={formData.ai_api_key}
+                    onChange={handleInputChange}
+                    placeholder={formData.ai_provider === 'google' ? 'AIza...' : formData.ai_provider === 'openai' ? 'sk-...' : 'sk-ant-...'}
+                  />
+                  <p className="field-help">
+                    {formData.ai_provider === 'google' ? (
+                      <>Get a free API key from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></>
+                    ) : formData.ai_provider === 'openai' ? (
+                      <>Get an API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a></>
+                    ) : formData.ai_provider === 'anthropic' ? (
+                      <>Get an API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">Anthropic Console</a></>
+                    ) : (
+                      'Select a provider to enable AI receipt scanning in Expenses.'
+                    )}
                   </p>
                 </div>
               </div>

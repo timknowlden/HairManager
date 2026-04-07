@@ -92,83 +92,115 @@ router.post('/upload-token', authenticateToken, (req, res) => {
 // --- Authenticated routes ---
 router.use(authenticateToken);
 
+const SCAN_PROMPT = `Extract the following details from this receipt/invoice. Return ONLY a JSON object with these fields:
+{
+  "date": "YYYY-MM-DD format, or empty string if not found",
+  "amount": numeric total amount (the final total paid, not subtotals),
+  "vendor": "shop/business name",
+  "description": "brief description of what was purchased",
+  "category": "one of: Travel, Supplies & Materials, Equipment, Insurance, Phone & Internet, Professional Fees, Marketing, Repairs & Maintenance, Office Costs, Training, Clothing & Uniform, Other"
+}
+Return ONLY the JSON, no other text.`;
+
+async function scanWithAnthropic(apiKey, mediaType, base64Data) {
+  const anthropic = new Anthropic({ apiKey });
+  const isPdf = mediaType === 'application/pdf';
+  const content = isPdf ? [
+    { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
+    { type: 'text', text: SCAN_PROMPT }
+  ] : [
+    { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+    { type: 'text', text: SCAN_PROMPT }
+  ];
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514', max_tokens: 500,
+    messages: [{ role: 'user', content }]
+  });
+  return response.content[0]?.text || '';
+}
+
+async function scanWithOpenAI(apiKey, mediaType, base64Data) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      max_tokens: 500,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+          { type: 'text', text: SCAN_PROMPT }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function scanWithGemini(apiKey, mediaType, base64Data) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: base64Data } },
+          { text: SCAN_PROMPT }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
 // POST /api/expenses/scan-receipt - Use AI to extract expense details from a receipt image
 router.post('/scan-receipt', express.json({ limit: '10mb' }), async (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
   const { image } = req.body;
 
-  if (!image) {
-    return res.status(400).json({ error: 'Image data is required' });
-  }
+  if (!image) return res.status(400).json({ error: 'Image data is required' });
 
-  const apiKey = process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+  // Get user's AI settings
+  const settings = await new Promise((resolve, reject) => {
+    db.get('SELECT ai_provider, ai_api_key FROM admin_settings WHERE user_id = ?', [userId], (err, row) => err ? reject(err) : resolve(row));
+  });
+
+  const provider = settings?.ai_provider || process.env.AI_PROVIDER || 'anthropic';
+  const apiKey = settings?.ai_api_key || process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+
   if (!apiKey) {
-    return res.status(400).json({ error: 'AI API key not configured. Set AI_API_KEY environment variable.' });
+    return res.status(400).json({ error: 'AI API key not configured. Go to Profile Settings to set your AI provider and API key.' });
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey });
-
-    // Extract the media type and base64 data
     const match = image.match(/^data:(image\/[^;]+|application\/pdf);base64,(.+)$/);
-    if (!match) {
-      return res.status(400).json({ error: 'Invalid image format' });
-    }
+    if (!match) return res.status(400).json({ error: 'Invalid image format' });
 
     const mediaType = match[1];
     const base64Data = match[2];
 
-    // For PDFs, we need to use document type
-    const isPdf = mediaType === 'application/pdf';
-
-    const content = isPdf ? [
-      {
-        type: 'document',
-        source: { type: 'base64', media_type: 'application/pdf', data: base64Data }
-      },
-      {
-        type: 'text',
-        text: `Extract the following details from this receipt/invoice PDF. Return ONLY a JSON object with these fields:
-{
-  "date": "YYYY-MM-DD format, or empty string if not found",
-  "amount": numeric total amount (the final total paid, not subtotals),
-  "vendor": "shop/business name",
-  "description": "brief description of what was purchased",
-  "category": "one of: Travel, Supplies & Materials, Equipment, Insurance, Phone & Internet, Professional Fees, Marketing, Repairs & Maintenance, Office Costs, Training, Clothing & Uniform, Other"
-}
-Return ONLY the JSON, no other text.`
-      }
-    ] : [
-      {
-        type: 'image',
-        source: { type: 'base64', media_type: mediaType, data: base64Data }
-      },
-      {
-        type: 'text',
-        text: `Extract the following details from this receipt image. Return ONLY a JSON object with these fields:
-{
-  "date": "YYYY-MM-DD format, or empty string if not found",
-  "amount": numeric total amount (the final total paid, not subtotals),
-  "vendor": "shop/business name",
-  "description": "brief description of what was purchased",
-  "category": "one of: Travel, Supplies & Materials, Equipment, Insurance, Phone & Internet, Professional Fees, Marketing, Repairs & Maintenance, Office Costs, Training, Clothing & Uniform, Other"
-}
-Return ONLY the JSON, no other text.`
-      }
-    ];
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 500,
-      messages: [{ role: 'user', content }]
-    });
-
-    const text = response.content[0]?.text || '';
-
-    // Parse JSON from response (handle markdown code blocks)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(422).json({ error: 'Could not parse receipt data', raw: text });
+    let text;
+    switch (provider) {
+      case 'openai':
+        text = await scanWithOpenAI(apiKey, mediaType, base64Data);
+        break;
+      case 'google':
+        text = await scanWithGemini(apiKey, mediaType, base64Data);
+        break;
+      case 'anthropic':
+      default:
+        text = await scanWithAnthropic(apiKey, mediaType, base64Data);
+        break;
     }
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(422).json({ error: 'Could not parse receipt data', raw: text });
 
     const parsed = JSON.parse(jsonMatch[0]);
     res.json({
@@ -180,7 +212,7 @@ Return ONLY the JSON, no other text.`
     });
   } catch (err) {
     console.error('[Receipt Scan] Error:', err);
-    res.status(500).json({ error: 'Failed to scan receipt: ' + (err.message || 'Unknown error') });
+    res.status(500).json({ error: 'Scan failed: ' + (err.message || 'Unknown error') });
   }
 });
 
