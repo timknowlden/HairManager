@@ -267,14 +267,12 @@
 }
 
 .email-logs-table th {
-  padding: 14px 12px;
+  padding: 10px 8px;
   text-align: left;
   font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -304,10 +302,17 @@
 }
 
 .email-logs-table td {
-  padding: 14px 12px;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--color-border-light);
   font-size: var(--text-sm);
   color: var(--color-text-primary);
+}
+
+.recipient-cell {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .email-logs-table tbody tr:hover {
@@ -537,9 +542,9 @@
   color: #dc2626;
   padding: 3px 8px;
   border-radius: 20px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  display: inline-block;
+  white-space: nowrap;
 }
 
 .payment-unpaid {
