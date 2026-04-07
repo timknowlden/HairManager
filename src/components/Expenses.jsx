@@ -540,6 +540,14 @@ function Expenses() {
 
       <div className="expenses-table-container">
         <table>
+          <colgroup>
+            <col className="col-date" />
+            <col className="col-desc" />
+            <col className="col-cat" />
+            <col className="col-vendor" />
+            <col className="col-amount" />
+            <col className="col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th className="sortable" onClick={() => handleSort('date')}>

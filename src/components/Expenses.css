@@ -218,7 +218,15 @@
 .expenses-table-container table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
+
+.expenses-table-container col.col-date { width: 10%; }
+.expenses-table-container col.col-desc { width: 30%; }
+.expenses-table-container col.col-cat { width: 14%; }
+.expenses-table-container col.col-vendor { width: 16%; }
+.expenses-table-container col.col-amount { width: 12%; }
+.expenses-table-container col.col-actions { width: 8%; }
 
 .expenses-table-container th {
   text-align: left;
@@ -245,6 +253,9 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border-light, var(--color-border));
   font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .expenses-table-container tr:hover {
