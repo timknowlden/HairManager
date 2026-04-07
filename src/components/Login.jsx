@@ -322,7 +322,7 @@ function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Username or Email</label>
             <input
               id="username"
               type="text"
@@ -330,6 +330,7 @@ function Login() {
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+              placeholder="Enter username or email"
             />
           </div>
 

@@ -243,8 +243,8 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  // Find user - case-insensitive username lookup
-  db.get('SELECT id, username, password_hash, email, is_super_admin, created_at FROM users WHERE LOWER(username) = LOWER(?)', [username], async (err, user) => {
+  // Find user - case-insensitive lookup by username or email
+  db.get('SELECT id, username, password_hash, email, is_super_admin, created_at FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)', [username, username], async (err, user) => {
     if (err) {
       console.error('Error finding user:', err);
       return res.status(500).json({ error: 'Database error' });
