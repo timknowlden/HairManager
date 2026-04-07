@@ -82,6 +82,22 @@ function AdminManager({ onSettingsSaved }) {
       }
     },
   });
+  // Tiptap editor for reminder email template
+  const reminderEditor = useEditor({
+    extensions: [
+      StarterKit.configure({ link: false }),
+      Link.configure({ openOnClick: false }),
+      TextStyle,
+      Color,
+    ],
+    content: '',
+    onUpdate: ({ editor }) => {
+      if (!isSettingContentRef.current) {
+        setFormData(prev => ({ ...prev, reminder_email_template: editor.getHTML() }));
+      }
+    },
+  });
+
   const [previousPostcode, setPreviousPostcode] = useState(''); // Track postcode before save
   const [resyncing, setResyncing] = useState(false);
   const [postcodeChangedAfterSave, setPostcodeChangedAfterSave] = useState(false);
@@ -197,6 +213,10 @@ function AdminManager({ onSettingsSaved }) {
         }
         if (signatureEditor) {
           signatureEditor.commands.setContent(data.email_signature || '');
+        }
+        if (reminderEditor) {
+          const defaultReminder = '<p>This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.</p><p>A breakdown of the outstanding items is included below.</p><p>Please arrange payment at your earliest convenience.</p><p>Thank you.</p>';
+          reminderEditor.commands.setContent(data.reminder_email_template || defaultReminder);
         }
         // Reset flag after a brief delay to allow content to be set
         setTimeout(() => {
@@ -1719,21 +1739,44 @@ function AdminManager({ onSettingsSaved }) {
               <div className="form-row">
                 <div className="form-group full-width">
                   <label htmlFor="reminder_email_template">Payment Reminder Template</label>
-                  <textarea
-                    id="reminder_email_template"
-                    name="reminder_email_template"
-                    value={formData.reminder_email_template}
-                    onChange={handleInputChange}
-                    rows={6}
-                    style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', padding: '10px' }}
-                    placeholder="This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.
-
-A breakdown of the outstanding items is included below.
-
-Please arrange payment at your earliest convenience.
-
-Thank you."
-                  />
+                  {reminderEditor && (
+                    <>
+                      <div style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        backgroundColor: 'white',
+                        minHeight: '200px'
+                      }}>
+                        <div style={{
+                          borderBottom: '1px solid #eee',
+                          paddingBottom: '8px',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          gap: '4px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <button type="button" onClick={() => reminderEditor.chain().focus().toggleBold().run()}
+                            style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '3px', backgroundColor: reminderEditor.isActive('bold') ? '#e0e0e0' : 'white', cursor: 'pointer' }}>
+                            <strong>B</strong>
+                          </button>
+                          <button type="button" onClick={() => reminderEditor.chain().focus().toggleItalic().run()}
+                            style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '3px', backgroundColor: reminderEditor.isActive('italic') ? '#e0e0e0' : 'white', cursor: 'pointer' }}>
+                            <em>I</em>
+                          </button>
+                          <button type="button" onClick={() => reminderEditor.chain().focus().toggleBulletList().run()}
+                            style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '3px', backgroundColor: reminderEditor.isActive('bulletList') ? '#e0e0e0' : 'white', cursor: 'pointer' }}>
+                            •
+                          </button>
+                          <button type="button" onClick={() => reminderEditor.chain().focus().toggleOrderedList().run()}
+                            style={{ padding: '4px 8px', border: '1px solid #ccc', borderRadius: '3px', backgroundColor: reminderEditor.isActive('orderedList') ? '#e0e0e0' : 'white', cursor: 'pointer' }}>
+                            1.
+                          </button>
+                        </div>
+                        <EditorContent editor={reminderEditor} />
+                      </div>
+                    </>
+                  )}
                   <p className="field-help">
                     Default message for payment reminder emails. The unpaid items table is always appended automatically.<br />
                     Available variables: {'{invoiceNumber}'}, {'{unpaidCount}'}, {'{unpaidTotal}'}, {'{location}'}, {'{date}'}, {'{businessName}'}
