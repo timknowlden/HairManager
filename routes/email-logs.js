@@ -982,7 +982,6 @@ router.post('/resend-unpaid', async (req, res) => {
       console.log('[Resend Unpaid] PDF generated:', pdfPath);
     } catch (pdfErr) {
       console.log('[Resend Unpaid] PDF generation failed, sending without attachment:', pdfErr.message);
-      }
     }
 
     const { data, error: resendError } = await resend.emails.send(emailPayload);
