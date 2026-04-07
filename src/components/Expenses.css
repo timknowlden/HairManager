@@ -267,7 +267,7 @@
 }
 
 .amount-header {
-  text-align: right;
+  text-align: left;
 }
 
 .actions-header {
@@ -276,7 +276,7 @@
 }
 
 .amount-cell {
-  text-align: right;
+  text-align: left;
   font-weight: var(--font-semibold);
   font-variant-numeric: tabular-nums;
 }
