@@ -558,7 +558,7 @@ function EmailLogs() {
                           if (status.paid) return <span className="paid-badge">Paid</span>;
                           return (
                             <div className="payment-unpaid">
-                              <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid — £${status.unpaidTotal?.toFixed(2)} outstanding`}>{status.unpaidCount} unpaid</span>
+                              <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid`}>{status.unpaidCount} unpaid<br/>£{status.unpaidTotal?.toFixed(2)}</span>
                               {!log.is_followup && (
                                 <button
                                   className="resend-btn"

@@ -284,70 +284,29 @@
   background: var(--color-bg-tertiary);
 }
 
-/* Fixed column widths - all columns must have explicit widths for table-layout: fixed */
-/* Checkbox column (first when admin mode is on) */
-.email-logs-table th:first-child:has(input[type="checkbox"]),
-.email-logs-table td:first-child:has(input[type="checkbox"]) {
-  width: 50px !important;
-  min-width: 50px !important;
-  max-width: 50px !important;
+/* Column sizing */
+.subject-col {
+  max-width: 200px;
 }
 
-/* ID column - first when not admin, second when admin */
-.email-logs-table th:first-child:not(:has(input[type="checkbox"])),
-.email-logs-table td:first-child:not(:has(input[type="checkbox"])),
-.email-logs-table th:nth-child(2):has(+ th.sortable-header),
-.email-logs-table td:nth-child(2):has(+ td) {
-  width: 80px; /* ID column */
+.subject-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.email-logs-table th:nth-child(2),
-.email-logs-table td:nth-child(2) {
-  width: 100px; /* Invoice # column */
+.invoice-col {
+  white-space: nowrap;
 }
 
-.email-logs-table th:nth-child(3),
-.email-logs-table td:nth-child(3) {
-  width: 220px; /* Recipient column */
-}
-
-.email-logs-table th:nth-child(4),
-.email-logs-table td:nth-child(4) {
-  width: 300px; /* Subject column */
-}
-
-.email-logs-table th:nth-child(5),
-.email-logs-table td:nth-child(5) {
-  width: 100px; /* Status column */
-}
-
-.email-logs-table th:nth-child(6),
-.email-logs-table td:nth-child(6) {
-  width: 150px; /* Sent At column */
-}
-
-.email-logs-table th:nth-child(7),
-.email-logs-table td:nth-child(7) {
-  width: 150px; /* Updated At column */
-}
-
-.email-logs-table th:nth-child(8),
-.email-logs-table td:nth-child(8) {
-  width: 100px; /* PDF column */
-}
-
-.email-logs-table th:nth-child(9),
-.email-logs-table td:nth-child(9) {
-  width: 100px; /* Actions column (when admin mode is on) */
+.payment-cell {
+  white-space: nowrap;
 }
 
 .email-logs-table td {
   padding: 14px 12px;
   border-bottom: 1px solid var(--color-border-light);
-  font-size: var(--text-base);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--text-sm);
   color: var(--color-text-primary);
 }
 
@@ -581,10 +540,6 @@
   font-size: 10px;
   font-weight: 600;
   display: inline-block;
-}
-
-.payment-cell {
-  white-space: nowrap;
 }
 
 .payment-unpaid {
