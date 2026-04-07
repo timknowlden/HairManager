@@ -9,18 +9,22 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Generate invoice PDF for unpaid appointments
+// Generate invoice PDF for unpaid appointments — matches client-side Invoice.jsx layout
 function generateUnpaidInvoicePdf(invoiceNumber, appointments, profile, location) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 60, right: 60 } });
     const chunks = [];
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
     const accent = '#74c9cb';
+    const labelColor = '#9a8478';
     const textDark = '#333333';
     const textLight = '#666666';
+    const pageW = 495; // usable width
+    const left = 60;
+    const right = 555;
     const currency = profile?.currency || 'GBP';
     const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
     const formatPrice = (n) => `${sym} ${(n || 0).toFixed(2)}`;
@@ -38,104 +42,124 @@ function generateUnpaidInvoicePdf(invoiceNumber, appointments, profile, location
     const businessName = profile?.business_name || profile?.name || 'Business';
     const total = appointments.reduce((s, a) => s + (a.price || 0), 0);
     const today = formatDate(new Date().toISOString());
-    const visitDate = appointments[0]?.date ? formatDate(appointments[0].date) : today;
+    const totalPages = Math.ceil(appointments.length / 12) || 1;
 
-    // --- HEADER ---
-    doc.fontSize(22).fillColor(textDark).font('Helvetica-Bold').text(businessName, 50, 50);
+    // --- HEADER: Left side - business info ---
+    doc.fontSize(24).fillColor(textDark).font('Helvetica-Bold').text(businessName, left, 50);
     if (profile?.business_service_description) {
-      doc.fontSize(11).fillColor(textLight).font('Helvetica-Oblique').text(profile.business_service_description);
+      doc.fontSize(11).fillColor(textLight).font('Helvetica-Oblique').text(profile.business_service_description, left);
     }
     doc.font('Helvetica').fontSize(10).fillColor(textLight);
-    if (profile?.home_address) doc.text(profile.home_address);
-    if (profile?.home_postcode) doc.text(profile.home_postcode);
-    if (profile?.phone) doc.text(profile.phone);
-    const contactLine = [profile?.email, profile?.website].filter(Boolean).join(' | ');
-    if (contactLine) doc.text(contactLine);
+    const addrParts = [profile?.home_address, profile?.home_postcode].filter(Boolean);
+    if (addrParts.length) doc.text(addrParts.join(', '), left);
+    if (profile?.phone) doc.text(profile.phone, left);
+    if (profile?.email) doc.text(profile.email, left);
 
-    // Invoice title - right aligned
-    doc.fontSize(32).fillColor(accent).font('Helvetica-Bold').text('INVOICE', 350, 50, { width: 200, align: 'right' });
-    doc.fontSize(10).fillColor(textDark).font('Helvetica');
-    doc.text(`Invoice #: ${invoiceNumber}`, 350, 90, { width: 200, align: 'right' });
-    doc.text(`Date: ${today}`, 350, 105, { width: 200, align: 'right' });
-    doc.text(`Payment Reminder`, 350, 120, { width: 200, align: 'right' });
+    // --- HEADER: Right side - INVOICE title + details ---
+    doc.fontSize(36).fillColor(accent).font('Helvetica-Bold').text('INVOICE', 350, 50, { width: 205, align: 'right' });
 
-    // Divider
-    const divY = Math.max(doc.y, 140) + 10;
-    doc.moveTo(50, divY).lineTo(545, divY).strokeColor(accent).lineWidth(2).stroke();
+    const labelX = 370;
+    const valueX = 480;
+    let ry = 95;
+    doc.fontSize(9).font('Helvetica-Bold');
+    doc.fillColor(accent).text('INVOICE NUMBER', labelX, ry, { width: 100 });
+    doc.fillColor(textDark).text(invoiceNumber, valueX, ry, { width: 75, align: 'right' });
+    ry += 16;
+    doc.fillColor(accent).text('INVOICE DATE', labelX, ry, { width: 100 });
+    doc.fillColor(textDark).text(today, valueX, ry, { width: 75, align: 'right' });
+    ry += 20;
+    doc.font('Helvetica').fontSize(10).fillColor(textLight).text(`Page 1 of ${totalPages}`, labelX, ry, { width: 185, align: 'right' });
+
+    // --- Divider ---
+    const divY = Math.max(doc.y, 160) + 15;
+    doc.moveTo(left, divY).lineTo(right, divY).strokeColor(accent).lineWidth(2).stroke();
 
     // --- TO / FOR ---
-    let y = divY + 15;
-    doc.fontSize(9).fillColor(accent).font('Helvetica-Bold').text('TO', 50, y);
-    doc.text('FOR', 300, y);
-    y += 14;
-    doc.fontSize(10).fillColor(textDark).font('Helvetica');
+    let y = divY + 20;
+    doc.fontSize(10).fillColor(accent).font('Helvetica-Bold');
+    doc.text('TO', left, y);
+    doc.text('FOR', 310, y);
+    y += 18;
+    doc.fontSize(11).fillColor(textDark).font('Helvetica-Bold');
     const locName = location?.location_name || appointments[0]?.location || '';
-    doc.text(locName, 50, y);
-    doc.text('Hairdressing or Nail Services', 300, y);
+    doc.text(locName, left, y);
+    doc.font('Helvetica').fontSize(10).fillColor(textDark);
+    doc.text('Hairdressing or Nail Services', 310, y);
+    y += 16;
     if (location) {
+      doc.fontSize(10).fillColor(textLight).font('Helvetica');
       const addr = [location.address, location.city_town, location.post_code].filter(Boolean).join(', ');
-      if (addr) doc.text(addr, 50, y + 14);
+      if (addr) { doc.text(addr, left, y); y += 14; }
     }
 
     // --- TABLE ---
-    y = Math.max(doc.y, y + 30) + 15;
+    y = Math.max(doc.y, y) + 25;
 
-    // Header row
-    doc.rect(50, y, 495, 22).fill('#f8f9fa').stroke();
+    // Table header
+    const colDesc = left + 5;
+    const colDate = 370;
+    const colAmt = right - 5;
+    doc.rect(left, y, pageW, 24).fill('#f8f9fa');
+    doc.moveTo(left, y + 24).lineTo(right, y + 24).strokeColor(accent).lineWidth(2).stroke();
     doc.fontSize(9).fillColor(textDark).font('Helvetica-Bold');
-    doc.text('Service Description', 55, y + 6, { width: 280 });
-    doc.text('Date', 340, y + 6, { width: 80 });
-    doc.text('Amount', 430, y + 6, { width: 110, align: 'right' });
-    doc.moveTo(50, y + 22).lineTo(545, y + 22).strokeColor(accent).lineWidth(2).stroke();
-    y += 26;
+    doc.text('SERVICE DESCRIPTION', colDesc, y + 7, { width: 280 });
+    doc.text('DATE OF SERVICE', colDate, y + 7, { width: 90 });
+    doc.text('AMOUNT', colAmt - 75, y + 7, { width: 75, align: 'right' });
+    y += 30;
 
     // Data rows
-    doc.font('Helvetica').fontSize(9).fillColor(textDark);
-    appointments.forEach((apt, i) => {
+    doc.font('Helvetica').fontSize(10).fillColor(textDark);
+    appointments.forEach((apt) => {
       if (y > 700) {
         doc.addPage();
-        y = 50;
+        y = 60;
       }
-      doc.text(`${apt.client_name} - ${apt.service}`, 55, y, { width: 280 });
-      doc.text(formatDate(apt.date), 340, y, { width: 80 });
-      doc.text(formatPrice(apt.price), 430, y, { width: 110, align: 'right' });
-      y += 18;
-      doc.moveTo(50, y).lineTo(545, y).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      y += 4;
+      doc.text(`${apt.client_name} - ${apt.service}`, colDesc, y, { width: 290 });
+      doc.text(formatDate(apt.date), colDate, y, { width: 90 });
+      doc.text(formatPrice(apt.price), colAmt - 75, y, { width: 75, align: 'right' });
+      y += 20;
+      doc.moveTo(left, y).lineTo(right, y).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+      y += 5;
     });
 
-    // Total
-    y += 5;
-    doc.moveTo(50, y).lineTo(545, y).strokeColor(accent).lineWidth(2).stroke();
-    y += 8;
-    doc.font('Helvetica-Bold').fontSize(11);
-    doc.text('Total Outstanding', 55, y, { width: 370 });
-    doc.text(formatPrice(total), 430, y, { width: 110, align: 'right' });
+    // Total row
+    y += 2;
+    doc.rect(left, y, pageW, 24).fill('#f0f0f0');
+    doc.moveTo(left, y).lineTo(right, y).strokeColor(accent).lineWidth(1.5).stroke();
+    doc.fontSize(10).fillColor(textDark).font('Helvetica-Bold');
+    doc.text('Total', colDate, y + 7, { width: 90 });
+    doc.text(formatPrice(total), colAmt - 75, y + 7, { width: 75, align: 'right' });
+    y += 24;
+    doc.moveTo(left, y).lineTo(right, y).strokeColor(accent).lineWidth(1.5).stroke();
 
-    // --- FOOTER ---
-    y += 35;
-    if (y > 680) { doc.addPage(); y = 50; }
+    // --- FOOTER (centered) ---
+    y += 40;
+    if (y > 680) { doc.addPage(); y = 60; }
 
-    doc.font('Helvetica').fontSize(9).fillColor(textLight);
-    doc.text(`Make all checks payable to ${businessName}`, 50, y);
-    doc.text('Payment is due within 30 days.', 50, y + 14);
+    const centerOpts = { width: pageW, align: 'center' };
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor(textLight);
+    doc.text(`Make all checks payable to ${businessName}`, left, y, centerOpts);
+    y += 14;
+    doc.text('Payment is due within 30 days.', left, y, centerOpts);
 
     if (profile?.bank_account_name) {
-      y += 32;
-      doc.text(`BACS: ${profile.bank_account_name} – account number: ${profile.account_number || ''} – sort code: ${formatSortCode(profile.sort_code)}`, 50, y);
+      y += 20;
+      doc.font('Helvetica').fontSize(9).fillColor(textLight);
+      doc.text(`BACS: ${profile.bank_account_name} – account number: ${profile.account_number || ''} – sort code: ${formatSortCode(profile.sort_code)}`, left, y, centerOpts);
     }
 
     y += 18;
-    doc.text('Please use Invoice Number or Client Name as Reference', 50, y);
+    doc.text('Please use Invoice Number or Client Name as Reference', left, y, centerOpts);
 
     y += 22;
-    doc.text(`If you have any questions concerning this invoice, contact`, 50, y);
+    doc.text('If you have any questions concerning this invoice, contact', left, y, centerOpts);
+    y += 14;
     const contact = [profile?.name, profile?.phone, profile?.email].filter(Boolean).join(' | ');
-    doc.text(contact, 50, y + 14);
+    doc.text(contact, left, y, centerOpts);
 
-    y += 35;
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(accent);
-    doc.text('Thank you for your business!', 50, y);
+    y += 25;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(accent);
+    doc.text('Thank you for your business!', left, y, centerOpts);
 
     doc.end();
   });
@@ -859,7 +883,7 @@ router.post('/resend-unpaid', async (req, res) => {
 
     // Get unpaid appointments for that date + location
     const unpaidApts = await new Promise((resolve, reject) => {
-      db.all('SELECT id, client_name, service, price FROM appointments WHERE date = ? AND location = ? AND user_id = ? AND paid != 1',
+      db.all('SELECT id, client_name, service, price, date FROM appointments WHERE date = ? AND location = ? AND user_id = ? AND paid != 1',
         [apt.date, apt.location, userId], (err, rows) => err ? reject(err) : resolve(rows));
     });
 
@@ -885,11 +909,6 @@ router.post('/resend-unpaid', async (req, res) => {
 
     if (!apiKey) return res.status(400).json({ error: 'Email not configured' });
 
-    // Get the original PDF path to attach if available
-    const originalLog = await new Promise((resolve, reject) => {
-      db.get('SELECT pdf_file_path FROM email_logs WHERE invoice_number = ? AND user_id = ? AND is_followup = 0 ORDER BY sent_at DESC LIMIT 1',
-        [invoice_number, userId], (err, row) => err ? reject(err) : resolve(row));
-    });
 
     const resend = new Resend(apiKey);
     const toEmails = Array.isArray(to) ? to : to.split(/[;,]/).map(e => e.trim()).filter(Boolean);
