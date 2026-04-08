@@ -508,7 +508,7 @@ function EmailLogs() {
                   const recipients = [...new Set(groupLogs.filter(l => !l.is_followup).map(l => l.recipient_email))];
                   setResendModal({ invoice_number: invoiceNum, recipient: recipients.join(', ') });
                   setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                  const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status?.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                  const tpl = reminderTemplate || `<p>This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status?.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.</p><p>A breakdown of the outstanding items is included below.</p><p>Please arrange payment at your earliest convenience.</p><p>Thank you.</p>`;
                   setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status?.unpaidCount || 0).replace(/\{unpaidTotal\}/g, `£${status?.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status?.location || '').replace(/\{date\}/g, status?.date || ''));
                 };
 
@@ -574,7 +574,7 @@ function EmailLogs() {
                                 <span className="remind-badge" title="Send reminder to this recipient" onClick={() => {
                                   setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
                                   setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                                  const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                                  const tpl = reminderTemplate || `<p>This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.</p><p>A breakdown of the outstanding items is included below.</p><p>Please arrange payment at your earliest convenience.</p><p>Thank you.</p>`;
                                   setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status?.unpaidCount || 0).replace(/\{unpaidTotal\}/g, `£${status?.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status?.location || '').replace(/\{date\}/g, status?.date || ''));
                                 }}>
                                   <FaRedoAlt /> Remind

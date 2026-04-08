@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -41,7 +41,8 @@ function AdminManager({ onSettingsSaved }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updatingUsername, setUpdatingUsername] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
-  const isSettingContentRef = { current: false };
+  const isSettingContentRef = React.useRef(false);
+  const [loadedEditorContent, setLoadedEditorContent] = useState(null);
 
   // Tiptap editor for default email content
   const defaultContentEditor = useEditor({
@@ -132,6 +133,16 @@ function AdminManager({ onSettingsSaved }) {
     fetchVersion();
   }, []);
 
+  // Set editor content when editors are ready and data is loaded
+  useEffect(() => {
+    if (!loadedEditorContent) return;
+    isSettingContentRef.current = true;
+    if (defaultContentEditor) defaultContentEditor.commands.setContent(loadedEditorContent.default_email_content);
+    if (signatureEditor) signatureEditor.commands.setContent(loadedEditorContent.email_signature);
+    if (reminderEditor) reminderEditor.commands.setContent(loadedEditorContent.reminder_email_template);
+    setTimeout(() => { isSettingContentRef.current = false; }, 200);
+  }, [loadedEditorContent, defaultContentEditor, signatureEditor, reminderEditor]);
+
   const fetchVersion = async () => {
     try {
       const response = await fetch(`${PROFILE_API}/version`, {
@@ -205,24 +216,13 @@ function AdminManager({ onSettingsSaved }) {
         ai_api_key: data.ai_api_key || ''
       });
       
-      // Update Tiptap editors with loaded content (use setTimeout to ensure editors are ready)
-      setTimeout(() => {
-        isSettingContentRef.current = true;
-        if (defaultContentEditor) {
-          defaultContentEditor.commands.setContent(data.default_email_content || '');
-        }
-        if (signatureEditor) {
-          signatureEditor.commands.setContent(data.email_signature || '');
-        }
-        if (reminderEditor) {
-          const defaultReminder = '<p>This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.</p><p>A breakdown of the outstanding items is included below.</p><p>Please arrange payment at your earliest convenience.</p><p>Thank you.</p>';
-          reminderEditor.commands.setContent(data.reminder_email_template || defaultReminder);
-        }
-        // Reset flag after a brief delay to allow content to be set
-        setTimeout(() => {
-          isSettingContentRef.current = false;
-        }, 200);
-      }, 100);
+      // Store loaded content for editors — useEffect will apply when editors are ready
+      const defaultReminder = '<p>This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.</p><p>A breakdown of the outstanding items is included below.</p><p>Please arrange payment at your earliest convenience.</p><p>Thank you.</p>';
+      setLoadedEditorContent({
+        default_email_content: data.default_email_content || '',
+        email_signature: data.email_signature || '',
+        reminder_email_template: data.reminder_email_template || defaultReminder
+      });
       
       // Store original postcode to detect changes
       setOriginalPostcode(postcode);
