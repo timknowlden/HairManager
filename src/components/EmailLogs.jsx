@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './EmailLogs.css';
 import { API_BASE } from '../config.js';
@@ -155,6 +155,39 @@ function EmailLogs() {
     if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
   });
+
+  // Group logs by invoice number
+  const groupedInvoices = useMemo(() => {
+    const groups = {};
+    sortedLogs.forEach(log => {
+      const invoiceNum = getInvoiceNumber(log);
+      if (!groups[invoiceNum]) {
+        groups[invoiceNum] = { invoiceNum, logs: [], latestLog: log };
+      }
+      groups[invoiceNum].logs.push(log);
+      // Track the latest log by sent_at
+      if (log.sent_at > groups[invoiceNum].latestLog.sent_at) {
+        groups[invoiceNum].latestLog = log;
+      }
+    });
+    // Sort groups by latest sent_at descending
+    return Object.values(groups).sort((a, b) => {
+      const aDate = a.latestLog.sent_at || '';
+      const bDate = b.latestLog.sent_at || '';
+      return bDate.localeCompare(aDate);
+    });
+  }, [sortedLogs, invoiceStatus]);
+
+  const [expandedInvoices, setExpandedInvoices] = useState(new Set());
+
+  const toggleInvoiceExpand = (invoiceNum) => {
+    setExpandedInvoices(prev => {
+      const next = new Set(prev);
+      if (next.has(invoiceNum)) next.delete(invoiceNum);
+      else next.add(invoiceNum);
+      return next;
+    });
+  };
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -443,191 +476,140 @@ function EmailLogs() {
         <table className="email-logs-table">
           <thead>
             <tr>
-              {adminMode && (
-                <th style={{ width: '50px' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedLogs.size === sortedLogs.length && sortedLogs.length > 0}
-                    onChange={handleSelectAll}
-                    title="Select all"
-                  />
-                </th>
-              )}
-              <th 
-                className="sortable-header"
-                onClick={() => handleSort('id')}
-                style={{ cursor: 'pointer' }}
-              >
-                ID {sortConfig.key === 'id' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="invoice-col sortable-header" onClick={() => handleSort('invoice_number')} style={{ cursor: 'pointer' }}>
-                Invoice # {sortConfig.key === 'invoice_number' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="recipient-col sortable-header" onClick={() => handleSort('recipient_email')} style={{ cursor: 'pointer' }}>
-                Recipient {sortConfig.key === 'recipient_email' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
+              <th style={{ width: '40px' }}></th>
+              <th className="invoice-col">Invoice #</th>
+              <th className="recipient-col">Last Recipient</th>
               <th className="subject-col">Subject</th>
-              <th className="sortable-header" onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>
-                Status {sortConfig.key === 'status' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="sortable-header" onClick={() => handleSort('sent_at')} style={{ cursor: 'pointer' }}>
-                Sent At {sortConfig.key === 'sent_at' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
-              <th className="sortable-header" onClick={() => handleSort('updated_at')} style={{ cursor: 'pointer' }}>
-                Updated At {sortConfig.key === 'updated_at' && (sortConfig.direction === 'desc' ? '↓' : '↑')}
-              </th>
-              <th>PDF</th>
+              <th>Status</th>
+              <th>Last Sent</th>
+              <th>Last Updated</th>
+              <th>Emails</th>
               <th>Payment</th>
-              {adminMode && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {sortedLogs.length === 0 ? (
+            {groupedInvoices.length === 0 ? (
               <tr>
-                <td colSpan={adminMode ? 10 : 9} className="no-logs">No email logs found</td>
+                <td colSpan="9" className="no-logs">No email logs found</td>
               </tr>
             ) : (
-              sortedLogs.map(log => {
-                const invoiceNum = getInvoiceNumber(log);
-                const isExpanded = expandedLogs.has(log.id);
-                const events = webhookEvents[log.id] || [];
+              groupedInvoices.map(group => {
+                const { invoiceNum, logs: groupLogs, latestLog } = group;
+                const isGroupExpanded = expandedInvoices.has(invoiceNum);
+                const status = invoiceStatus[invoiceNum];
+                const statuses = groupLogs.map(l => l.status);
+                const worstStatus = statuses.includes('failed') ? 'failed' : statuses.includes('pending') ? 'pending' : statuses.includes('sent') ? 'sent' : statuses.includes('delivered') ? 'delivered' : statuses.includes('opened') ? 'opened' : 'sent';
+
+                const openReminder = () => {
+                  // Collect all unique recipients
+                  const recipients = [...new Set(groupLogs.filter(l => !l.is_followup).map(l => l.recipient_email))];
+                  setResendModal({ invoice_number: invoiceNum, recipient: recipients.join(', ') });
+                  setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
+                  const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status?.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                  setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status?.unpaidCount || 0).replace(/\{unpaidTotal\}/g, `£${status?.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status?.location || '').replace(/\{date\}/g, status?.date || ''));
+                };
+
                 return (
-                  <>
-                    <tr key={log.id} className={`${isExpanded ? 'expanded-row' : ''} ${adminMode && selectedLogs.has(log.id) ? 'selected-row' : ''}`}>
-                      {adminMode && (
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedLogs.has(log.id)}
-                            onChange={() => handleSelectLog(log.id)}
-                          />
-                        </td>
-                      )}
+                  <React.Fragment key={invoiceNum}>
+                    {/* Group summary row */}
+                    <tr className={`group-row ${isGroupExpanded ? 'group-expanded' : ''}`} onClick={() => toggleInvoiceExpand(invoiceNum)}>
+                      <td className="expand-cell">
+                        <button className="expand-btn">{isGroupExpanded ? '▼' : '▶'}</button>
+                      </td>
                       <td>
-                        <button
-                          onClick={() => toggleExpand(log.id)}
-                          className="expand-btn"
-                          title={isExpanded ? 'Collapse' : 'Expand to view webhook events'}
-                        >
-                          {isExpanded ? '▼' : '▶'}
-                        </button>
-                        {log.id}
+                        <a href="#" className="invoice-link" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/appointments?id=${invoiceNum}`); }}>
+                          {invoiceNum}
+                        </a>
                       </td>
-                      <td className="invoice-cell">
-                        {invoiceNum ? (
-                          <a
-                            href="#"
-                            className="invoice-link"
-                            onClick={(e) => { e.preventDefault(); navigate(`/appointments?id=${invoiceNum}`); }}
-                            title="View in appointments"
-                          >
-                            {invoiceNum}
-                          </a>
-                        ) : '-'}
-                      </td>
-                      <td className="recipient-cell">{log.recipient_email}</td>
-                      <td className="subject-cell">{log.subject || '-'}</td>
+                      <td className="recipient-cell">{latestLog.recipient_email}</td>
+                      <td className="subject-cell">{latestLog.subject || '-'}</td>
                       <td>
-                        <span
-                          className="status-badge"
-                          style={{ backgroundColor: getStatusColor(log.status) }}
-                        >
-                          {log.status}
-                        </span>
+                        <span className="status-badge" style={{ backgroundColor: getStatusColor(worstStatus) }}>{worstStatus}</span>
                       </td>
-                    <td>{formatDate(log.sent_at)}</td>
-                    <td>{formatDate(log.updated_at)}</td>
-                    <td>
-                        {log.pdf_file_path ? (
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleViewPdf(log.id);
-                            }}
-                            className="pdf-link"
-                          >
-                            View PDF
-                          </a>
-                        ) : '-'}
-                      </td>
+                      <td>{formatDate(latestLog.sent_at)}</td>
+                      <td>{formatDate(latestLog.updated_at)}</td>
+                      <td><span className="email-count-badge">{groupLogs.length}</span></td>
                       <td className="payment-cell">
-                        {(() => {
-                          const status = invoiceStatus[invoiceNum];
-                          if (!status) return '-';
-                          if (status.paid) return <span className="paid-badge">Paid</span>;
-                          const openReminder = () => {
-                            setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
-                            setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                            const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
-                            setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status.unpaidCount).replace(/\{unpaidTotal\}/g, `£${status.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status.location || '').replace(/\{date\}/g, status.date || ''));
-                          };
-                          return (
-                            <span
-                              className={`unpaid-badge ${!log.is_followup ? 'clickable' : ''}`}
-                              title={!log.is_followup ? 'Click to send reminder' : `${status.unpaidCount} of ${status.total} unpaid`}
-                              onClick={!log.is_followup ? openReminder : undefined}
-                            >
-                              {status.unpaidCount} unpaid · £{status.unpaidTotal?.toFixed(2)}
-                            </span>
-                          );
-                        })()}
+                        {!status ? '-' : status.paid ? (
+                          <span className="paid-badge">Paid</span>
+                        ) : (
+                          <span className="unpaid-badge clickable" title="Click to send reminder to all" onClick={(e) => { e.stopPropagation(); openReminder(); }}>
+                            {status.unpaidCount} unpaid · £{status.unpaidTotal?.toFixed(2)}
+                          </span>
+                        )}
                       </td>
-                      {adminMode && (
-                        <td className="actions-cell">
-                          <button
-                            onClick={() => handleDeleteLog(log.id)}
-                            className="delete-btn-small"
-                            title="Delete this email log"
-                          >
-                            <FaTrash />
-                          </button>
-                        </td>
-                      )}
                     </tr>
-                    {isExpanded && (
-                      <tr key={`${log.id}-expanded`} className="expanded-details-row">
-                        <td colSpan={adminMode ? 10 : 9} className="expanded-details-cell" style={{ width: '100%' }}>
-                          <div className="webhook-details">
-                            <h4>Webhook Events ({events.length})</h4>
-                            {events.length === 0 ? (
-                              <p>No webhook events received yet.</p>
-                            ) : (
-                              <div className="webhook-events-list">
-                                {events.map((event, idx) => (
-                                  <div key={event.id || idx} className="webhook-event">
-                                    <div className="webhook-event-header">
-                                      <span className="webhook-event-type">{event.event_type}</span>
-                                      <span className="webhook-event-time">
-                                        {formatDate(event.processed_at)}
-                                      </span>
+                    {/* Expanded: individual email rows */}
+                    {isGroupExpanded && groupLogs.map(log => {
+                      const isLogExpanded = expandedLogs.has(log.id);
+                      const events = webhookEvents[log.id] || [];
+                      return (
+                        <React.Fragment key={log.id}>
+                          <tr className={`child-row ${isLogExpanded ? 'expanded-row' : ''}`}>
+                            <td></td>
+                            <td className="child-id">
+                              <button onClick={() => toggleExpand(log.id)} className="expand-btn" title="View webhook events">
+                                {isLogExpanded ? '▼' : '▶'}
+                              </button>
+                              #{log.id}
+                              {log.is_followup ? <span className="followup-tag">follow-up</span> : null}
+                            </td>
+                            <td className="recipient-cell">{log.recipient_email}</td>
+                            <td className="subject-cell">{log.subject || '-'}</td>
+                            <td>
+                              <span className="status-badge" style={{ backgroundColor: getStatusColor(log.status) }}>{log.status}</span>
+                            </td>
+                            <td>{formatDate(log.sent_at)}</td>
+                            <td>{formatDate(log.updated_at)}</td>
+                            <td>
+                              {log.pdf_file_path ? (
+                                <a href="#" onClick={(e) => { e.preventDefault(); handleViewPdf(log.id); }} className="pdf-link">PDF</a>
+                              ) : '-'}
+                            </td>
+                            <td>
+                              {!status?.paid && !log.is_followup ? (
+                                <span className="unpaid-badge clickable" title="Send reminder to this recipient" onClick={() => {
+                                  setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
+                                  setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
+                                  const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                                  setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status?.unpaidCount || 0).replace(/\{unpaidTotal\}/g, `£${status?.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status?.location || '').replace(/\{date\}/g, status?.date || ''));
+                                }}>
+                                  Remind
+                                </span>
+                              ) : null}
+                            </td>
+                          </tr>
+                          {isLogExpanded && (
+                            <tr className="expanded-details-row">
+                              <td colSpan="9" className="expanded-details-cell">
+                                <div className="webhook-details">
+                                  <h4>Webhook Events ({events.length})</h4>
+                                  {events.length === 0 ? (
+                                    <p>No webhook events received yet.</p>
+                                  ) : (
+                                    <div className="webhook-events-list">
+                                      {events.map((event, idx) => (
+                                        <div key={event.id || idx} className="webhook-event">
+                                          <div className="webhook-event-header">
+                                            <span className="webhook-event-type">{event.event_type}</span>
+                                            <span className="webhook-event-time">{formatDate(event.processed_at)}</span>
+                                          </div>
+                                          <details className="webhook-event-details">
+                                            <summary>View Raw JSON</summary>
+                                            <pre className="webhook-json">{JSON.stringify(JSON.parse(event.raw_event_data), null, 2)}</pre>
+                                          </details>
+                                        </div>
+                                      ))}
                                     </div>
-                                    <details className="webhook-event-details">
-                                      <summary>View Raw JSON</summary>
-                                      <pre className="webhook-json">
-                                        {JSON.stringify(JSON.parse(event.raw_event_data), null, 2)}
-                                      </pre>
-                                    </details>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            {log.webhook_event_data && (
-                              <div className="latest-webhook-data">
-                                <h4>Latest Webhook Event Data (from email_logs table)</h4>
-                                <details>
-                                  <summary>View Latest Event JSON</summary>
-                                  <pre className="webhook-json">
-                                    {JSON.stringify(JSON.parse(log.webhook_event_data), null, 2)}
-                                  </pre>
-                                </details>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })
             )}

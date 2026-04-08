@@ -557,10 +557,63 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
-.payment-unpaid {
+/* Grouped rows */
+.group-row {
+  cursor: pointer;
+  background: var(--color-bg-primary);
+  font-weight: 500;
+}
+
+.group-row:hover {
+  background: var(--color-bg-secondary);
+}
+
+.group-row.group-expanded {
+  background: var(--color-bg-secondary);
+  border-bottom: none;
+}
+
+.child-row {
+  background: #fafbfc;
+}
+
+.child-row td {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  font-size: var(--text-xs) !important;
+}
+
+.child-id {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  font-family: monospace;
+  font-size: var(--text-xs) !important;
+  color: var(--color-text-secondary);
+}
+
+.followup-tag {
+  background: var(--color-warning-light, rgba(245, 158, 11, 0.1));
+  color: #b45309;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.email-count-badge {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expand-cell {
+  width: 40px;
+  text-align: center;
 }
 
 .invoice-link {
