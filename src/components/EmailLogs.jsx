@@ -4,6 +4,9 @@ import './EmailLogs.css';
 import { API_BASE } from '../config.js';
 import { useNavigate } from 'react-router-dom';
 import { FaWrench, FaTrash, FaSync, FaRedoAlt, FaTimes } from 'react-icons/fa';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
 
 function EmailLogs() {
   const navigate = useNavigate();
@@ -86,7 +89,7 @@ function EmailLogs() {
     }
   };
 
-  const handleResendUnpaid = async () => {
+  const handleResendUnpaid = async (htmlBody) => {
     if (!resendModal) return;
     setResendLoading(true);
     try {
@@ -97,7 +100,7 @@ function EmailLogs() {
           invoice_number: resendModal.invoice_number,
           to: resendModal.recipient,
           subject: resendSubject,
-          body: resendMessage || undefined
+          body: htmlBody || resendMessage || undefined
         })
       });
       const data = await response.json();
@@ -568,13 +571,13 @@ function EmailLogs() {
                             </td>
                             <td>
                               {!status?.paid && !log.is_followup ? (
-                                <span className="unpaid-badge clickable" title="Send reminder to this recipient" onClick={() => {
+                                <span className="remind-badge" title="Send reminder to this recipient" onClick={() => {
                                   setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
                                   setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
                                   const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointments totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
                                   setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status?.unpaidCount || 0).replace(/\{unpaidTotal\}/g, `£${status?.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status?.location || '').replace(/\{date\}/g, status?.date || ''));
                                 }}>
-                                  Remind
+                                  <FaRedoAlt /> Remind
                                 </span>
                               ) : null}
                             </td>
@@ -618,63 +621,95 @@ function EmailLogs() {
       </div>
 
       {resendModal && (
-        <div className="resend-modal-overlay" onClick={() => setResendModal(null)}>
-          <div className="resend-modal" onClick={e => e.stopPropagation()}>
-            <div className="resend-modal-header">
-              <h3>Send Payment Reminder</h3>
-              <button className="resend-modal-close" onClick={() => setResendModal(null)}><FaTimes /></button>
-            </div>
-            <div className="resend-modal-body">
-              <div className="resend-field">
-                <label>To</label>
-                <input
-                  type="text"
-                  value={resendModal.recipient}
-                  onChange={(e) => setResendModal(prev => ({ ...prev, recipient: e.target.value }))}
-                />
-              </div>
-              <div className="resend-field">
-                <label>Subject</label>
-                <input
-                  type="text"
-                  value={resendSubject}
-                  onChange={(e) => setResendSubject(e.target.value)}
-                />
-              </div>
-              <div className="resend-field">
-                <label>Message (optional - leave blank for default reminder)</label>
-                <textarea
-                  value={resendMessage}
-                  onChange={(e) => setResendMessage(e.target.value)}
-                  rows={6}
-                  placeholder="Leave blank to use the default payment reminder template with unpaid items listed..."
-                />
-              </div>
-              {(() => {
-                const status = invoiceStatus[resendModal.invoice_number];
-                if (status) {
-                  return (
-                    <div className="resend-summary">
-                      <strong>Invoice {resendModal.invoice_number}</strong> — {status.unpaidCount} unpaid appointment{status.unpaidCount !== 1 ? 's' : ''}, £{status.unpaidTotal?.toFixed(2)} outstanding
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </div>
-            <div className="resend-modal-footer">
-              <button
-                onClick={handleResendUnpaid}
-                disabled={resendLoading}
-                className="resend-send-btn"
-              >
-                {resendLoading ? 'Sending...' : 'Send Reminder'}
-              </button>
-              <button onClick={() => setResendModal(null)} className="resend-cancel-btn">Cancel</button>
-            </div>
+        <ReminderModal
+          resendModal={resendModal}
+          setResendModal={setResendModal}
+          resendSubject={resendSubject}
+          setResendSubject={setResendSubject}
+          initialMessage={resendMessage}
+          onSend={(htmlBody) => {
+            setResendMessage(htmlBody);
+            handleResendUnpaid(htmlBody);
+          }}
+          resendLoading={resendLoading}
+          invoiceStatus={invoiceStatus}
+        />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ReminderModal({ resendModal, setResendModal, resendSubject, setResendSubject, initialMessage, onSend, resendLoading, invoiceStatus }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ link: false }),
+      Link.configure({ openOnClick: false }),
+    ],
+    content: initialMessage || '',
+  });
+
+  const status = invoiceStatus[resendModal.invoice_number];
+
+  return (
+    <div className="resend-modal-overlay" onClick={() => setResendModal(null)}>
+      <div className="resend-modal" onClick={e => e.stopPropagation()}>
+        <div className="resend-modal-header">
+          <h3>Send Payment Reminder</h3>
+          <button className="resend-modal-close" onClick={() => setResendModal(null)}><FaTimes /></button>
+        </div>
+        <div className="resend-modal-body">
+          <div className="resend-field">
+            <label>To</label>
+            <input
+              type="text"
+              value={resendModal.recipient}
+              onChange={(e) => setResendModal(prev => ({ ...prev, recipient: e.target.value }))}
+            />
+          </div>
+          <div className="resend-field">
+            <label>Subject</label>
+            <input
+              type="text"
+              value={resendSubject}
+              onChange={(e) => setResendSubject(e.target.value)}
+            />
+          </div>
+          <div className="resend-field">
+            <label>Message</label>
+            {editor && (
+              <div className="resend-editor-wrapper">
+                <div className="resend-editor-toolbar">
+                  <button type="button" onClick={() => editor.chain().focus().toggleBold().run()}
+                    className={editor.isActive('bold') ? 'active' : ''}><strong>B</strong></button>
+                  <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()}
+                    className={editor.isActive('italic') ? 'active' : ''}><em>I</em></button>
+                  <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()}
+                    className={editor.isActive('bulletList') ? 'active' : ''}>•</button>
+                </div>
+                <EditorContent editor={editor} />
+              </div>
+            )}
+            <p className="resend-field-help">The unpaid items table is appended automatically below your message.</p>
+          </div>
+          {status && (
+            <div className="resend-summary">
+              <strong>Invoice {resendModal.invoice_number}</strong> — {status.unpaidCount} unpaid appointment{status.unpaidCount !== 1 ? 's' : ''}, £{status.unpaidTotal?.toFixed(2)} outstanding
+            </div>
+          )}
+        </div>
+        <div className="resend-modal-footer">
+          <button
+            onClick={() => onSend(editor?.getHTML() || '')}
+            disabled={resendLoading}
+            className="resend-send-btn"
+          >
+            {resendLoading ? 'Sending...' : 'Send Reminder'}
+          </button>
+          <button onClick={() => setResendModal(null)} className="resend-cancel-btn">Cancel</button>
+        </div>
+      </div>
     </div>
   );
 }

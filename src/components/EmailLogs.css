@@ -616,6 +616,71 @@
   text-align: center;
 }
 
+/* Remind badge */
+.remind-badge {
+  background: var(--color-warning-light, rgba(245, 158, 11, 0.1));
+  color: #b45309;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.remind-badge:hover {
+  background: rgba(245, 158, 11, 0.25);
+}
+
+/* WYSIWYG editor in resend modal */
+.resend-editor-wrapper {
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.resend-editor-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: #f9fafb;
+}
+
+.resend-editor-toolbar button {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.resend-editor-toolbar button.active {
+  background: #e0e0e0;
+}
+
+.resend-editor-wrapper .tiptap {
+  padding: 10px 12px;
+  min-height: 120px;
+  font-size: 14px;
+  outline: none;
+}
+
+.resend-editor-wrapper .tiptap p {
+  margin: 0 0 8px;
+}
+
+.resend-field-help {
+  font-size: 11px;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 6px 0 0;
+}
+
 .invoice-link {
   color: var(--color-primary, #6366f1);
   text-decoration: none;
