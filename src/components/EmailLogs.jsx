@@ -556,24 +556,20 @@ function EmailLogs() {
                           const status = invoiceStatus[invoiceNum];
                           if (!status) return '-';
                           if (status.paid) return <span className="paid-badge">Paid</span>;
+                          const openReminder = () => {
+                            setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
+                            setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
+                            const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
+                            setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status.unpaidCount).replace(/\{unpaidTotal\}/g, `£${status.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status.location || '').replace(/\{date\}/g, status.date || ''));
+                          };
                           return (
-                            <div className="payment-unpaid">
-                              <span className="unpaid-badge" title={`${status.unpaidCount} of ${status.total} unpaid`}>{status.unpaidCount} unpaid · £{status.unpaidTotal?.toFixed(2)}</span>
-                              {!log.is_followup && (
-                                <button
-                                  className="resend-btn"
-                                  title="Send payment reminder"
-                                  onClick={() => {
-                                    setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
-                                    setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
-                                    const tpl = reminderTemplate || `This is a friendly reminder that Invoice {invoiceNumber} has {unpaidCount} outstanding appointment${status.unpaidCount !== 1 ? 's' : ''} totalling {unpaidTotal}.\n\nA breakdown of the outstanding items is included below.\n\nPlease arrange payment at your earliest convenience.\n\nThank you.`;
-                                    setResendMessage(tpl.replace(/\{invoiceNumber\}/g, invoiceNum).replace(/\{unpaidCount\}/g, status.unpaidCount).replace(/\{unpaidTotal\}/g, `£${status.unpaidTotal?.toFixed(2) || '0.00'}`).replace(/\{location\}/g, status.location || '').replace(/\{date\}/g, status.date || ''));
-                                  }}
-                                >
-                                  <FaRedoAlt /> Remind
-                                </button>
-                              )}
-                            </div>
+                            <span
+                              className={`unpaid-badge ${!log.is_followup ? 'clickable' : ''}`}
+                              title={!log.is_followup ? 'Click to send reminder' : `${status.unpaidCount} of ${status.total} unpaid`}
+                              onClick={!log.is_followup ? openReminder : undefined}
+                            >
+                              {status.unpaidCount} unpaid · £{status.unpaidTotal?.toFixed(2)}
+                            </span>
                           );
                         })()}
                       </td>

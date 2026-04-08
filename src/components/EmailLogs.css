@@ -540,11 +540,21 @@
 .unpaid-badge {
   background: rgba(239, 68, 68, 0.1);
   color: #dc2626;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  display: inline-block;
+}
+
+.unpaid-badge.clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.unpaid-badge.clickable:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .payment-unpaid {
@@ -563,26 +573,6 @@
   text-decoration: underline;
 }
 
-.resend-btn {
-  padding: 5px 12px;
-  background: var(--color-warning-light, rgba(245, 158, 11, 0.1));
-  color: #b45309;
-  border: 1px solid #f59e0b;
-  border-radius: var(--radius-sm, 4px);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  transition: all 0.15s;
-}
-
-.resend-btn:hover {
-  background: #fef3c7;
-  border-color: #d97706;
-}
 
 /* Resend modal */
 .resend-modal-overlay {
