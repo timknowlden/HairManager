@@ -634,8 +634,6 @@ function EmailLogs() {
           resendLoading={resendLoading}
           invoiceStatus={invoiceStatus}
         />
-          </div>
-        </div>
       )}
     </div>
   );
