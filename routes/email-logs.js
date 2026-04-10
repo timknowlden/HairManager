@@ -239,6 +239,7 @@ router.post('/webhook', express.json(), async (req, res) => {
     
     let updatedCount = 0;
     let skippedCount = 0;
+    const debugInfo = [];
 
     // Status hierarchy: higher number = more advanced state
     const statusRank = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 99 };
@@ -288,9 +289,11 @@ router.post('/webhook', express.json(), async (req, res) => {
 
       if (!row) {
         skippedCount++;
+        debugInfo.push({ recipient: recipientEmail, reason: 'no_match', searchedEmailId: emailId });
         console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
         continue;
       }
+      debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus });
 
       // Always store webhook event for audit trail
       db.run(
@@ -329,7 +332,7 @@ router.post('/webhook', express.json(), async (req, res) => {
     }
     
     console.log(`\n[WEBHOOK] Summary: ${updatedCount} updated, ${skippedCount} skipped`);
-    res.status(200).json({ success: true, updated: updatedCount, skipped: skippedCount });
+    res.status(200).json({ success: true, updated: updatedCount, skipped: skippedCount, debug: debugInfo });
   } catch (error) {
     console.error('\n[WEBHOOK] ERROR PROCESSING WEBHOOK:', error.message);
     console.error('[WEBHOOK] Stack:', error.stack);
