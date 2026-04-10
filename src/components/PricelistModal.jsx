@@ -139,34 +139,61 @@ function PricelistModal({ isOpen, onClose, services }) {
       }
     }
 
-    // ── SERVICE CATEGORIES ──
-    const maxNameW = 100; // max width for service name before wrapping (mm)
-    const renderCategory = (catName, catServices) => {
+    // ── SERVICE CATEGORIES — dynamically spaced to fill the page ──
+    const maxNameW = 100;
+    const topMargin = y;
+    const bottomMargin = 15;
+    const usableH = pageH - topMargin - bottomMargin;
+
+    // Count total lines needed (categories + services + wrapped lines)
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    let totalLines = 0;
+    let catCount = 0;
+    CATEGORIES.forEach(cat => {
+      const catServices = grouped[cat];
       if (!catServices || catServices.length === 0) return;
-      if (y + 14 + catServices.length * 9 > pageH - 15) { doc.addPage(); y = 25; }
+      catCount++;
+      totalLines++; // category header
+      catServices.forEach(s => {
+        const nameW = doc.getTextWidth(s.service_name);
+        if (nameW > maxNameW) {
+          totalLines += doc.splitTextToSize(s.service_name, maxNameW).length;
+        } else {
+          totalLines++;
+        }
+      });
+    });
+
+    // Calculate spacing: distribute evenly with extra gap between categories
+    const catGapLines = 1.5; // extra gap per category break
+    const totalSlots = totalLines + (catCount - 1) * catGapLines;
+    const lineH = Math.min(11, Math.max(7, usableH / totalSlots));
+    const catGap = lineH * catGapLines;
+
+    const renderCategory = (catName, catServices, isFirst) => {
+      if (!catServices || catServices.length === 0) return;
+
+      if (!isFirst) y += catGap;
 
       // Category header — small bold teal
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(...teal);
       doc.text(catName.toUpperCase(), marginL, y);
-      y += 7;
+      y += lineH * 0.8;
 
-      // Service rows — large bold name with small teal price
+      // Service rows
       catServices.forEach(s => {
-        if (y > pageH - 15) { doc.addPage(); y = 25; }
-
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.setTextColor(...dark);
 
-        // Wrap long service names
         const nameW = doc.getTextWidth(s.service_name);
         const price = applyPrice(s.price);
         const priceStr = `${pSym}${Number.isInteger(price) ? price : price.toFixed(2)}`;
 
         if (nameW > maxNameW) {
-          // Split into wrapped lines
           const lines = doc.splitTextToSize(s.service_name, maxNameW);
           lines.forEach((line, i) => {
             doc.setFont('helvetica', 'bold');
@@ -174,14 +201,13 @@ function PricelistModal({ isOpen, onClose, services }) {
             doc.setTextColor(...dark);
             doc.text(line, marginL, y);
             if (i === lines.length - 1) {
-              // Price after last line
               const lineW = doc.getTextWidth(line);
               doc.setFont('helvetica', 'normal');
               doc.setFontSize(10);
               doc.setTextColor(...teal);
               doc.text(priceStr, marginL + lineW + 2, y);
             }
-            y += 7;
+            y += lineH;
           });
         } else {
           doc.text(s.service_name, marginL, y);
@@ -189,13 +215,18 @@ function PricelistModal({ isOpen, onClose, services }) {
           doc.setFontSize(10);
           doc.setTextColor(...teal);
           doc.text(priceStr, marginL + nameW + 2, y);
-          y += 8;
+          y += lineH;
         }
       });
-      y += 5;
     };
 
-    CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
+    let isFirst = true;
+    CATEGORIES.forEach(cat => {
+      if (grouped[cat] && grouped[cat].length > 0) {
+        renderCategory(cat, grouped[cat], isFirst);
+        isFirst = false;
+      }
+    });
 
     // ── RIGHT COLUMN: BUSINESS NAME + FEATURE BADGES (Impact font) ──
     let sideY = 28;
@@ -203,20 +234,20 @@ function PricelistModal({ isOpen, onClose, services }) {
     // Business name at top of right column
     doc.setFont(sideFont, sideFontStyle);
     if (bottomLine) {
-      doc.setFontSize(36);
+      doc.setFontSize(42);
       doc.setTextColor(...dark);
       doc.text(topLine, sideColX, sideY);
-      sideY += 12;
+      sideY += 14;
 
-      doc.setFontSize(36);
+      doc.setFontSize(42);
       doc.setTextColor(...teal);
       doc.text(bottomLine, sideColX, sideY);
-      sideY += 16;
+      sideY += 20;
     } else {
-      doc.setFontSize(36);
+      doc.setFontSize(42);
       doc.setTextColor(...dark);
       doc.text(topLine, sideColX, sideY);
-      sideY += 16;
+      sideY += 20;
     }
 
     const badges = [
@@ -230,42 +261,42 @@ function PricelistModal({ isOpen, onClose, services }) {
     doc.setFont(sideFont, sideFontStyle);
     badges.forEach(badge => {
       const lines = badge.split('\n');
-      doc.setFontSize(18);
+      doc.setFontSize(22);
       doc.setTextColor(...dark);
       lines.forEach(line => {
         doc.text(line, sideColX, sideY);
-        sideY += 8;
+        sideY += 9;
       });
-      sideY += 10;
+      sideY += 12;
     });
 
     // ── BOOKING ──
     sideY += 6;
     doc.setFont(sideFont, sideFontStyle);
-    doc.setFontSize(18);
+    doc.setFontSize(22);
     doc.setTextColor(...dark);
     doc.text('BOOKING', sideColX, sideY);
-    sideY += 8;
+    sideY += 9;
     doc.setFont(sideFont, sideFontStyle);
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setTextColor(...teal);
     const website = profile?.website || 'KATESCUTS.CO.UK';
     doc.text(website.toUpperCase(), sideColX, sideY);
-    sideY += 14;
+    sideY += 16;
 
     // ── GET IN TOUCH ──
     doc.setFont(sideFont, sideFontStyle);
-    doc.setFontSize(18);
+    doc.setFontSize(22);
     doc.setTextColor(...teal);
     doc.text('GET IN', sideColX, sideY);
-    sideY += 8;
+    sideY += 9;
     doc.text('TOUCH', sideColX, sideY);
-    sideY += 10;
+    sideY += 12;
     doc.setFont(sideFont, sideFontStyle);
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setTextColor(...dark);
-    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 6; }
-    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 6; }
+    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 7; }
+    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 7; }
 
     // Price offset note
     const offset = parseFloat(priceOffset) || 0;
