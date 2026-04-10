@@ -18,6 +18,20 @@ function PricelistModal({ isOpen, onClose, services }) {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [impactFont, setImpactFont] = useState(null);
+
+  // Load Impact font for PDF generation
+  useEffect(() => {
+    fetch('/fonts/Impact.ttf')
+      .then(r => r.arrayBuffer())
+      .then(buf => {
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        setImpactFont(btoa(binary));
+      })
+      .catch(() => {}); // falls back to helvetica bold
+  }, []);
 
   // Fetch profile when modal opens
   useEffect(() => {
@@ -79,12 +93,28 @@ function PricelistModal({ isOpen, onClose, services }) {
   const generatePDF = useCallback(() => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const pageH = 297;
+    const pageW = 210;
     const marginL = 18;
     const sideColX = 140; // where the right column starts
+    const borderX = 133; // double vertical border position
     const teal = [76, 175, 147]; // accent colour from template
     const dark = [51, 51, 51];
     const pSym = profile?.currency === 'USD' ? '$' : profile?.currency === 'EUR' ? '\u20AC' : '\u00A3';
     const businessName = profile?.business_name || 'Pricelist';
+
+    // Register Impact font if loaded
+    if (impactFont) {
+      doc.addFileToVFS('Impact.ttf', impactFont);
+      doc.addFont('Impact.ttf', 'Impact', 'normal');
+    }
+    const sideFont = impactFont ? 'Impact' : 'helvetica';
+    const sideFontStyle = impactFont ? 'normal' : 'bold';
+
+    // ── DOUBLE VERTICAL BORDER between columns ──
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.4);
+    doc.line(borderX, 10, borderX, pageH - 10);
+    doc.line(borderX + 2, 10, borderX + 2, pageH - 10);
 
     let y = 20;
 
@@ -167,11 +197,11 @@ function PricelistModal({ isOpen, onClose, services }) {
 
     CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
 
-    // ── RIGHT COLUMN: BUSINESS NAME + FEATURE BADGES ──
+    // ── RIGHT COLUMN: BUSINESS NAME + FEATURE BADGES (Impact font) ──
     let sideY = 28;
 
     // Business name at top of right column
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(sideFont, sideFontStyle);
     if (bottomLine) {
       doc.setFontSize(36);
       doc.setTextColor(...dark);
@@ -197,7 +227,7 @@ function PricelistModal({ isOpen, onClose, services }) {
       'YEARS OF\nEXPERIENCE',
     ];
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(sideFont, sideFontStyle);
     badges.forEach(badge => {
       const lines = badge.split('\n');
       doc.setFontSize(18);
@@ -211,12 +241,12 @@ function PricelistModal({ isOpen, onClose, services }) {
 
     // ── BOOKING ──
     sideY += 6;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(18);
     doc.setTextColor(...dark);
     doc.text('BOOKING', sideColX, sideY);
     sideY += 8;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(9);
     doc.setTextColor(...teal);
     const website = profile?.website || 'KATESCUTS.CO.UK';
@@ -224,14 +254,14 @@ function PricelistModal({ isOpen, onClose, services }) {
     sideY += 14;
 
     // ── GET IN TOUCH ──
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(18);
     doc.setTextColor(...teal);
     doc.text('GET IN', sideColX, sideY);
     sideY += 8;
     doc.text('TOUCH', sideColX, sideY);
     sideY += 10;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(10);
     doc.setTextColor(...dark);
     if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 6; }
@@ -246,7 +276,7 @@ function PricelistModal({ isOpen, onClose, services }) {
     }
 
     return doc;
-  }, [grouped, profile, priceOffset]);
+  }, [grouped, profile, priceOffset, impactFont]);
 
   // Preview
   const handlePreview = () => {
