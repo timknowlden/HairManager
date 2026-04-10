@@ -75,125 +75,140 @@ function PricelistModal({ isOpen, onClose, services }) {
 
   const sym = profile?.currency === 'USD' ? '$' : profile?.currency === 'EUR' ? '\u20AC' : '\u00A3';
 
-  // --- PDF Generation ---
+  // --- PDF Generation (matches Kate's Cuts template) ---
   const generatePDF = useCallback(() => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const pageW = 210;
     const pageH = 297;
-    const marginL = 20;
-    const mainColW = 105;
-    const sideColX = 140;
-    const sideColW = 50;
+    const marginL = 18;
+    const priceListW = 115; // width of the services column
+    const sideColX = 142; // where the right column starts
+    const sideColW = 52;
+    const teal = [76, 175, 147]; // accent colour from template
+    const dark = [51, 51, 51];
     const pSym = profile?.currency === 'USD' ? '$' : profile?.currency === 'EUR' ? '\u20AC' : '\u00A3';
     const businessName = profile?.business_name || 'Pricelist';
-    const description = profile?.business_service_description || '';
 
-    let y = 30;
+    let y = 28;
 
-    // Business name - two-tone style
+    // ── BUSINESS NAME (large, stacked, two-tone like the template) ──
+    const nameParts = businessName.toUpperCase().split(/[\s']+/).filter(Boolean);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(36);
-    const nameParts = businessName.toUpperCase().split(' ');
+
     if (nameParts.length >= 2) {
-      doc.setTextColor(51, 51, 51);
-      doc.text(nameParts[0], marginL, y);
-      const firstW = doc.getTextWidth(nameParts[0] + ' ');
-      doc.setTextColor(76, 175, 147);
-      doc.text(nameParts.slice(1).join(' '), marginL + firstW, y);
+      // First word(s) in black, last word in teal — large stacked layout
+      const topLine = nameParts.length > 2 ? nameParts.slice(0, -1).join("'") : nameParts[0] + "'S";
+      const bottomLine = nameParts[nameParts.length - 1];
+
+      doc.setFontSize(52);
+      doc.setTextColor(...dark);
+      doc.text(topLine, marginL, y);
+      y += 16;
+
+      doc.setFontSize(52);
+      doc.setTextColor(...teal);
+      doc.text(bottomLine, marginL, y);
+      y += 18;
     } else {
-      doc.setTextColor(51, 51, 51);
+      doc.setFontSize(48);
+      doc.setTextColor(...dark);
       doc.text(businessName.toUpperCase(), marginL, y);
-    }
-    y += 12;
-
-    // Description
-    if (description) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(107, 114, 128);
-      doc.text(description, marginL, y);
-      y += 10;
+      y += 20;
     }
 
-    // Divider
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.line(marginL, y, marginL + mainColW, y);
-    y += 8;
-
-    // Render service categories
+    // ── SERVICE CATEGORIES ──
     const renderCategory = (catName, catServices) => {
       if (!catServices || catServices.length === 0) return;
-      if (y + 12 + catServices.length * 8 > pageH - 30) { doc.addPage(); y = 25; }
+      if (y + 14 + catServices.length * 9 > pageH - 20) { doc.addPage(); y = 25; }
 
+      // Category header
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(76, 175, 147);
+      doc.setFontSize(14);
+      doc.setTextColor(...teal);
       doc.text(catName.toUpperCase(), marginL, y);
-      y += 2;
-      doc.setDrawColor(76, 175, 147);
-      doc.setLineWidth(0.8);
-      doc.line(marginL, y, marginL + 30, y);
-      y += 7;
+      y += 6;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
+      // Service rows — bold name, subscript-style price
       catServices.forEach(s => {
-        if (y > pageH - 25) { doc.addPage(); y = 25; }
-        doc.setTextColor(51, 51, 51);
-        doc.text(s.service_name, marginL + 2, y);
-        const priceStr = `${pSym}${applyPrice(s.price).toFixed(2)}`;
-        doc.setTextColor(100, 100, 100);
-        doc.text(priceStr, marginL + mainColW - 5, y, { align: 'right' });
-        y += 7.5;
+        if (y > pageH - 20) { doc.addPage(); y = 25; }
+
+        // Service name in bold black
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(...dark);
+        doc.text(s.service_name, marginL, y);
+
+        // Price in smaller teal, positioned after the name
+        const nameW = doc.getTextWidth(s.service_name);
+        const price = applyPrice(s.price);
+        const priceStr = `${pSym}${Number.isInteger(price) ? price : price.toFixed(2)}`;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(...teal);
+        doc.text(priceStr, marginL + nameW + 2, y);
+
+        y += 8;
       });
-      y += 5;
+      y += 6;
     };
 
     CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
 
-    // Sidebar badges
-    let sideY = 45;
-    const badges = ['FULLY QUALIFIED', 'MOBILE SERVICE', 'FULLY INSURED', 'FRIENDLY SERVICE', 'YEARS OF EXPERIENCE'];
+    // ── RIGHT COLUMN: FEATURE BADGES ──
+    let sideY = 30;
+    const badges = [
+      'FULLY\nQUALIFIED\nHAIR STYLIST\nAND NAIL\nTECHNICIAN',
+      'MOBILE\nSERVICE',
+      'FULLY\nINSURED',
+      'FRIENDLY\nSERVICE',
+      'YEARS OF\nEXPERIENCE',
+    ];
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
     badges.forEach(badge => {
-      doc.setTextColor(51, 51, 51);
-      const lines = doc.splitTextToSize(badge, sideColW);
-      lines.forEach(line => { doc.text(line, sideColX, sideY); sideY += 6; });
+      const lines = badge.split('\n');
+      doc.setFontSize(14);
+      doc.setTextColor(...dark);
+      lines.forEach(line => {
+        doc.text(line, sideColX, sideY);
+        sideY += 6;
+      });
       sideY += 8;
     });
 
-    // Booking
-    sideY += 5;
-    doc.setFontSize(12);
-    doc.setTextColor(76, 175, 147);
-    doc.text('BOOKING', sideColX, sideY);
-    sideY += 7;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(80, 80, 80);
-    if (profile?.website) { doc.text(profile.website.toUpperCase(), sideColX, sideY); sideY += 6; }
-
-    // Contact
-    sideY += 5;
+    // ── BOOKING ──
+    sideY += 4;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(76, 175, 147);
-    doc.text('GET IN TOUCH', sideColX, sideY);
-    sideY += 7;
+    doc.setFontSize(14);
+    doc.setTextColor(...dark);
+    doc.text('BOOKING', sideColX, sideY);
+    sideY += 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.setTextColor(80, 80, 80);
-    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 6; }
-    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 6; }
+    doc.setTextColor(...teal);
+    const website = profile?.website || 'KATESCUTS.CO.UK';
+    doc.text(website.toUpperCase(), sideColX, sideY);
+    sideY += 12;
+
+    // ── GET IN TOUCH ──
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...teal);
+    doc.text('GET IN', sideColX, sideY);
+    sideY += 6;
+    doc.text('TOUCH', sideColX, sideY);
+    sideY += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...dark);
+    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 5; }
+    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 5; }
 
     // Price offset note
     const offset = parseFloat(priceOffset) || 0;
     if (offset !== 0) {
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setTextColor(150, 150, 150);
-      doc.text(`* Prices include ${offset > 0 ? '+' : ''}${pSym}${offset.toFixed(2)} adjustment`, marginL, pageH - 15);
+      doc.text(`* Prices include ${offset > 0 ? '+' : ''}${pSym}${offset.toFixed(2)} adjustment`, marginL, pageH - 12);
     }
 
     return doc;
