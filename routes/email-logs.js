@@ -316,18 +316,39 @@ router.post('/webhook', express.json(), async (req, res) => {
       });
 
       // Apply the update
-      const updated = await new Promise((resolve) => {
+      const updateResult = await new Promise((resolve) => {
+        const params = [logStatus, errorMsg, now, eventJson, row.id];
+        console.log(`[WEBHOOK] Running UPDATE with params:`, JSON.stringify(params));
         db.run(
           `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ? WHERE id = ?`,
-          [logStatus, errorMsg, now, eventJson, row.id],
+          params,
           function(err) {
-            if (err) { console.error('[WEBHOOK] Error updating:', err); resolve(false); }
-            else { console.log(`[WEBHOOK] Updated log ${row.id}: ${row.status} -> ${logStatus}`); resolve(this.changes > 0); }
+            if (err) {
+              console.error('[WEBHOOK] UPDATE error:', err.message, err.code);
+              resolve({ ok: false, error: err.message });
+            } else {
+              console.log(`[WEBHOOK] UPDATE result: changes=${this.changes}, lastID=${this.lastID}`);
+              resolve({ ok: this.changes > 0, changes: this.changes });
+            }
           }
         );
       });
 
-      debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus, action: updated ? 'updated' : 'update_failed', currentRank, newRank });
+      // If UPDATE reported 0 changes, verify the row exists
+      let verifyStatus = null;
+      if (!updateResult.ok) {
+        const verifyRow = await new Promise((resolve) => {
+          db.get(`SELECT id, status, user_id FROM email_logs WHERE id = ?`, [row.id], (err, r) => resolve(r || null));
+        });
+        verifyStatus = verifyRow ? verifyRow.status : 'ROW_NOT_FOUND';
+      }
+
+      debugInfo.push({
+        recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus,
+        action: updateResult.ok ? 'updated' : 'update_failed', currentRank, newRank,
+        updateChanges: updateResult.changes, updateError: updateResult.error || null, verifyStatus
+      });
+      const updated = updateResult.ok;
       if (updated) updatedCount++;
       else skippedCount++;
     }
