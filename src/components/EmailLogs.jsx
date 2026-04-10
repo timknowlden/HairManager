@@ -500,8 +500,10 @@ function EmailLogs() {
                 const { invoiceNum, logs: groupLogs, latestLog } = group;
                 const isGroupExpanded = expandedInvoices.has(invoiceNum);
                 const status = invoiceStatus[invoiceNum];
-                const statuses = groupLogs.map(l => l.status);
-                const worstStatus = statuses.includes('failed') ? 'failed' : statuses.includes('pending') ? 'pending' : statuses.includes('sent') ? 'sent' : statuses.includes('delivered') ? 'delivered' : statuses.includes('opened') ? 'opened' : 'sent';
+                const bestStatus = groupLogs.reduce((best, l) => {
+                  const rank = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': -1 };
+                  return (rank[l.status] || 0) > (rank[best] || 0) ? l.status : best;
+                }, groupLogs[0]?.status || 'sent');
 
                 const openReminder = () => {
                   // Collect all unique recipients
@@ -527,7 +529,7 @@ function EmailLogs() {
                       <td className="recipient-cell">{latestLog.recipient_email}</td>
                       <td className="subject-cell">{latestLog.subject || '-'}</td>
                       <td>
-                        <span className="status-badge" style={{ backgroundColor: getStatusColor(worstStatus) }}>{worstStatus}</span>
+                        <span className="status-badge" style={{ backgroundColor: getStatusColor(bestStatus) }}>{bestStatus}</span>
                       </td>
                       <td>{formatDate(latestLog.sent_at)}</td>
                       <td>{formatDate(latestLog.updated_at)}</td>
