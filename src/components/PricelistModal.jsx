@@ -86,24 +86,20 @@ function PricelistModal({ isOpen, onClose, services }) {
     const pSym = profile?.currency === 'USD' ? '$' : profile?.currency === 'EUR' ? '\u20AC' : '\u00A3';
     const businessName = profile?.business_name || 'Pricelist';
 
-    let y = 35;
+    let y = 20;
 
-    // ── BUSINESS NAME (huge, stacked, two-tone like the template) ──
+    // ── BUSINESS NAME — rendered in the right column ──
     // Split business name into two lines for stacked display.
-    // Handles: "Kate's Cuts", "KatesCuts", "KatesCut", "HairByJane", single words
     let topLine, bottomLine;
     const spaceWords = businessName.trim().split(/\s+/);
     if (spaceWords.length >= 2) {
-      // Has spaces: e.g. "Kate's Cuts" → "KATE'S" / "CUTS"
       topLine = spaceWords.slice(0, -1).join(' ').toUpperCase();
       bottomLine = spaceWords[spaceWords.length - 1].toUpperCase();
     } else {
-      // Single word — split on camelCase boundary: "KatesCuts" → "Kates" / "Cuts"
       const camelParts = businessName.split(/(?=[A-Z])/).filter(Boolean);
       if (camelParts.length >= 2) {
         topLine = camelParts.slice(0, -1).join('').toUpperCase();
         bottomLine = camelParts[camelParts.length - 1].toUpperCase();
-        // Add apostrophe if top line looks like a possessive (ends in S)
         if (topLine.endsWith('S') && !topLine.endsWith("'S")) {
           topLine = topLine.slice(0, -1) + "'S";
         }
@@ -111,25 +107,6 @@ function PricelistModal({ isOpen, onClose, services }) {
         topLine = businessName.toUpperCase();
         bottomLine = null;
       }
-    }
-
-    doc.setFont('helvetica', 'bold');
-
-    if (bottomLine) {
-      doc.setFontSize(72);
-      doc.setTextColor(...dark);
-      doc.text(topLine, marginL, y);
-      y += 22;
-
-      doc.setFontSize(72);
-      doc.setTextColor(...teal);
-      doc.text(bottomLine, marginL, y);
-      y += 28;
-    } else {
-      doc.setFontSize(72);
-      doc.setTextColor(...dark);
-      doc.text(topLine, marginL, y);
-      y += 28;
     }
 
     // ── SERVICE CATEGORIES ──
@@ -170,8 +147,28 @@ function PricelistModal({ isOpen, onClose, services }) {
 
     CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
 
-    // ── RIGHT COLUMN: FEATURE BADGES ──
-    let sideY = 38;
+    // ── RIGHT COLUMN: BUSINESS NAME + FEATURE BADGES ──
+    let sideY = 28;
+
+    // Business name at top of right column
+    doc.setFont('helvetica', 'bold');
+    if (bottomLine) {
+      doc.setFontSize(36);
+      doc.setTextColor(...dark);
+      doc.text(topLine, sideColX, sideY);
+      sideY += 12;
+
+      doc.setFontSize(36);
+      doc.setTextColor(...teal);
+      doc.text(bottomLine, sideColX, sideY);
+      sideY += 16;
+    } else {
+      doc.setFontSize(36);
+      doc.setTextColor(...dark);
+      doc.text(topLine, sideColX, sideY);
+      sideY += 16;
+    }
+
     const badges = [
       'FULLY\nQUALIFIED\nHAIR STYLIST\nAND NAIL\nTECHNICIAN',
       'MOBILE\nSERVICE',
