@@ -293,27 +293,27 @@ router.post('/webhook', express.json(), async (req, res) => {
         console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
         continue;
       }
-      debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus });
-
-      // Always store webhook event for audit trail
-      db.run(
-        `INSERT INTO webhook_events
-         (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [row.id, row.user_id, eventType, emailId, null, eventJson, webhookReceivedAt, null],
-        (err) => { if (err) console.error('[WEBHOOK] Error storing webhook event:', err); }
-      );
-
       // Check if this update would advance the status
       const currentRank = statusRank[row.status] ?? 0;
       const newRank = statusRank[logStatus] ?? 0;
 
       // Only update if new status is higher, or if it's a failure (overrides everything)
       if (newRank <= currentRank && logStatus !== 'failed') {
-        console.log(`[WEBHOOK] Skipping - "${row.status}" (${currentRank}) >= "${logStatus}" (${newRank})`);
+        debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus, action: 'skipped_hierarchy', currentRank, newRank });
         skippedCount++;
         continue;
       }
+
+      // Store webhook event for audit trail (await to avoid SQLite lock)
+      await new Promise((resolve) => {
+        db.run(
+          `INSERT INTO webhook_events
+           (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [row.id, row.user_id, eventType, emailId, null, eventJson, webhookReceivedAt, null],
+          (err) => { if (err) console.error('[WEBHOOK] Error storing webhook event:', err); resolve(); }
+        );
+      });
 
       // Apply the update
       const updated = await new Promise((resolve) => {
@@ -327,6 +327,7 @@ router.post('/webhook', express.json(), async (req, res) => {
         );
       });
 
+      debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus, action: updated ? 'updated' : 'update_failed', currentRank, newRank });
       if (updated) updatedCount++;
       else skippedCount++;
     }
