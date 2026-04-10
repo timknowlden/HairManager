@@ -418,6 +418,16 @@ Hair wash 	Hair	£5.00`;
     return <div className="loading">Loading services...</div>;
   }
 
+  if (showPricelist) {
+    return (
+      <PricelistModal
+        isOpen={true}
+        onClose={() => setShowPricelist(false)}
+        services={services}
+      />
+    );
+  }
+
   return (
     <div className="services-manager">
       <div className="services-header">
@@ -691,11 +701,6 @@ Hair wash 	Hair	£5.00`;
         </table>
       </div>
 
-      <PricelistModal
-        isOpen={showPricelist}
-        onClose={() => setShowPricelist(false)}
-        services={services}
-      />
     </div>
   );
 }
