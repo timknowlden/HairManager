@@ -242,12 +242,12 @@ function PricelistModal({ isOpen, onClose, services }) {
       doc.setFontSize(42);
       doc.setTextColor(...teal);
       doc.text(bottomLine, sideColX, sideY);
-      sideY += 14;
+      sideY += 16;
     } else {
       doc.setFontSize(42);
       doc.setTextColor(...dark);
       doc.text(topLine, sideColX, sideY);
-      sideY += 14;
+      sideY += 16;
     }
 
     const badges = [
@@ -267,7 +267,7 @@ function PricelistModal({ isOpen, onClose, services }) {
         doc.text(line, sideColX, sideY);
         sideY += 8;
       });
-      sideY += 5;
+      sideY += 8;
     });
 
     // ── BOOKING ──
@@ -281,7 +281,7 @@ function PricelistModal({ isOpen, onClose, services }) {
     doc.setTextColor(...teal);
     const website = profile?.website || 'KATESCUTS.CO.UK';
     doc.text(website.toUpperCase(), sideColX, sideY);
-    sideY += 8;
+    sideY += 10;
 
     // ── GET IN TOUCH ──
     doc.setFont(sideFont, sideFontStyle);
@@ -290,7 +290,7 @@ function PricelistModal({ isOpen, onClose, services }) {
     doc.text('GET IN', sideColX, sideY);
     sideY += 8;
     doc.text('TOUCH', sideColX, sideY);
-    sideY += 8;
+    sideY += 10;
     doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(11);
     doc.setTextColor(...dark);
