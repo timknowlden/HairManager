@@ -906,6 +906,7 @@ router.post('/resend-unpaid', async (req, res) => {
     const apiKey = settings?.email_relay_api_key || process.env.RESEND_API_KEY;
     const fromEmail = settings?.email_relay_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@hairmanager.app';
     const fromName = settings?.email_relay_from_name || settings?.business_name || 'HairManager';
+    const replyTo = settings?.email_relay_reply_to || fromEmail;
 
     if (!apiKey) return res.status(400).json({ error: 'Email not configured' });
 
@@ -965,10 +966,15 @@ router.post('/resend-unpaid', async (req, res) => {
       messageHtml = `This is a reminder that the following items from Invoice ${invoice_number} remain unpaid.`;
     }
 
+    const signatureHtml = settings?.signature_on_reminder !== 0 && settings?.email_signature
+      ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">${settings.email_signature}</div>`
+      : '';
+
     const emailBody = `
       <div style="font-family: sans-serif; max-width: 600px;">
         <div>${messageHtml}</div>
         ${itemsTable}
+        ${signatureHtml}
       </div>
     `;
 
@@ -977,9 +983,13 @@ router.post('/resend-unpaid', async (req, res) => {
     // Build email payload
     const emailPayload = {
       from: `${fromName} <${fromEmail}>`,
+      reply_to: replyTo,
       to: toEmails,
       subject: emailSubject,
-      html: emailBody
+      html: emailBody,
+      headers: {
+        'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+      }
     };
 
     // Generate PDF invoice for unpaid items

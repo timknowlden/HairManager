@@ -351,6 +351,12 @@ function migrateDatabase(customDbPath = null) {
             if (!adminColumnNames.includes('email_relay_reply_to')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_reply_to TEXT'));
             }
+            if (!adminColumnNames.includes('signature_on_invoice')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN signature_on_invoice INTEGER DEFAULT 1'));
+            }
+            if (!adminColumnNames.includes('signature_on_reminder')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN signature_on_reminder INTEGER DEFAULT 1'));
+            }
             if (!adminColumnNames.includes('email_relay_bcc_enabled')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_bcc_enabled INTEGER DEFAULT 0'));
             }
@@ -556,6 +562,12 @@ function migrateDatabase(customDbPath = null) {
             }
             if (!adminColumnNames.includes('email_relay_reply_to')) {
               migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN email_relay_reply_to TEXT'));
+            }
+            if (!adminColumnNames.includes('signature_on_invoice')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN signature_on_invoice INTEGER DEFAULT 1'));
+            }
+            if (!adminColumnNames.includes('signature_on_reminder')) {
+              migrations.push(runAsync(db, 'ALTER TABLE admin_settings ADD COLUMN signature_on_reminder INTEGER DEFAULT 1'));
             }
 
             // Add user_id to admin_settings if it doesn't exist

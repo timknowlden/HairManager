@@ -913,10 +913,9 @@ function Invoice({ appointments: propsAppointments, onBack }) {
           console.log('=== END EMAIL BODY REPLACEMENT DEBUG ===');
         }
         
-        // Append signature if configured
-        if (profileSettings.email_signature && profileSettings.email_signature.trim()) {
-          // If email body is HTML (contains HTML tags), append signature as HTML
-          // Otherwise append as plain text with line breaks
+        // Append signature if configured and enabled for invoices
+        if (profileSettings.signature_on_invoice !== false && profileSettings.signature_on_invoice !== 0
+            && profileSettings.email_signature && profileSettings.email_signature.trim()) {
           const isHtml = emailBody.includes('<') && emailBody.includes('>');
           if (isHtml) {
             emailBody += '<br><br>' + profileSettings.email_signature.trim();

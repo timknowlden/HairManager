@@ -123,6 +123,8 @@ function AdminManager({ onSettingsSaved }) {
     email_relay_bcc_enabled: false,
     email_subject: '',
     email_signature: '',
+    signature_on_invoice: true,
+    signature_on_reminder: true,
     default_email_content: '',
     reminder_email_template: '',
     ai_provider: '',
@@ -212,6 +214,8 @@ function AdminManager({ onSettingsSaved }) {
         email_relay_reply_to: data.email_relay_reply_to || '',
         email_subject: data.email_subject || '',
         email_signature: data.email_signature || '',
+        signature_on_invoice: data.signature_on_invoice !== 0 && data.signature_on_invoice !== false,
+        signature_on_reminder: data.signature_on_reminder !== 0 && data.signature_on_reminder !== false,
         default_email_content: data.default_email_content || '',
         reminder_email_template: data.reminder_email_template || '',
         ai_provider: data.ai_provider || '',
@@ -1546,27 +1550,7 @@ function AdminManager({ onSettingsSaved }) {
 
               <div className="form-row">
                 <div className="form-group full-width">
-                  <label htmlFor="default_email_content">Default Email Content</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    <input
-                      type="checkbox"
-                      id="email_relay_bcc_enabled"
-                      name="email_relay_bcc_enabled"
-                      checked={formData.email_relay_bcc_enabled || false}
-                      onChange={(e) => handleInputChange({ target: { name: 'email_relay_bcc_enabled', value: e.target.checked } })}
-                      style={{ width: '18px', height: '18px', cursor: 'pointer', margin: '0' }}
-                    />
-                    <span style={{ fontSize: '14px', color: '#333' }}>Enable this option</span>
-                  </div>
-                  <p className="field-help">
-                    When enabled, a copy of every invoice email will be sent to your "From Email Address" above
-                  </p>
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group full-width">
-                  <label htmlFor="default_email_content">Default Email Content</label>
+                  <label htmlFor="default_email_content">Invoice Email Content</label>
                   {defaultContentEditor && (
                     <>
                       <div style={{ 
@@ -1650,91 +1634,6 @@ function AdminManager({ onSettingsSaved }) {
               
               <div className="form-row">
                 <div className="form-group full-width">
-                  <label htmlFor="email_signature">Email Signature</label>
-                  {signatureEditor && (
-                    <>
-                      <div style={{ 
-                        border: '1px solid #ddd', 
-                        borderRadius: '4px', 
-                        padding: '8px',
-                        backgroundColor: 'white',
-                        minHeight: '200px'
-                      }}>
-                        <div style={{ 
-                          borderBottom: '1px solid #eee', 
-                          paddingBottom: '8px', 
-                          marginBottom: '8px',
-                          display: 'flex',
-                          gap: '4px',
-                          flexWrap: 'wrap'
-                        }}>
-                          <button
-                            type="button"
-                            onClick={() => signatureEditor.chain().focus().toggleBold().run()}
-                            style={{
-                              padding: '4px 8px',
-                              border: '1px solid #ccc',
-                              borderRadius: '3px',
-                              backgroundColor: signatureEditor.isActive('bold') ? '#e0e0e0' : 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <strong>B</strong>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => signatureEditor.chain().focus().toggleItalic().run()}
-                            style={{
-                              padding: '4px 8px',
-                              border: '1px solid #ccc',
-                              borderRadius: '3px',
-                              backgroundColor: signatureEditor.isActive('italic') ? '#e0e0e0' : 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <em>I</em>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => signatureEditor.chain().focus().toggleBulletList().run()}
-                            style={{
-                              padding: '4px 8px',
-                              border: '1px solid #ccc',
-                              borderRadius: '3px',
-                              backgroundColor: signatureEditor.isActive('bulletList') ? '#e0e0e0' : 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            •
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => signatureEditor.chain().focus().toggleOrderedList().run()}
-                            style={{
-                              padding: '4px 8px',
-                              border: '1px solid #ccc',
-                              borderRadius: '3px',
-                              backgroundColor: signatureEditor.isActive('orderedList') ? '#e0e0e0' : 'white',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            1.
-                          </button>
-                        </div>
-                        <EditorContent editor={signatureEditor} style={{ minHeight: '150px' }} />
-                      </div>
-                    </>
-                  )}
-                  <p className="field-help">
-                    This will be automatically appended to all invoice emails. 
-                    You can format text, add lists, and paste your existing HTML signature.
-                    Available variables: {'{invoiceNumber}'}, {'{visitDate}'}, {'{businessName}'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group full-width">
                   <label htmlFor="email_relay_bcc_enabled" style={{ display: 'block', marginBottom: '8px' }}>
                     Include sender email in BCC/CC for all invoice emails
                   </label>
@@ -1800,6 +1699,118 @@ function AdminManager({ onSettingsSaved }) {
                     Default message for payment reminder emails. The unpaid items table is always appended automatically.<br />
                     Available variables: {'{invoiceNumber}'}, {'{unpaidCount}'}, {'{unpaidTotal}'}, {'{location}'}, {'{date}'}, {'{businessName}'}
                   </p>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="email_signature">Email Signature</label>
+                  {signatureEditor && (
+                    <>
+                      <div style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        padding: '8px',
+                        backgroundColor: 'white',
+                        minHeight: '200px'
+                      }}>
+                        <div style={{
+                          borderBottom: '1px solid #eee',
+                          paddingBottom: '8px',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          gap: '4px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => signatureEditor.chain().focus().toggleBold().run()}
+                            style={{
+                              padding: '4px 8px',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              backgroundColor: signatureEditor.isActive('bold') ? '#e0e0e0' : 'white',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <strong>B</strong>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => signatureEditor.chain().focus().toggleItalic().run()}
+                            style={{
+                              padding: '4px 8px',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              backgroundColor: signatureEditor.isActive('italic') ? '#e0e0e0' : 'white',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <em>I</em>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => signatureEditor.chain().focus().toggleBulletList().run()}
+                            style={{
+                              padding: '4px 8px',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              backgroundColor: signatureEditor.isActive('bulletList') ? '#e0e0e0' : 'white',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            •
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => signatureEditor.chain().focus().toggleOrderedList().run()}
+                            style={{
+                              padding: '4px 8px',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              backgroundColor: signatureEditor.isActive('orderedList') ? '#e0e0e0' : 'white',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            1.
+                          </button>
+                        </div>
+                        <EditorContent editor={signatureEditor} style={{ minHeight: '150px' }} />
+                      </div>
+                    </>
+                  )}
+                  <p className="field-help">
+                    You can format text, add lists, and paste your existing HTML signature.
+                    Available variables: {'{invoiceNumber}'}, {'{visitDate}'}, {'{businessName}'}
+                  </p>
+                  <div style={{ display: 'flex', gap: '24px', marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        id="signature_on_invoice"
+                        name="signature_on_invoice"
+                        checked={formData.signature_on_invoice || false}
+                        onChange={(e) => handleInputChange({ target: { name: 'signature_on_invoice', value: e.target.checked } })}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer', margin: '0' }}
+                      />
+                      <label htmlFor="signature_on_invoice" style={{ fontSize: '14px', color: '#333', margin: 0, cursor: 'pointer' }}>
+                        Include on invoice emails
+                      </label>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        id="signature_on_reminder"
+                        name="signature_on_reminder"
+                        checked={formData.signature_on_reminder || false}
+                        onChange={(e) => handleInputChange({ target: { name: 'signature_on_reminder', value: e.target.checked } })}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer', margin: '0' }}
+                      />
+                      <label htmlFor="signature_on_reminder" style={{ fontSize: '14px', color: '#333', margin: 0, cursor: 'pointer' }}>
+                        Include on reminder emails
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
