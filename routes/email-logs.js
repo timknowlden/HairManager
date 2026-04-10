@@ -239,168 +239,93 @@ router.post('/webhook', express.json(), async (req, res) => {
     
     let updatedCount = 0;
     let skippedCount = 0;
-    
-    // Process each recipient
-    for (const recipientEmail of toEmails) {
-      // Check current status to respect hierarchy
-      const currentRow = await new Promise((resolve) => {
+
+    // Status hierarchy: higher number = more advanced state
+    const statusRank = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 99 };
+
+    // Find matching email log rows - try by message ID first, then by message ID + recipient
+    const findRows = (recipientEmail) => {
+      return new Promise((resolve) => {
+        // Try exact match first (message ID + recipient)
         db.get(
-          `SELECT id, status, user_id FROM email_logs 
-           WHERE sendgrid_message_id = ? AND recipient_email = ?
-           LIMIT 1`,
+          `SELECT id, status, user_id FROM email_logs
+           WHERE sendgrid_message_id = ? AND recipient_email = ? LIMIT 1`,
           [emailId, recipientEmail],
           (err, row) => {
-            if (err) {
-              console.error('[WEBHOOK] Error checking current status:', err);
-              resolve(null);
-            } else {
-              resolve(row);
-            }
+            if (err || row) return resolve(err ? null : row);
+            // Fallback: match by message ID only
+            db.get(
+              `SELECT id, status, user_id FROM email_logs
+               WHERE sendgrid_message_id = ? LIMIT 1`,
+              [emailId],
+              (err2, row2) => {
+                if (err2 || row2) return resolve(err2 ? null : row2);
+                // Last resort: match by recipient + recent timestamp (within 5 min)
+                db.get(
+                  `SELECT id, status, user_id FROM email_logs
+                   WHERE recipient_email = ? AND sent_at > datetime('now', '-5 minutes')
+                   ORDER BY sent_at DESC LIMIT 1`,
+                  [recipientEmail],
+                  (err3, row3) => resolve(err3 ? null : row3)
+                );
+              }
+            );
           }
         );
       });
-      
-      if (!currentRow) {
-        // Try matching by just the email_id (message ID) without recipient
-        const fallbackRow = await new Promise((resolve) => {
-          db.get(
-            `SELECT id, status, user_id FROM email_logs 
-             WHERE sendgrid_message_id = ?
-             LIMIT 1`,
-            [emailId],
-            (err, row) => {
-              if (err) {
-                console.error('[WEBHOOK] Error in fallback lookup:', err);
-                resolve(null);
-              } else {
-                resolve(row);
-              }
-            }
-          );
-        });
-        
-        if (!fallbackRow) {
-          skippedCount++;
-          console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
-          continue;
-        }
-        
-        // Use fallback row
-        await processStatusUpdate(db, fallbackRow, logStatus, errorMsg, now, eventJson, emailId, webhookReceivedAt, eventType);
-        updatedCount++;
+    };
+
+    // Process recipients, or if none provided, look up by email_id alone
+    const recipients = toEmails.length > 0 ? toEmails : [null];
+
+    for (const recipientEmail of recipients) {
+      const row = recipientEmail
+        ? await findRows(recipientEmail)
+        : await new Promise((resolve) => {
+            db.get(`SELECT id, status, user_id FROM email_logs WHERE sendgrid_message_id = ? LIMIT 1`,
+              [emailId], (err, r) => resolve(err ? null : r));
+          });
+
+      if (!row) {
+        skippedCount++;
+        console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
         continue;
       }
-      
-      // Store webhook event
+
+      // Always store webhook event for audit trail
       db.run(
-        `INSERT INTO webhook_events 
+        `INSERT INTO webhook_events
          (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          currentRow.id,
-          currentRow.user_id,
-          eventType,
-          emailId,
-          null,
-          eventJson,
-          webhookReceivedAt,
-          null
-        ],
-        (err) => {
-          if (err) {
-            console.error('[WEBHOOK] Error storing webhook event:', err);
-          }
-        }
+        [row.id, row.user_id, eventType, emailId, null, eventJson, webhookReceivedAt, null],
+        (err) => { if (err) console.error('[WEBHOOK] Error storing webhook event:', err); }
       );
-      
-      // Respect status hierarchy
-      const statusHierarchy = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 0 };
-      const currentLevel = statusHierarchy[currentRow.status] || 0;
-      const newLevel = statusHierarchy[logStatus] || 0;
-      
-      // For "opened", allow if status is "sent" or "delivered" (events can arrive out of order)
-      if (logStatus === 'opened' && currentRow.status !== 'delivered' && currentRow.status !== 'sent') {
-        console.log(`[WEBHOOK] Skipping "opened" - current status "${currentRow.status}" is not sent or delivered`);
+
+      // Check if this update would advance the status
+      const currentRank = statusRank[row.status] ?? 0;
+      const newRank = statusRank[logStatus] ?? 0;
+
+      // Only update if new status is higher, or if it's a failure (overrides everything)
+      if (newRank <= currentRank && logStatus !== 'failed') {
+        console.log(`[WEBHOOK] Skipping - "${row.status}" (${currentRank}) >= "${logStatus}" (${newRank})`);
         skippedCount++;
         continue;
       }
-      
-      // Don't downgrade (except failed can overwrite anything)
-      if (newLevel <= currentLevel && logStatus !== 'failed') {
-        console.log(`[WEBHOOK] Skipping - current status "${currentRow.status}" is higher than "${logStatus}"`);
-        skippedCount++;
-        continue;
-      }
-      
-      // Update the email log
-      const updateResult = await new Promise((resolve) => {
+
+      // Apply the update
+      const updated = await new Promise((resolve) => {
         db.run(
-          `UPDATE email_logs 
-           SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-           WHERE id = ?`,
-          [logStatus, errorMsg, now, eventJson, currentRow.id],
-          function(updateErr) {
-            if (updateErr) {
-              console.error('[WEBHOOK] Error updating email log:', updateErr);
-              resolve(false);
-            } else {
-              console.log(`[WEBHOOK] Updated email log ${currentRow.id}: ${currentRow.status} -> ${logStatus}`);
-              resolve(this.changes > 0);
-            }
-          }
-        );
-      });
-      
-      if (updateResult) {
-        updatedCount++;
-        
-        // If just set to "delivered", check for pending open events
-        if (logStatus === 'delivered') {
-          const pendingOpen = await new Promise((resolve) => {
-            db.get(
-              `SELECT id, raw_event_data FROM webhook_events 
-               WHERE email_log_id = ? AND event_type IN ('email.opened', 'email.clicked')
-               ORDER BY processed_at DESC LIMIT 1`,
-              [currentRow.id],
-              (err, row) => resolve(err ? null : row)
-            );
-          });
-          
-          if (pendingOpen) {
-            console.log(`[WEBHOOK] Found pending open event, applying now`);
-            db.run(
-              `UPDATE email_logs SET status = 'opened', updated_at = ?, webhook_event_data = ? WHERE id = ?`,
-              [now, pendingOpen.raw_event_data, currentRow.id],
-              (err) => {
-                if (err) console.error('[WEBHOOK] Error applying pending open:', err);
-                else console.log(`[WEBHOOK] Applied pending open to email_log_id=${currentRow.id}`);
-              }
-            );
-          }
-        }
-      } else {
-        skippedCount++;
-      }
-    }
-    
-    // If no recipients in the event, try to update by email_id alone
-    if (toEmails.length === 0) {
-      const result = await new Promise((resolve) => {
-        db.run(
-          `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-           WHERE sendgrid_message_id = ?`,
-          [logStatus, errorMsg, now, eventJson, emailId],
+          `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ? WHERE id = ?`,
+          [logStatus, errorMsg, now, eventJson, row.id],
           function(err) {
-            if (err) {
-              console.error('[WEBHOOK] Error updating by email_id:', err);
-              resolve(0);
-            } else {
-              resolve(this.changes);
-            }
+            if (err) { console.error('[WEBHOOK] Error updating:', err); resolve(false); }
+            else { console.log(`[WEBHOOK] Updated log ${row.id}: ${row.status} -> ${logStatus}`); resolve(this.changes > 0); }
           }
         );
       });
-      updatedCount += result;
+
+      if (updated) updatedCount++;
+      else skippedCount++;
     }
     
     console.log(`\n[WEBHOOK] Summary: ${updatedCount} updated, ${skippedCount} skipped`);
@@ -411,38 +336,6 @@ router.post('/webhook', express.json(), async (req, res) => {
     res.status(500).json({ error: 'Failed to process webhook', details: error.message });
   }
 });
-
-// Helper function to process a status update
-async function processStatusUpdate(db, row, logStatus, errorMsg, now, eventJson, emailId, webhookReceivedAt, eventType) {
-  // Store webhook event
-  db.run(
-    `INSERT INTO webhook_events 
-     (email_log_id, user_id, event_type, sendgrid_message_id, sendgrid_event_id, raw_event_data, processed_at, event_timestamp)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.id, row.user_id, eventType, emailId, null, eventJson, webhookReceivedAt, null],
-    (err) => {
-      if (err) console.error('[WEBHOOK] Error storing webhook event:', err);
-    }
-  );
-  
-  // Update the log
-  return new Promise((resolve) => {
-    db.run(
-      `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ?
-       WHERE id = ?`,
-      [logStatus, errorMsg, now, eventJson, row.id],
-      function(err) {
-        if (err) {
-          console.error('[WEBHOOK] Error updating email log:', err);
-          resolve(false);
-        } else {
-          console.log(`[WEBHOOK] Updated fallback email log ${row.id} -> ${logStatus}`);
-          resolve(this.changes > 0);
-        }
-      }
-    );
-  });
-}
 
 // All other routes require authentication
 router.use(authenticateToken);
