@@ -135,18 +135,18 @@ function PricelistModal({ isOpen, onClose, services }) {
     // ── SERVICE CATEGORIES ──
     const renderCategory = (catName, catServices) => {
       if (!catServices || catServices.length === 0) return;
-      if (y + 16 + catServices.length * 11 > pageH - 20) { doc.addPage(); y = 25; }
+      if (y + 12 + catServices.length * 7 > pageH - 15) { doc.addPage(); y = 25; }
 
       // Category header — small bold teal
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(...teal);
       doc.text(catName.toUpperCase(), marginL, y);
-      y += 8;
+      y += 6;
 
       // Service rows — large bold name with small teal price
       catServices.forEach(s => {
-        if (y > pageH - 20) { doc.addPage(); y = 25; }
+        if (y > pageH - 15) { doc.addPage(); y = 25; }
 
         // Service name in large bold dark
         doc.setFont('helvetica', 'bold');
@@ -163,9 +163,9 @@ function PricelistModal({ isOpen, onClose, services }) {
         doc.setTextColor(...teal);
         doc.text(priceStr, marginL + nameW + 2, y);
 
-        y += 10;
+        y += 7;
       });
-      y += 8;
+      y += 5;
     };
 
     CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
