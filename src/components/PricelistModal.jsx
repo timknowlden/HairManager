@@ -80,81 +80,98 @@ function PricelistModal({ isOpen, onClose, services }) {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const pageH = 297;
     const marginL = 18;
-    const priceListW = 115; // width of the services column
-    const sideColX = 142; // where the right column starts
-    const sideColW = 52;
+    const sideColX = 140; // where the right column starts
     const teal = [76, 175, 147]; // accent colour from template
     const dark = [51, 51, 51];
     const pSym = profile?.currency === 'USD' ? '$' : profile?.currency === 'EUR' ? '\u20AC' : '\u00A3';
     const businessName = profile?.business_name || 'Pricelist';
 
-    let y = 28;
+    let y = 35;
 
-    // ── BUSINESS NAME (large, stacked, two-tone like the template) ──
-    const nameParts = businessName.toUpperCase().split(/[\s']+/).filter(Boolean);
+    // ── BUSINESS NAME (huge, stacked, two-tone like the template) ──
+    // Split business name into two lines for stacked display.
+    // Handles: "Kate's Cuts", "KatesCuts", "KatesCut", "HairByJane", single words
+    let topLine, bottomLine;
+    const spaceWords = businessName.trim().split(/\s+/);
+    if (spaceWords.length >= 2) {
+      // Has spaces: e.g. "Kate's Cuts" → "KATE'S" / "CUTS"
+      topLine = spaceWords.slice(0, -1).join(' ').toUpperCase();
+      bottomLine = spaceWords[spaceWords.length - 1].toUpperCase();
+    } else {
+      // Single word — split on camelCase boundary: "KatesCuts" → "Kates" / "Cuts"
+      const camelParts = businessName.split(/(?=[A-Z])/).filter(Boolean);
+      if (camelParts.length >= 2) {
+        topLine = camelParts.slice(0, -1).join('').toUpperCase();
+        bottomLine = camelParts[camelParts.length - 1].toUpperCase();
+        // Add apostrophe if top line looks like a possessive (ends in S)
+        if (topLine.endsWith('S') && !topLine.endsWith("'S")) {
+          topLine = topLine.slice(0, -1) + "'S";
+        }
+      } else {
+        topLine = businessName.toUpperCase();
+        bottomLine = null;
+      }
+    }
+
     doc.setFont('helvetica', 'bold');
 
-    if (nameParts.length >= 2) {
-      // First word(s) in black, last word in teal — large stacked layout
-      const topLine = nameParts.length > 2 ? nameParts.slice(0, -1).join("'") : nameParts[0] + "'S";
-      const bottomLine = nameParts[nameParts.length - 1];
-
-      doc.setFontSize(52);
+    if (bottomLine) {
+      doc.setFontSize(72);
       doc.setTextColor(...dark);
       doc.text(topLine, marginL, y);
-      y += 16;
+      y += 22;
 
-      doc.setFontSize(52);
+      doc.setFontSize(72);
       doc.setTextColor(...teal);
       doc.text(bottomLine, marginL, y);
-      y += 18;
+      y += 28;
     } else {
-      doc.setFontSize(48);
+      doc.setFontSize(72);
       doc.setTextColor(...dark);
-      doc.text(businessName.toUpperCase(), marginL, y);
-      y += 20;
+      doc.text(topLine, marginL, y);
+      y += 28;
     }
 
     // ── SERVICE CATEGORIES ──
     const renderCategory = (catName, catServices) => {
       if (!catServices || catServices.length === 0) return;
-      if (y + 14 + catServices.length * 9 > pageH - 20) { doc.addPage(); y = 25; }
+      if (y + 16 + catServices.length * 11 > pageH - 20) { doc.addPage(); y = 25; }
 
-      // Category header
+      // Category header — small bold teal
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(11);
       doc.setTextColor(...teal);
       doc.text(catName.toUpperCase(), marginL, y);
-      y += 6;
+      y += 8;
 
-      // Service rows — bold name, subscript-style price
+      // Service rows — large bold name with small teal price
       catServices.forEach(s => {
         if (y > pageH - 20) { doc.addPage(); y = 25; }
 
-        // Service name in bold black
+        // Service name in large bold dark
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(13);
+        doc.setFontSize(18);
         doc.setTextColor(...dark);
         doc.text(s.service_name, marginL, y);
 
-        // Price in smaller teal, positioned after the name
+        // Price in smaller teal, positioned right after the name
         const nameW = doc.getTextWidth(s.service_name);
         const price = applyPrice(s.price);
         const priceStr = `${pSym}${Number.isInteger(price) ? price : price.toFixed(2)}`;
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setTextColor(...teal);
         doc.text(priceStr, marginL + nameW + 2, y);
 
-        y += 8;
+        y += 10;
       });
-      y += 6;
+      y += 8;
     };
 
     CATEGORIES.forEach(cat => renderCategory(cat, grouped[cat]));
 
     // ── RIGHT COLUMN: FEATURE BADGES ──
-    let sideY = 30;
+    let sideY = 38;
     const badges = [
       'FULLY\nQUALIFIED\nHAIR STYLIST\nAND NAIL\nTECHNICIAN',
       'MOBILE\nSERVICE',
@@ -166,42 +183,42 @@ function PricelistModal({ isOpen, onClose, services }) {
     doc.setFont('helvetica', 'bold');
     badges.forEach(badge => {
       const lines = badge.split('\n');
-      doc.setFontSize(14);
+      doc.setFontSize(18);
       doc.setTextColor(...dark);
       lines.forEach(line => {
         doc.text(line, sideColX, sideY);
-        sideY += 6;
+        sideY += 8;
       });
-      sideY += 8;
+      sideY += 10;
     });
 
     // ── BOOKING ──
-    sideY += 4;
+    sideY += 6;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(18);
     doc.setTextColor(...dark);
     doc.text('BOOKING', sideColX, sideY);
-    sideY += 6;
+    sideY += 8;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...teal);
     const website = profile?.website || 'KATESCUTS.CO.UK';
     doc.text(website.toUpperCase(), sideColX, sideY);
-    sideY += 12;
+    sideY += 14;
 
     // ── GET IN TOUCH ──
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(18);
     doc.setTextColor(...teal);
     doc.text('GET IN', sideColX, sideY);
-    sideY += 6;
+    sideY += 8;
     doc.text('TOUCH', sideColX, sideY);
-    sideY += 7;
+    sideY += 10;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(...dark);
-    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 5; }
-    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 5; }
+    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 6; }
+    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 6; }
 
     // Price offset note
     const offset = parseFloat(priceOffset) || 0;
