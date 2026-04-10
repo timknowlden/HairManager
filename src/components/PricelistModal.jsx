@@ -110,37 +110,57 @@ function PricelistModal({ isOpen, onClose, services }) {
     }
 
     // ── SERVICE CATEGORIES ──
+    const maxNameW = 100; // max width for service name before wrapping (mm)
     const renderCategory = (catName, catServices) => {
       if (!catServices || catServices.length === 0) return;
-      if (y + 12 + catServices.length * 7 > pageH - 15) { doc.addPage(); y = 25; }
+      if (y + 14 + catServices.length * 9 > pageH - 15) { doc.addPage(); y = 25; }
 
       // Category header — small bold teal
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(...teal);
       doc.text(catName.toUpperCase(), marginL, y);
-      y += 6;
+      y += 7;
 
       // Service rows — large bold name with small teal price
       catServices.forEach(s => {
         if (y > pageH - 15) { doc.addPage(); y = 25; }
 
-        // Service name in large bold dark
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         doc.setTextColor(...dark);
-        doc.text(s.service_name, marginL, y);
 
-        // Price in smaller teal, positioned right after the name
+        // Wrap long service names
         const nameW = doc.getTextWidth(s.service_name);
         const price = applyPrice(s.price);
         const priceStr = `${pSym}${Number.isInteger(price) ? price : price.toFixed(2)}`;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(...teal);
-        doc.text(priceStr, marginL + nameW + 2, y);
 
-        y += 7;
+        if (nameW > maxNameW) {
+          // Split into wrapped lines
+          const lines = doc.splitTextToSize(s.service_name, maxNameW);
+          lines.forEach((line, i) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.setTextColor(...dark);
+            doc.text(line, marginL, y);
+            if (i === lines.length - 1) {
+              // Price after last line
+              const lineW = doc.getTextWidth(line);
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(10);
+              doc.setTextColor(...teal);
+              doc.text(priceStr, marginL + lineW + 2, y);
+            }
+            y += 7;
+          });
+        } else {
+          doc.text(s.service_name, marginL, y);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(...teal);
+          doc.text(priceStr, marginL + nameW + 2, y);
+          y += 8;
+        }
       });
       y += 5;
     };
@@ -409,8 +429,6 @@ function PricelistModal({ isOpen, onClose, services }) {
             <iframe
               src={previewUrl}
               title="Pricelist Preview"
-              width="595"
-              height="842"
             />
           ) : (
             <div className="pricelist-preview-placeholder">
