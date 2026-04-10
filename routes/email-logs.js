@@ -317,10 +317,10 @@ router.post('/webhook', express.json(), async (req, res) => {
 
       // Apply the update
       const updateResult = await new Promise((resolve) => {
-        const params = [logStatus, errorMsg, now, eventJson, row.id];
+        const params = [logStatus, errorMsg, now, row.id];
         console.log(`[WEBHOOK] Running UPDATE with params:`, JSON.stringify(params));
         db.run(
-          `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ?, webhook_event_data = ? WHERE id = ?`,
+          `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ? WHERE id = ?`,
           params,
           function(err) {
             if (err) {
