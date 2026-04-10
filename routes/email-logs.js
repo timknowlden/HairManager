@@ -318,9 +318,9 @@ router.post('/webhook', express.json(), async (req, res) => {
       const currentLevel = statusHierarchy[currentRow.status] || 0;
       const newLevel = statusHierarchy[logStatus] || 0;
       
-      // For "opened", require "delivered" first
-      if (logStatus === 'opened' && currentRow.status !== 'delivered') {
-        console.log(`[WEBHOOK] Skipping "opened" - current status "${currentRow.status}" must be "delivered" first`);
+      // For "opened", allow if status is "sent" or "delivered" (events can arrive out of order)
+      if (logStatus === 'opened' && currentRow.status !== 'delivered' && currentRow.status !== 'sent') {
+        console.log(`[WEBHOOK] Skipping "opened" - current status "${currentRow.status}" is not sent or delivered`);
         skippedCount++;
         continue;
       }
