@@ -1,0 +1,240 @@
+.pricelist-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+}
+
+.pricelist-modal {
+  background: var(--color-bg-primary, #fff);
+  border-radius: var(--radius-lg, 12px);
+  padding: 28px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.3));
+}
+
+.pricelist-modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pricelist-modal h3 button {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #999;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.pricelist-modal h3 button:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* Service selection */
+.pricelist-select-all {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.pricelist-select-all label {
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pricelist-category {
+  margin-bottom: 16px;
+}
+
+.pricelist-category h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+}
+
+.pricelist-service-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.pricelist-service-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pricelist-service-name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.pricelist-service-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  min-width: 50px;
+  text-align: right;
+}
+
+.pricelist-service-category {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  min-width: 85px;
+}
+
+/* Options section */
+.pricelist-options {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.pricelist-options h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pricelist-option-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pricelist-option-row label {
+  font-size: 14px;
+  min-width: 100px;
+}
+
+.pricelist-option-row input[type="number"] {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.pricelist-option-row .hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Email section */
+.pricelist-email-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.pricelist-email-section label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.pricelist-email-section input[type="email"],
+.pricelist-email-section input[type="text"],
+.pricelist-email-section textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.pricelist-email-section textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+/* Actions */
+.pricelist-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.pricelist-actions button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.pricelist-actions .btn-download {
+  background: var(--gradient-info, linear-gradient(135deg, #3b82f6, #2563eb));
+  color: white;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.pricelist-actions .btn-download:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+.pricelist-actions .btn-email {
+  background: var(--gradient-success, linear-gradient(135deg, #10b981, #059669));
+  color: white;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.pricelist-actions .btn-email:hover {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.pricelist-actions .btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.pricelist-actions .btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.pricelist-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}

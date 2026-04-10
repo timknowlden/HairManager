@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { FaEdit, FaTrash, FaCalendarAlt } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaCalendarAlt, FaFilePdf } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
+import PricelistModal from './PricelistModal';
 import './ServicesManager.css';
 
 import { API_BASE } from '../config.js';
@@ -33,6 +34,7 @@ function ServicesManager() {
   // Sort state - default to ID ascending
   const [sortConfig, setSortConfig] = useState({ column: 'id', direction: 'asc' });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showPricelist, setShowPricelist] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     service_name: '',
@@ -448,6 +450,13 @@ Hair wash 	Hair	£5.00`;
               <FaCalendarAlt style={{ marginRight: 6 }} />
               {schedulingMode ? 'Cancel Scheduling' : 'Schedule Prices'}
             </button>
+            <button
+              onClick={() => setShowPricelist(true)}
+              className="pricelist-btn"
+            >
+              <FaFilePdf style={{ marginRight: 6 }} />
+              Pricelist PDF
+            </button>
           </div>
         </div>
       </div>
@@ -682,6 +691,11 @@ Hair wash 	Hair	£5.00`;
         </table>
       </div>
 
+      <PricelistModal
+        isOpen={showPricelist}
+        onClose={() => setShowPricelist(false)}
+        services={services}
+      />
     </div>
   );
 }

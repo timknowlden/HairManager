@@ -501,6 +501,27 @@ tbody tr:hover {
   box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
 }
 
+/* Pricelist PDF button */
+.pricelist-btn {
+  padding: 11px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.pricelist-btn:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
 /* Schedule bar - matches calculator-controls bar in AppointmentsList */
 .schedule-bar {
   background: var(--color-warning-light);

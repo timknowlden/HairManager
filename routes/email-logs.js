@@ -239,7 +239,6 @@ router.post('/webhook', express.json(), async (req, res) => {
     
     let updatedCount = 0;
     let skippedCount = 0;
-    const debugInfo = [];
 
     // Status hierarchy: higher number = more advanced state
     const statusRank = { 'pending': 0, 'sent': 1, 'delivered': 2, 'opened': 3, 'failed': 99 };
@@ -289,7 +288,6 @@ router.post('/webhook', express.json(), async (req, res) => {
 
       if (!row) {
         skippedCount++;
-        debugInfo.push({ recipient: recipientEmail, reason: 'no_match', searchedEmailId: emailId });
         console.warn(`[WEBHOOK] No email log found for email_id: ${emailId}, recipient: ${recipientEmail}`);
         continue;
       }
@@ -299,7 +297,6 @@ router.post('/webhook', express.json(), async (req, res) => {
 
       // Only update if new status is higher, or if it's a failure (overrides everything)
       if (newRank <= currentRank && logStatus !== 'failed') {
-        debugInfo.push({ recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus, action: 'skipped_hierarchy', currentRank, newRank });
         skippedCount++;
         continue;
       }
@@ -316,45 +313,23 @@ router.post('/webhook', express.json(), async (req, res) => {
       });
 
       // Apply the update
-      const updateResult = await new Promise((resolve) => {
-        const params = [logStatus, errorMsg, now, row.id];
-        console.log(`[WEBHOOK] Running UPDATE with params:`, JSON.stringify(params));
+      const updated = await new Promise((resolve) => {
         db.run(
           `UPDATE email_logs SET status = ?, error_message = ?, updated_at = ? WHERE id = ?`,
-          params,
+          [logStatus, errorMsg, now, row.id],
           function(err) {
-            if (err) {
-              console.error('[WEBHOOK] UPDATE error:', err.message, err.code);
-              resolve({ ok: false, error: err.message });
-            } else {
-              console.log(`[WEBHOOK] UPDATE result: changes=${this.changes}, lastID=${this.lastID}`);
-              resolve({ ok: this.changes > 0, changes: this.changes });
-            }
+            if (err) { console.error('[WEBHOOK] Error updating:', err.message); resolve(false); }
+            else { console.log(`[WEBHOOK] Updated log ${row.id}: ${row.status} -> ${logStatus}`); resolve(this.changes > 0); }
           }
         );
       });
 
-      // If UPDATE reported 0 changes, verify the row exists
-      let verifyStatus = null;
-      if (!updateResult.ok) {
-        const verifyRow = await new Promise((resolve) => {
-          db.get(`SELECT id, status, user_id FROM email_logs WHERE id = ?`, [row.id], (err, r) => resolve(r || null));
-        });
-        verifyStatus = verifyRow ? verifyRow.status : 'ROW_NOT_FOUND';
-      }
-
-      debugInfo.push({
-        recipient: recipientEmail, foundLogId: row.id, currentStatus: row.status, newStatus: logStatus,
-        action: updateResult.ok ? 'updated' : 'update_failed', currentRank, newRank,
-        updateChanges: updateResult.changes, updateError: updateResult.error || null, verifyStatus
-      });
-      const updated = updateResult.ok;
       if (updated) updatedCount++;
       else skippedCount++;
     }
-    
-    console.log(`\n[WEBHOOK] Summary: ${updatedCount} updated, ${skippedCount} skipped`);
-    res.status(200).json({ success: true, updated: updatedCount, skipped: skippedCount, debug: debugInfo });
+
+    console.log(`[WEBHOOK] Summary: ${updatedCount} updated, ${skippedCount} skipped`);
+    res.status(200).json({ success: true, updated: updatedCount, skipped: skippedCount });
   } catch (error) {
     console.error('\n[WEBHOOK] ERROR PROCESSING WEBHOOK:', error.message);
     console.error('[WEBHOOK] Stack:', error.stack);
