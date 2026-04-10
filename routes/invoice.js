@@ -66,6 +66,7 @@ router.post('/send-email', async (req, res) => {
       const apiKey = profile.email_relay_api_key;
       const fromEmail = profile.email_relay_from_email || profile.email;
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
+      const replyTo = profile.email_relay_reply_to || fromEmail;
       const ccEnabled = profile.email_relay_bcc_enabled === 1 || profile.email_relay_bcc_enabled === true;
       const emailSubject = subject || profile.email_subject || 'Invoice';
 
@@ -119,10 +120,14 @@ router.post('/send-email', async (req, res) => {
         // Build the Resend email payload
         const emailPayload = {
           from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+          reply_to: replyTo,
           to: toEmails,
           subject: emailSubject,
           html: htmlBody,
           text: textBody,
+          headers: {
+            'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+          },
           attachments: [
             {
               content: pdfBuffer,

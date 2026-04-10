@@ -37,6 +37,7 @@ router.post('/send-email', async (req, res) => {
 
       const fromEmail = profile.email_relay_from_email || profile.email || 'noreply@example.com';
       const fromName = profile.email_relay_from_name || profile.business_name || profile.name || '';
+      const replyTo = profile.email_relay_reply_to || fromEmail;
 
       try {
         const resend = new Resend(profile.email_relay_api_key);
@@ -46,10 +47,14 @@ router.post('/send-email', async (req, res) => {
 
         const { data, error: resendError } = await resend.emails.send({
           from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+          reply_to: replyTo,
           to: [to],
           subject: subject,
           text: body || 'Please find the invoice attached.',
           html: body ? body.replace(/\n/g, '<br>') : '<p>Please find the invoice attached.</p>',
+          headers: {
+            'List-Unsubscribe': `<mailto:${replyTo}?subject=unsubscribe>`,
+          },
           attachments: [
             {
               content: pdfBuffer,

@@ -176,6 +176,7 @@ router.put('/', (req, res) => {
     email_relay_api_key,
     email_relay_from_email,
     email_relay_from_name,
+    email_relay_reply_to,
     email_relay_bcc_enabled,
     email_subject,
     reminder_email_template,
@@ -258,7 +259,7 @@ router.put('/', (req, res) => {
                  sort_code = ?, account_number = ?, home_address = ?, 
                  home_postcode = ?, currency = ?, google_maps_api_key = ?, email_password = ?, 
                  email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
-                 email_relay_from_name = ?, email_relay_bcc_enabled = ?, email_subject = ?, reminder_email_template = ?,
+                 email_relay_from_name = ?, email_relay_reply_to = ?, email_relay_bcc_enabled = ?, email_subject = ?, reminder_email_template = ?,
                  ai_provider = ?, ai_api_key = ?, postcode_resync_needed = ?, updated_at = ?
                  WHERE id = ? AND user_id = ?`,
                 [
@@ -278,6 +279,7 @@ router.put('/', (req, res) => {
                   finalEmailRelayApiKey,
                   email_relay_from_email || '',
                   email_relay_from_name || '',
+                  email_relay_reply_to || '',
                   bccEnabled,
                   email_subject || '',
                   reminder_email_template || '',
@@ -316,9 +318,9 @@ router.put('/', (req, res) => {
           `INSERT INTO admin_settings 
            (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
             home_address, home_postcode, currency, google_maps_api_key, email_password, 
-            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
-            email_relay_bcc_enabled, email_subject, postcode_resync_needed, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name,
+            email_relay_reply_to, email_relay_bcc_enabled, email_subject, postcode_resync_needed, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userId,
             name || '',
@@ -337,6 +339,7 @@ router.put('/', (req, res) => {
             email_relay_api_key || '',
             email_relay_from_email || '',
             email_relay_from_name || '',
+            email_relay_reply_to || '',
             bccEnabled,
             email_subject || '',
             0, // postcode_resync_needed defaults to 0 for new records
@@ -428,6 +431,7 @@ router.get('/export/json', (req, res) => {
         email_relay_api_key: row.email_relay_api_key || '',
         email_relay_from_email: row.email_relay_from_email || '',
         email_relay_from_name: row.email_relay_from_name || '',
+        email_relay_reply_to: row.email_relay_reply_to || '',
         email_relay_bcc_enabled: row.email_relay_bcc_enabled === 1 || row.email_relay_bcc_enabled === '1',
         email_signature: row.email_signature || '',
         default_email_content: row.default_email_content || '',
@@ -491,7 +495,7 @@ router.post('/import/json', (req, res) => {
              sort_code = ?, account_number = ?, home_address = ?, 
              home_postcode = ?, currency = ?, google_maps_api_key = ?, 
              email_relay_service = ?, email_relay_api_key = ?, email_relay_from_email = ?, 
-             email_relay_from_name = ?, email_relay_bcc_enabled = ?, 
+             email_relay_from_name = ?, email_relay_reply_to = ?, email_relay_bcc_enabled = ?,
              email_signature = ?, default_email_content = ?, updated_at = ?
              WHERE id = ? AND user_id = ?`,
             [
@@ -510,6 +514,7 @@ router.post('/import/json', (req, res) => {
               finalEmailRelayApiKey,
               importData.email_relay_from_email || '',
               importData.email_relay_from_name || '',
+              importData.email_relay_reply_to || '',
               bccEnabled,
               importData.email_signature || '',
               importData.default_email_content || '',
@@ -533,10 +538,10 @@ router.post('/import/json', (req, res) => {
           `INSERT INTO admin_settings 
            (user_id, name, phone, email, business_name, bank_account_name, sort_code, account_number, 
             home_address, home_postcode, currency, google_maps_api_key, 
-            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name, 
-            email_relay_bcc_enabled, email_signature, default_email_content, 
-            postcode_resync_needed, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            email_relay_service, email_relay_api_key, email_relay_from_email, email_relay_from_name,
+            email_relay_reply_to, email_relay_bcc_enabled, email_signature, default_email_content,
+            postcode_resync_needed, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userId,
             importData.name || '',
@@ -554,6 +559,7 @@ router.post('/import/json', (req, res) => {
             importData.email_relay_api_key || '',
             importData.email_relay_from_email || '',
             importData.email_relay_from_name || '',
+            importData.email_relay_reply_to || '',
             bccEnabled,
             importData.email_signature || '',
             importData.default_email_content || '',

@@ -119,6 +119,7 @@ function AdminManager({ onSettingsSaved }) {
     email_relay_api_key: '',
     email_relay_from_email: '',
     email_relay_from_name: '',
+    email_relay_reply_to: '',
     email_relay_bcc_enabled: false,
     email_subject: '',
     email_signature: '',
@@ -208,6 +209,7 @@ function AdminManager({ onSettingsSaved }) {
         email_relay_from_email: data.email_relay_from_email || '',
         email_relay_bcc_enabled: data.email_relay_bcc_enabled || false,
         email_relay_from_name: data.email_relay_from_name || '',
+        email_relay_reply_to: data.email_relay_reply_to || '',
         email_subject: data.email_subject || '',
         email_signature: data.email_signature || '',
         default_email_content: data.default_email_content || '',
@@ -1507,7 +1509,24 @@ function AdminManager({ onSettingsSaved }) {
                   <p className="field-help">Name that will appear as the sender</p>
                 </div>
               </div>
-              
+
+              <div className="form-row">
+                <div className="form-group full-width">
+                  <label htmlFor="email_relay_reply_to">Reply-To Email (Optional)</label>
+                  <input
+                    type="email"
+                    id="email_relay_reply_to"
+                    name="email_relay_reply_to"
+                    value={formData.email_relay_reply_to}
+                    onChange={handleInputChange}
+                    placeholder="e.g., kate@knowlden.org"
+                  />
+                  <p className="field-help">
+                    When recipients reply, their email will go to this address instead of the From address. Leave blank to use the From address.
+                  </p>
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group full-width">
                   <label htmlFor="email_subject">Email Subject</label>
