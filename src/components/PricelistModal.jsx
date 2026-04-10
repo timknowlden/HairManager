@@ -229,7 +229,7 @@ function PricelistModal({ isOpen, onClose, services }) {
     });
 
     // ── RIGHT COLUMN: BUSINESS NAME + FEATURE BADGES (Impact font) ──
-    let sideY = 28;
+    let sideY = 15;
 
     // Business name at top of right column
     doc.setFont(sideFont, sideFontStyle);
@@ -237,17 +237,17 @@ function PricelistModal({ isOpen, onClose, services }) {
       doc.setFontSize(42);
       doc.setTextColor(...dark);
       doc.text(topLine, sideColX, sideY);
-      sideY += 14;
+      sideY += 13;
 
       doc.setFontSize(42);
       doc.setTextColor(...teal);
       doc.text(bottomLine, sideColX, sideY);
-      sideY += 20;
+      sideY += 14;
     } else {
       doc.setFontSize(42);
       doc.setTextColor(...dark);
       doc.text(topLine, sideColX, sideY);
-      sideY += 20;
+      sideY += 14;
     }
 
     const badges = [
@@ -265,38 +265,37 @@ function PricelistModal({ isOpen, onClose, services }) {
       doc.setTextColor(...dark);
       lines.forEach(line => {
         doc.text(line, sideColX, sideY);
-        sideY += 9;
+        sideY += 8;
       });
-      sideY += 12;
+      sideY += 5;
     });
 
     // ── BOOKING ──
-    sideY += 6;
     doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(22);
     doc.setTextColor(...dark);
     doc.text('BOOKING', sideColX, sideY);
-    sideY += 9;
+    sideY += 8;
     doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(10);
     doc.setTextColor(...teal);
     const website = profile?.website || 'KATESCUTS.CO.UK';
     doc.text(website.toUpperCase(), sideColX, sideY);
-    sideY += 16;
+    sideY += 8;
 
     // ── GET IN TOUCH ──
     doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(22);
     doc.setTextColor(...teal);
     doc.text('GET IN', sideColX, sideY);
-    sideY += 9;
+    sideY += 8;
     doc.text('TOUCH', sideColX, sideY);
-    sideY += 12;
+    sideY += 8;
     doc.setFont(sideFont, sideFontStyle);
     doc.setFontSize(11);
     doc.setTextColor(...dark);
-    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 7; }
-    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 7; }
+    if (profile?.phone) { doc.text(profile.phone, sideColX, sideY); sideY += 6; }
+    if (profile?.email) { doc.text(profile.email, sideColX, sideY); sideY += 6; }
 
     // Price offset note
     const offset = parseFloat(priceOffset) || 0;
