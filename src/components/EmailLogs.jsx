@@ -543,7 +543,7 @@ function EmailLogs() {
                       <td><span className="email-count-badge">{groupLogs.length}</span></td>
                       <td className="payment-cell">
                         {isPricelist(invoiceNum) ? (
-                          <span className="pricelist-badge">Pricelist</span>
+                          <span className="na-text">N/A</span>
                         ) : !status ? '-' : status.paid ? (
                           <span className="paid-badge">Paid</span>
                         ) : (
@@ -581,7 +581,9 @@ function EmailLogs() {
                               ) : '-'}
                             </td>
                             <td>
-                              {!status?.paid && !log.is_followup ? (
+                              {isPricelist(invoiceNum) ? (
+                                <span className="na-text">N/A</span>
+                              ) : !status?.paid && !log.is_followup ? (
                                 <span className="remind-badge" title="Send reminder to this recipient" onClick={() => {
                                   setResendModal({ invoice_number: invoiceNum, recipient: log.recipient_email });
                                   setResendSubject(`Payment Reminder - Invoice ${invoiceNum}`);
