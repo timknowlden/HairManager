@@ -6,12 +6,13 @@ import './PricelistModal.css';
 
 const CATEGORIES = ['Hair', 'Children', 'Nails'];
 
-function PricelistModal({ isOpen, onClose, services }) {
+function PricelistModal({ isOpen, onClose, services, scheduledPrices = [] }) {
   const { getAuthHeaders } = useAuth();
   const [profile, setProfile] = useState(null);
   const [selected, setSelected] = useState({});
   const [categories, setCategories] = useState({});
   const [priceOffset, setPriceOffset] = useState(0);
+  const [useScheduled, setUseScheduled] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showEmail, setShowEmail] = useState(false);
   const [emailTo, setEmailTo] = useState('');
@@ -63,17 +64,17 @@ function PricelistModal({ isOpen, onClose, services }) {
     }
   }, [services]);
 
-  // Group selected services by category
+  // Group selected services by category (uses effective prices)
   const grouped = useMemo(() => {
     const groups = { Hair: [], Children: [], Nails: [] };
-    services.forEach(s => {
+    effectiveServices.forEach(s => {
       if (!selected[s.id]) return;
       const cat = categories[s.id] || s.type || 'Hair';
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(s);
     });
     return groups;
-  }, [services, selected, categories]);
+  }, [effectiveServices, selected, categories]);
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const allSelected = selectedCount === services.length;
@@ -84,6 +85,22 @@ function PricelistModal({ isOpen, onClose, services }) {
     services.forEach(s => { sel[s.id] = val; });
     setSelected(sel);
   };
+
+  // Build a map of scheduled prices by service_id
+  const scheduledMap = useMemo(() => {
+    const map = {};
+    scheduledPrices.forEach(sp => { map[sp.service_id] = sp; });
+    return map;
+  }, [scheduledPrices]);
+
+  // Services with scheduled prices applied when toggle is on
+  const effectiveServices = useMemo(() => {
+    if (!useScheduled || scheduledPrices.length === 0) return services;
+    return services.map(s => {
+      const sp = scheduledMap[s.id];
+      return sp ? { ...s, price: sp.new_price } : s;
+    });
+  }, [services, useScheduled, scheduledPrices, scheduledMap]);
 
   const applyPrice = (price) => Math.max(0, price + (parseFloat(priceOffset) || 0));
 
@@ -414,29 +431,37 @@ function PricelistModal({ isOpen, onClose, services }) {
           </div>
 
           {CATEGORIES.map(cat => {
-            const catServices = services.filter(s => categories[s.id] === cat);
+            const catServices = effectiveServices.filter(s => categories[s.id] === cat);
             if (catServices.length === 0) return null;
             return (
               <div key={cat} className="pricelist-category">
                 <h4>{cat}</h4>
-                {catServices.map(s => (
-                  <div key={s.id} className="pricelist-service-row">
-                    <input
-                      type="checkbox"
-                      checked={!!selected[s.id]}
-                      onChange={() => setSelected(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                    />
-                    <span className="pricelist-service-name">{s.service_name}</span>
-                    <span className="pricelist-service-price">{sym}{applyPrice(s.price).toFixed(2)}</span>
-                    <select
-                      className="pricelist-service-category"
-                      value={categories[s.id] || s.type}
-                      onChange={e => setCategories(prev => ({ ...prev, [s.id]: e.target.value }))}
-                    >
-                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                ))}
+                {catServices.map(s => {
+                  const hasScheduled = !!scheduledMap[s.id];
+                  return (
+                    <div key={s.id} className="pricelist-service-row">
+                      <input
+                        type="checkbox"
+                        checked={!!selected[s.id]}
+                        onChange={() => setSelected(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
+                      />
+                      <span className="pricelist-service-name">
+                        {s.service_name}
+                        {useScheduled && hasScheduled && <span className="scheduled-indicator" title="Using scheduled price"> *</span>}
+                      </span>
+                      <span className={`pricelist-service-price${useScheduled && hasScheduled ? ' scheduled-price-active' : ''}`}>
+                        {sym}{applyPrice(s.price).toFixed(2)}
+                      </span>
+                      <select
+                        className="pricelist-service-category"
+                        value={categories[s.id] || s.type}
+                        onChange={e => setCategories(prev => ({ ...prev, [s.id]: e.target.value }))}
+                      >
+                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -444,6 +469,20 @@ function PricelistModal({ isOpen, onClose, services }) {
           {/* Options */}
           <div className="pricelist-options">
             <h4>Options</h4>
+            {scheduledPrices.length > 0 && (
+              <div className="pricelist-option-row">
+                <label>Use scheduled prices:</label>
+                <input
+                  type="checkbox"
+                  checked={useScheduled}
+                  onChange={e => setUseScheduled(e.target.checked)}
+                  id="pl-use-scheduled"
+                />
+                <span className="hint">
+                  {scheduledPrices.length} scheduled change{scheduledPrices.length !== 1 ? 's' : ''} pending
+                </span>
+              </div>
+            )}
             <div className="pricelist-option-row">
               <label>Price offset:</label>
               <input

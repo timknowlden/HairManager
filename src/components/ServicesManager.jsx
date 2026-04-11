@@ -424,6 +424,7 @@ Hair wash 	Hair	£5.00`;
         isOpen={true}
         onClose={() => setShowPricelist(false)}
         services={services}
+        scheduledPrices={scheduledPrices}
       />
     );
   }

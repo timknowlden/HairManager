@@ -216,6 +216,15 @@
   min-width: 75px;
 }
 
+.scheduled-indicator {
+  color: #4caf93;
+  font-weight: 700;
+}
+
+.scheduled-price-active {
+  color: #4caf93;
+}
+
 /* Options section */
 .pricelist-options {
   margin-top: 20px;
