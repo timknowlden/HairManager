@@ -132,12 +132,15 @@ function EmailLogs() {
     return log.invoice_number || 'unknown';
   };
 
+  const isPricelist = (invoiceNum) => String(invoiceNum).startsWith('PL-');
+
   const filteredLogs = logs.filter(log => {
     if (filters.status && log.status !== filters.status) return false;
     if (filters.recipient && !log.recipient_email.toLowerCase().includes(filters.recipient.toLowerCase())) return false;
     const invoiceNum = getInvoiceNumber(log);
     if (filters.invoiceNumber && !invoiceNum.includes(filters.invoiceNumber)) return false;
     if (filters.payment) {
+      if (isPricelist(invoiceNum)) return false; // pricelists have no payment status
       const status = invoiceStatus[invoiceNum];
       if (filters.payment === 'paid' && (!status || !status.paid)) return false;
       if (filters.payment === 'unpaid' && (!status || status.paid)) return false;
@@ -421,10 +424,10 @@ function EmailLogs() {
           />
         </div>
         <div className="filter-group">
-          <label>Invoice Number:</label>
+          <label>Reference:</label>
           <input
             type="text"
-            placeholder="Filter by invoice..."
+            placeholder="Filter by reference..."
             value={filters.invoiceNumber}
             onChange={(e) => setFilters({ ...filters, invoiceNumber: e.target.value })}
           />
@@ -480,7 +483,7 @@ function EmailLogs() {
           <thead>
             <tr>
               <th style={{ width: '40px' }}></th>
-              <th className="invoice-col">Invoice #</th>
+              <th className="invoice-col">Reference</th>
               <th className="recipient-col">Last Recipient</th>
               <th className="subject-col">Subject</th>
               <th>Status</th>
@@ -522,9 +525,13 @@ function EmailLogs() {
                         <button className="expand-btn">{isGroupExpanded ? '▼' : '▶'}</button>
                       </td>
                       <td>
-                        <a href="#" className="invoice-link" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/appointments?id=${invoiceNum}`); }}>
-                          {invoiceNum}
-                        </a>
+                        {isPricelist(invoiceNum) ? (
+                          <span className="pricelist-ref">{invoiceNum}</span>
+                        ) : (
+                          <a href="#" className="invoice-link" onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/appointments?id=${invoiceNum}`); }}>
+                            {invoiceNum}
+                          </a>
+                        )}
                       </td>
                       <td className="recipient-cell">{latestLog.recipient_email}</td>
                       <td className="subject-cell">{latestLog.subject || '-'}</td>
@@ -535,7 +542,9 @@ function EmailLogs() {
                       <td>{formatDate(latestLog.updated_at)}</td>
                       <td><span className="email-count-badge">{groupLogs.length}</span></td>
                       <td className="payment-cell">
-                        {!status ? '-' : status.paid ? (
+                        {isPricelist(invoiceNum) ? (
+                          <span className="pricelist-badge">Pricelist</span>
+                        ) : !status ? '-' : status.paid ? (
                           <span className="paid-badge">Paid</span>
                         ) : (
                           <span className="unpaid-badge clickable" title="Click to send reminder to all" onClick={(e) => { e.stopPropagation(); openReminder(); }}>

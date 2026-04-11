@@ -376,6 +376,13 @@ router.get('/invoice-status', (req, res) => {
       let pending = invoices.length;
 
       invoices.forEach(({ invoice_number }) => {
+        // Skip payment lookup for pricelist emails (PL- prefix)
+        if (invoice_number.startsWith('PL-')) {
+          results[invoice_number] = null;
+          if (--pending === 0) res.json(results);
+          return;
+        }
+
         db.get(
           'SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
           [parseInt(invoice_number), userId],

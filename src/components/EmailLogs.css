@@ -557,6 +557,20 @@
   background: rgba(239, 68, 68, 0.2);
 }
 
+.pricelist-badge {
+  background: rgba(76, 175, 147, 0.1);
+  color: #4caf93;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pricelist-ref {
+  color: #6b7280;
+  font-size: 13px;
+}
+
 /* Grouped rows */
 .group-row {
   cursor: pointer;
