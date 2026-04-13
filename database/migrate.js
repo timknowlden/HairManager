@@ -602,6 +602,34 @@ function migrateDatabase(customDbPath = null) {
                   migrations.push(runAsync(db, 'ALTER TABLE appointments ADD COLUMN user_id INTEGER'));
                 }
 
+                // Add stripe_price_id to subscription_plans if missing
+                db.all("PRAGMA table_info(subscription_plans)", [], (spErr, spCols) => {
+                  if (!spErr && spCols) {
+                    const spColNames = spCols.map(col => col.name);
+                    if (!spColNames.includes('stripe_price_id')) {
+                      migrations.push(runAsync(db, 'ALTER TABLE subscription_plans ADD COLUMN stripe_price_id TEXT'));
+                      console.log('[MIGRATION] Adding stripe_price_id to subscription_plans');
+                    }
+                  }
+                });
+
+                // Create payment_events table for Stripe webhook audit trail
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS payment_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    stripe_event_id TEXT UNIQUE,
+                    event_type TEXT NOT NULL,
+                    stripe_subscription_id TEXT,
+                    stripe_customer_id TEXT,
+                    raw_event_data TEXT NOT NULL,
+                    processed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_stripe_event_id ON payment_events(stripe_event_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_user_id ON payment_events(user_id)'));
+
                 // After adding user_id columns, migrate existing data to a default user
                 // This creates a default user if none exists and assigns all existing data to it
                 Promise.all(migrations)

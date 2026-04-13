@@ -18,6 +18,7 @@ import emailLogsRoutes from './routes/email-logs.js';
 import adminUsersRoutes from './routes/admin-users.js';
 import subscriptionsRoutes from './routes/subscriptions.js';
 import expensesRoutes from './routes/expenses.js';
+import paymentsRoutes from './routes/payments.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -33,6 +34,8 @@ const PORT = 3001;
 
 // Middleware
 app.use(cors());
+// Stripe webhook needs raw body for signature verification — must be before express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '50mb' })); // Increase limit for PDF uploads
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -608,6 +611,9 @@ initDatabase(dbPath)
       console.log('✓ Financial routes registered');
       app.use('/api/expenses', expensesRoutes);
       console.log('✓ Expenses routes registered');
+
+      app.use('/api/payments', paymentsRoutes);
+      console.log('✓ Payments routes registered');
     } catch (err) {
       console.error('ERROR registering routes:', err);
       console.error(err.stack);

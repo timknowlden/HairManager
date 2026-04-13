@@ -15,6 +15,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
     labels:
       icon: https://raw.githubusercontent.com/timknowlden/HairManager/main/public/vite.svg
     restart: unless-stopped

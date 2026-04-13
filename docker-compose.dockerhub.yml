@@ -12,6 +12,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
     image: timknowlden/hairmanager:latest
     pull_policy: always
     labels:
