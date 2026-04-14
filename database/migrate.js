@@ -613,9 +613,9 @@ function migrateDatabase(customDbPath = null) {
                   }
                 });
 
-                // Seed Stripe Price IDs for default plans (idempotent — only sets if currently NULL)
-                migrations.push(runAsync(db, "UPDATE subscription_plans SET stripe_price_id = 'price_1TLlc02RGZ1BUOmdg8M3Tyco' WHERE name = 'starter' AND stripe_price_id IS NULL"));
-                migrations.push(runAsync(db, "UPDATE subscription_plans SET stripe_price_id = 'price_1TLlcF2RGZ1BUOmdFEjel64j' WHERE name = 'professional' AND stripe_price_id IS NULL"));
+                // Seed Stripe Price IDs for default plans (live mode)
+                migrations.push(runAsync(db, "UPDATE subscription_plans SET stripe_price_id = 'price_1TM4N92RGZ1BUOmdFFMttDDo' WHERE name = 'starter' AND (stripe_price_id IS NULL OR stripe_price_id LIKE 'price_%test%' OR stripe_price_id LIKE 'price_1TLl%')"));
+                migrations.push(runAsync(db, "UPDATE subscription_plans SET stripe_price_id = 'price_1TM4OB2RGZ1BUOmd5hnhpR7B' WHERE name = 'professional' AND (stripe_price_id IS NULL OR stripe_price_id LIKE 'price_%test%' OR stripe_price_id LIKE 'price_1TLl%')"));
 
                 // Create payment_events table for Stripe webhook audit trail
                 migrations.push(runAsync(db, `
