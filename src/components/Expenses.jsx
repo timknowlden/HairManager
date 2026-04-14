@@ -356,10 +356,9 @@ function Expenses() {
           <button onClick={() => { setShowForm(true); setEditingId(null); resetForm(); }} className="add-btn">
             <FaPlus /> Add Expense
           </button>
-          <label className="add-btn import-btn" style={{ cursor: 'pointer' }}>
+          <button onClick={() => { setShowImport(true); setImportResult(null); }} className="add-btn import-btn">
             <FaUpload /> Import Orders
-            <input type="file" accept=".csv" onChange={e => { if (e.target.files[0]) handleImportCSV(e.target.files[0]); e.target.value = ''; }} hidden />
-          </label>
+          </button>
           <button onClick={handleExportCSV} className="add-btn export-btn">
             <FaDownload /> Export CSV
           </button>
@@ -649,6 +648,68 @@ function Expenses() {
               <iframe src={viewReceipt} title="Receipt PDF" />
             ) : (
               <p>Unable to preview this file type</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Import Orders Modal */}
+      {showImport && (
+        <div className="import-modal-overlay" onClick={() => !importLoading && setShowImport(false)}>
+          <div className="import-modal" onClick={e => e.stopPropagation()}>
+            <button className="import-modal-close" onClick={() => !importLoading && setShowImport(false)}><FaTimes /></button>
+            <h3><FaUpload /> Import Orders as Expenses</h3>
+
+            {importResult ? (
+              <div className="import-result">
+                <div className="import-result-icon">
+                  {importResult.imported > 0 ? <FaReceipt style={{ color: '#10b981', fontSize: 40 }} /> : <FaTimes style={{ color: '#9ca3af', fontSize: 40 }} />}
+                </div>
+                <p><strong>{importResult.imported}</strong> expense{importResult.imported !== 1 ? 's' : ''} imported from <strong>{importResult.source}</strong></p>
+                {importResult.skipped > 0 && <p className="import-skipped">{importResult.skipped} skipped (duplicates or empty)</p>}
+                <div className="import-result-actions">
+                  <button className="import-btn-primary" onClick={() => { setShowImport(false); setImportResult(null); }}>Done</button>
+                  <button className="import-btn-secondary" onClick={() => setImportResult(null)}>Import Another</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="import-intro">Upload a CSV export from Amazon or eBay to automatically create expense records.</p>
+
+                <div className="import-instructions">
+                  <div className="import-source">
+                    <h4>Amazon</h4>
+                    <ol>
+                      <li>Go to <a href="https://www.amazon.co.uk/gp/b2b/reports" target="_blank" rel="noopener noreferrer">Amazon Order History Reports</a></li>
+                      <li>Select date range and click <strong>Request Report</strong></li>
+                      <li>Wait for the report to generate, then click <strong>Download</strong></li>
+                      <li>Upload the CSV file below</li>
+                    </ol>
+                  </div>
+
+                  <div className="import-source">
+                    <h4>eBay</h4>
+                    <ol>
+                      <li>Go to <a href="https://www.ebay.co.uk/mye/myebay/purchase" target="_blank" rel="noopener noreferrer">eBay Purchase History</a></li>
+                      <li>Click <strong>Order history</strong> and select the date range</li>
+                      <li>Click <strong>Download</strong> to export as CSV</li>
+                      <li>Upload the CSV file below</li>
+                    </ol>
+                  </div>
+                </div>
+
+                <label className="import-upload-btn">
+                  {importLoading ? 'Importing...' : 'Choose CSV File'}
+                  <input
+                    type="file"
+                    accept=".csv"
+                    disabled={importLoading}
+                    onChange={e => { if (e.target.files[0]) handleImportCSV(e.target.files[0]); e.target.value = ''; }}
+                    hidden
+                  />
+                </label>
+                <p className="import-hint">Duplicates are automatically skipped. Expenses are categorised as "Supplies & Materials" by default.</p>
+              </>
             )}
           </div>
         </div>
