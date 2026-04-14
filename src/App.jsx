@@ -19,6 +19,7 @@ import TaxReport from './components/TaxReport';
 import UsageIndicator from './components/UsageIndicator';
 import MyPlan from './components/MyPlan';
 import BankReconciliation from './components/BankReconciliation';
+import MobileBankUpload from './components/MobileBankUpload';
 import './App.css';
 import { API_BASE } from './config.js';
 
@@ -44,7 +45,8 @@ function App() {
         '/my-plan': 'my-plan',
         '/expenses': 'expenses',
         '/tax-report': 'tax-report',
-        '/bank-reconciliation': 'bank-reconciliation'
+        '/bank-reconciliation': 'bank-reconciliation',
+        '/upload-bank-statement': 'upload-bank-statement'
       };
       
       // Get active tab from URL
@@ -257,6 +259,11 @@ function App() {
       // Mobile receipt upload - accessible without login (token-based auth)
       if (location.pathname === '/upload-receipt') {
         return <MobileReceiptUpload />;
+      }
+
+      // Mobile bank statement upload - accessible without login (token-based auth)
+      if (location.pathname === '/upload-bank-statement') {
+        return <MobileBankUpload />;
       }
 
       if (!isAuthenticated) {

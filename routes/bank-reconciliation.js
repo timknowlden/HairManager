@@ -1,8 +1,163 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// ── Public: Mobile CSV upload (token-based auth, no login required) ──
+router.post('/mobile-upload', express.json({ limit: '10mb' }), (req, res) => {
+  const { token, csvData, filename } = req.body;
+  if (!token || !csvData) {
+    return res.status(400).json({ error: 'Token and CSV data are required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.type !== 'bank-upload') {
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
+
+    // Store as pending upload for the user to process on desktop
+    const db = req.app.locals.db;
+    db.run(
+      'INSERT INTO bank_statement_uploads (user_id, filename, bank_format, status) VALUES (?, ?, ?, ?)',
+      [decoded.userId, filename || 'mobile-upload.csv', 'pending', 'mobile_pending'],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        const uploadId = this.lastID;
+
+        // Store raw CSV in a transaction row so desktop can process it
+        db.run(
+          "INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, amount, transaction_type, raw_row, match_status) VALUES (?, ?, date('now'), 'RAW_CSV_DATA', 0, 'raw', ?, 'pending_parse')",
+          [decoded.userId, uploadId, csvData],
+          (err2) => {
+            if (err2) return res.status(500).json({ error: err2.message });
+            res.json({ success: true, uploadId });
+          }
+        );
+      }
+    );
+  } catch (err) {
+    return res.status(401).json({ error: 'Token expired or invalid. Please scan a new QR code.' });
+  }
+});
+
+// All remaining routes require authentication
 router.use(authenticateToken);
+
+// ── Generate mobile upload token ──
+router.post('/upload-token', (req, res) => {
+  const token = jwt.sign(
+    { userId: req.userId, type: 'bank-upload' },
+    JWT_SECRET,
+    { expiresIn: '30m' }
+  );
+  res.json({ token });
+});
+
+// ── GET /pending-mobile — Check for mobile uploads awaiting processing ──
+router.get('/pending-mobile', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const pending = await dbAll(db,
+      "SELECT u.id, u.filename, u.created_at, t.raw_row as csvData FROM bank_statement_uploads u JOIN bank_transactions t ON t.upload_id = u.id WHERE u.user_id = ? AND u.status = 'mobile_pending' AND t.match_status = 'pending_parse' ORDER BY u.created_at DESC",
+      [req.userId]
+    );
+    res.json(pending);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /process-mobile/:uploadId — Process a mobile-uploaded CSV ──
+router.post('/process-mobile/:uploadId', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { uploadId } = req.params;
+    const { formatOverride, columnMapping } = req.body;
+
+    // Get the raw CSV from the pending transaction
+    const pending = await dbGet(db,
+      "SELECT t.raw_row as csvData, u.id FROM bank_statement_uploads u JOIN bank_transactions t ON t.upload_id = u.id WHERE u.id = ? AND u.user_id = ? AND u.status = 'mobile_pending'",
+      [uploadId, req.userId]
+    );
+
+    if (!pending) {
+      return res.status(404).json({ error: 'No pending mobile upload found' });
+    }
+
+    // Delete the raw placeholder row
+    await dbRun(db, "DELETE FROM bank_transactions WHERE upload_id = ? AND match_status = 'pending_parse'", [uploadId]);
+
+    // Forward to the normal upload processing by making an internal-style call
+    // Parse the CSV and process it
+    const csvData = pending.csvData;
+    const rows = parseCSV(csvData);
+    if (rows.length < 2) {
+      return res.status(400).json({ error: 'CSV file appears empty or invalid' });
+    }
+
+    const headerRow = rows[0];
+    let format = formatOverride || detectBankFormat(headerRow);
+
+    if (!format) {
+      return res.status(400).json({
+        error: 'Could not detect bank format',
+        headers: headerRow,
+        needsMapping: true,
+        supportedFormats: Object.entries(BANK_FORMATS).filter(([k]) => k !== 'generic').map(([k, v]) => ({ id: k, name: v.name }))
+      });
+    }
+
+    if (columnMapping) {
+      BANK_FORMATS._custom = {
+        name: 'Custom',
+        dateCol: columnMapping.dateCol,
+        descriptionCol: columnMapping.descriptionCol,
+        amountCol: columnMapping.amountCol,
+        creditCol: columnMapping.creditCol,
+        debitCol: columnMapping.debitCol,
+        balanceCol: columnMapping.balanceCol,
+        dateFormat: 'DD/MM/YYYY',
+      };
+      format = '_custom';
+    }
+
+    const dataRows = rows.slice(1);
+    let creditCount = 0;
+    let totalCredits = 0;
+
+    for (const row of dataRows) {
+      const txn = extractTransaction(row, format);
+      if (!txn || txn.transaction_type !== 'credit') continue;
+
+      await dbRun(db, `
+        INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, balance, raw_row)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [req.userId, uploadId, txn.transaction_date, txn.description, txn.reference, txn.amount, txn.transaction_type, txn.balance, txn.raw_row]);
+
+      creditCount++;
+      totalCredits += txn.amount;
+    }
+
+    await dbRun(db, "UPDATE bank_statement_uploads SET row_count = ?, bank_format = ?, status = 'pending' WHERE id = ?",
+      [creditCount, BANK_FORMATS[format]?.name || format, uploadId]);
+
+    delete BANK_FORMATS._custom;
+
+    res.json({
+      uploadId: parseInt(uploadId),
+      format: BANK_FORMATS[format]?.name || format,
+      totalRows: dataRows.length,
+      creditTransactions: creditCount,
+      totalCredits: Math.round(totalCredits * 100) / 100,
+    });
+  } catch (err) {
+    console.error('[Bank Reconciliation] Process mobile error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── CSV Parser (RFC 4180 compliant) ──
 function parseCSV(text) {
@@ -103,6 +258,16 @@ const BANK_FORMATS = {
     descriptionCol: 1,
     referenceCol: 2,
     amountCol: 4,
+    dateFormat: 'DD/MM/YYYY',
+  },
+  mettle: {
+    name: 'Mettle',
+    headerPatterns: ['Date', 'Description', 'Reference', 'Amount', 'Balance'],
+    dateCol: 0,
+    descriptionCol: 1,
+    referenceCol: 2,
+    amountCol: 3,
+    balanceCol: 4,
     dateFormat: 'DD/MM/YYYY',
   },
   generic: {

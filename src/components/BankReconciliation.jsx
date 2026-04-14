@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE } from '../config.js';
-import { FaUpload, FaSearch, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaUniversity } from 'react-icons/fa';
+import { QRCodeSVG } from 'qrcode.react';
+import { FaUpload, FaSearch, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaUniversity, FaQrcode, FaMobileAlt } from 'react-icons/fa';
 import './BankReconciliation.css';
 
 function BankReconciliation({ onBack }) {
@@ -10,6 +11,9 @@ function BankReconciliation({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [mobileToken, setMobileToken] = useState(null);
+  const [showQR, setShowQR] = useState(false);
+  const [pendingMobile, setPendingMobile] = useState([]);
 
   // Upload state
   const [uploadResult, setUploadResult] = useState(null);
@@ -34,6 +38,74 @@ function BankReconciliation({ onBack }) {
       reader.onload = (e) => resolve(e.target.result);
       reader.readAsText(file);
     });
+  };
+
+  const generateMobileToken = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/bank-reconciliation/upload-token`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMobileToken(data.token);
+        setShowQR(true);
+      }
+    } catch (err) {
+      setError('Failed to generate mobile upload link');
+    }
+  };
+
+  // Poll for mobile uploads when QR is showing
+  useEffect(() => {
+    if (!showQR) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/bank-reconciliation/pending-mobile`, {
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setPendingMobile(data);
+          }
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showQR, getAuthHeaders]);
+
+  const processMobileUpload = async (upload) => {
+    setLoading(true);
+    setShowQR(false);
+    try {
+      const res = await fetch(`${API_BASE}/bank-reconciliation/process-mobile/${upload.id}`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needsMapping) {
+          setHeaders(data.headers || []);
+          setSupportedFormats(data.supportedFormats || []);
+          setCsvData(upload.csvData);
+          setFilename(upload.filename);
+          setUploadId(upload.id);
+          setStep('mapping');
+        } else {
+          setError(data.error || 'Processing failed');
+        }
+        return;
+      }
+      setUploadResult(data);
+      setUploadId(data.uploadId);
+      await runMatching(data.uploadId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpload = useCallback(async (file) => {
@@ -260,8 +332,47 @@ function BankReconciliation({ onBack }) {
                 hidden
               />
             </label>
-            <p className="drop-formats">Supports: Barclays, Lloyds, NatWest, HSBC, Monzo, Starling</p>
+            <p className="drop-formats">Supports: Barclays, Lloyds, NatWest, HSBC, Monzo, Starling, Mettle</p>
           </div>
+
+          <div className="mobile-upload-section">
+            <div className="mobile-upload-divider">
+              <span>or upload from your phone</span>
+            </div>
+            {showQR && mobileToken ? (
+              <div className="mobile-qr-section">
+                <QRCodeSVG value={`${window.location.origin}/upload-bank-statement?token=${mobileToken}`} size={160} />
+                <p className="qr-hint">Scan with your phone to upload a CSV from your banking app</p>
+                <div className="qr-link-actions">
+                  <button className="qr-action-btn" onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/upload-bank-statement?token=${mobileToken}`);
+                  }}>Copy link</button>
+                  <button className="qr-action-btn" onClick={() => {
+                    const url = `${window.location.origin}/upload-bank-statement?token=${mobileToken}`;
+                    window.location.href = `mailto:?subject=Upload Bank Statement&body=Use this link to upload your bank statement:%0A%0A${encodeURIComponent(url)}`;
+                  }}>Email link</button>
+                </div>
+                {pendingMobile.length > 0 && (
+                  <div className="pending-mobile-uploads">
+                    <h4><FaCheckCircle className="icon-matched" /> Statement received from phone</h4>
+                    {pendingMobile.map(upload => (
+                      <div key={upload.id} className="pending-upload-row">
+                        <span>{upload.filename}</span>
+                        <button className="btn-primary" onClick={() => processMobileUpload(upload)}>
+                          Process
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button className="mobile-qr-btn" onClick={generateMobileToken}>
+                <FaMobileAlt /> Generate QR Code for Mobile Upload
+              </button>
+            )}
+          </div>
+
           {loading && <div className="bank-recon-loading">Parsing statement...</div>}
         </div>
       )}
