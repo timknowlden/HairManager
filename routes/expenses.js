@@ -458,6 +458,202 @@ router.delete('/:id', (req, res) => {
   );
 });
 
+// ── Import expenses from Amazon/eBay CSV ──
+const ORDER_FORMATS = {
+  amazon: {
+    name: 'Amazon',
+    headerPatterns: ['Order ID', 'Order Date', 'Title', 'Total Owed'],
+    // Amazon Order History Report columns
+    detect: (headers) => headers.some(h => h.toLowerCase().includes('order id')) && headers.some(h => h.toLowerCase().includes('title')),
+    extract: (row, headers) => {
+      const get = (name) => {
+        const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+        return idx >= 0 ? row[idx] : '';
+      };
+      const amount = parseFloat((get('Total Owed') || get('Item Total') || get('Grand Total') || get('Total') || '0').replace(/[£$€,]/g, ''));
+      return {
+        date: parseOrderDate(get('Order Date') || get('Date')),
+        description: get('Title') || get('Product Name') || get('Item'),
+        amount: isNaN(amount) ? 0 : amount,
+        vendor: 'Amazon',
+        notes: `Order: ${get('Order ID')}`,
+        orderId: get('Order ID'),
+      };
+    }
+  },
+  ebay: {
+    name: 'eBay',
+    headerPatterns: ['Order number', 'Item title', 'Total'],
+    detect: (headers) => headers.some(h => h.toLowerCase().includes('order number')) && headers.some(h => h.toLowerCase().includes('item title')),
+    extract: (row, headers) => {
+      const get = (name) => {
+        const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+        return idx >= 0 ? row[idx] : '';
+      };
+      const amount = parseFloat((get('Total') || get('Item total') || get('Amount') || '0').replace(/[£$€,]/g, ''));
+      return {
+        date: parseOrderDate(get('Order date') || get('Date') || get('Purchase date')),
+        description: get('Item title') || get('Title'),
+        amount: isNaN(amount) ? 0 : amount,
+        vendor: get('Seller') || 'eBay',
+        notes: `Order: ${get('Order number')}`,
+        orderId: get('Order number'),
+      };
+    }
+  }
+};
+
+function parseOrderDate(dateStr) {
+  if (!dateStr) return new Date().toISOString().split('T')[0];
+  dateStr = dateStr.trim();
+  // DD/MM/YYYY
+  const dmy = dateStr.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+  // YYYY-MM-DD
+  const ymd = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+  // Month DD, YYYY (Amazon US format: "January 15, 2026")
+  const months = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06', july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
+  const mdy = dateStr.match(/^(\w+)\s+(\d{1,2}),?\s+(\d{4})$/i);
+  if (mdy && months[mdy[1].toLowerCase()]) return `${mdy[3]}-${months[mdy[1].toLowerCase()]}-${mdy[2].padStart(2, '0')}`;
+  // DD Mon YYYY
+  const shortMonths = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06', jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+  const dMonY = dateStr.match(/^(\d{1,2})\s+(\w{3})\s+(\d{4})$/i);
+  if (dMonY && shortMonths[dMonY[2].toLowerCase()]) return `${dMonY[3]}-${shortMonths[dMonY[2].toLowerCase()]}-${dMonY[1].padStart(2, '0')}`;
+  return new Date().toISOString().split('T')[0];
+}
+
+function parseCSVSimple(text) {
+  const rows = [];
+  let current = '';
+  let inQuotes = false;
+  let row = [];
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { row.push(current.trim()); current = ''; }
+      else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+        row.push(current.trim());
+        if (row.some(cell => cell !== '')) rows.push(row);
+        row = []; current = '';
+        if (ch === '\r') i++;
+      } else { current += ch; }
+    }
+  }
+  row.push(current.trim());
+  if (row.some(cell => cell !== '')) rows.push(row);
+  return rows;
+}
+
+router.post('/import-csv', async (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  const { csvData, source, defaultCategoryId } = req.body;
+
+  if (!csvData) {
+    return res.status(400).json({ error: 'No CSV data provided' });
+  }
+
+  try {
+    const rows = parseCSVSimple(csvData);
+    if (rows.length < 2) {
+      return res.status(400).json({ error: 'CSV file appears empty' });
+    }
+
+    const headers = rows[0];
+
+    // Detect format
+    let format = null;
+    if (source && ORDER_FORMATS[source]) {
+      format = ORDER_FORMATS[source];
+    } else {
+      for (const [, fmt] of Object.entries(ORDER_FORMATS)) {
+        if (fmt.detect(headers)) {
+          format = fmt;
+          break;
+        }
+      }
+    }
+
+    if (!format) {
+      return res.status(400).json({
+        error: 'Could not detect CSV format. Please ensure this is an Amazon or eBay order export.',
+        headers,
+      });
+    }
+
+    // Get or default category
+    let categoryId = defaultCategoryId || null;
+    if (!categoryId) {
+      // Try to find "Supplies & Materials" category
+      const cat = await new Promise((resolve, reject) => {
+        db.get("SELECT id FROM expense_categories WHERE user_id = ? AND name = 'Supplies & Materials'", [userId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+      categoryId = cat?.id || null;
+    }
+
+    const dataRows = rows.slice(1);
+    let imported = 0;
+    let skipped = 0;
+    const results = [];
+
+    for (const row of dataRows) {
+      const item = format.extract(row, headers);
+      if (!item.description || item.amount <= 0) {
+        skipped++;
+        continue;
+      }
+
+      // Check for duplicate (same date + description + amount)
+      const existing = await new Promise((resolve, reject) => {
+        db.get(
+          'SELECT id FROM expenses WHERE user_id = ? AND date = ? AND description = ? AND amount = ?',
+          [userId, item.date, item.description, item.amount],
+          (err, row) => { if (err) reject(err); else resolve(row); }
+        );
+      });
+
+      if (existing) {
+        skipped++;
+        results.push({ ...item, status: 'duplicate' });
+        continue;
+      }
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO expenses (user_id, date, description, amount, vendor, notes, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [userId, item.date, item.description, item.amount, item.vendor, item.notes, categoryId],
+          (err) => { if (err) reject(err); else resolve(); }
+        );
+      });
+
+      imported++;
+      results.push({ ...item, status: 'imported' });
+    }
+
+    res.json({
+      source: format.name,
+      total: dataRows.length,
+      imported,
+      skipped,
+      results,
+    });
+  } catch (err) {
+    console.error('[Expenses] Import CSV error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Export expenses as CSV
 router.get('/export/csv', (req, res) => {
   const db = req.app.locals.db;

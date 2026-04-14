@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaFileAlt, FaCamera, FaImage, FaQrcode, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaReceipt, FaDownload, FaUpload, FaFileAlt, FaCamera, FaImage, FaQrcode, FaTimes } from 'react-icons/fa';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '../contexts/AuthContext';
 import './Expenses.css';
@@ -31,6 +31,9 @@ function Expenses() {
   const [pendingReceipts, setPendingReceipts] = useState([]);
   const [viewReceipt, setViewReceipt] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const [filters, setFilters] = useState({
     tax_year: '',
     category_id: ''
@@ -261,6 +264,40 @@ function Expenses() {
     }
   };
 
+  const handleImportCSV = async (file) => {
+    if (!file || !file.name.endsWith('.csv')) {
+      setError('Please select a CSV file');
+      return;
+    }
+    setImportLoading(true);
+    setImportResult(null);
+    setError(null);
+    try {
+      const text = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsText(file);
+      });
+      const res = await fetch(`${API_BASE}/expenses/import-csv`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ csvData: text })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Import failed');
+        return;
+      }
+      setImportResult(data);
+      setSuccess(`Imported ${data.imported} expense${data.imported !== 1 ? 's' : ''} from ${data.source}${data.skipped > 0 ? ` (${data.skipped} skipped)` : ''}`);
+      fetchExpenses();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   // Available tax years
   const taxYears = useMemo(() => {
     const years = [];
@@ -319,6 +356,10 @@ function Expenses() {
           <button onClick={() => { setShowForm(true); setEditingId(null); resetForm(); }} className="add-btn">
             <FaPlus /> Add Expense
           </button>
+          <label className="add-btn import-btn" style={{ cursor: 'pointer' }}>
+            <FaUpload /> Import Orders
+            <input type="file" accept=".csv" onChange={e => { if (e.target.files[0]) handleImportCSV(e.target.files[0]); e.target.value = ''; }} hidden />
+          </label>
           <button onClick={handleExportCSV} className="add-btn export-btn">
             <FaDownload /> Export CSV
           </button>

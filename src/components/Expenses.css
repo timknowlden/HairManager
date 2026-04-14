@@ -49,6 +49,18 @@
   transform: translateY(-1px);
 }
 
+.import-btn {
+  background: var(--gradient-info, linear-gradient(135deg, #3b82f6, #2563eb)) !important;
+  color: white !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.import-btn:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4) !important;
+}
+
 .export-btn {
   background: var(--color-bg-tertiary) !important;
   color: var(--color-text-secondary) !important;
