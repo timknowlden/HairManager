@@ -634,6 +634,46 @@ function migrateDatabase(customDbPath = null) {
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_stripe_event_id ON payment_events(stripe_event_id)'));
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_user_id ON payment_events(user_id)'));
 
+                // Create bank reconciliation tables
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS bank_statement_uploads (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    filename TEXT NOT NULL,
+                    bank_format TEXT,
+                    row_count INTEGER DEFAULT 0,
+                    matched_count INTEGER DEFAULT 0,
+                    applied_count INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'pending',
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, `
+                  CREATE TABLE IF NOT EXISTS bank_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    upload_id INTEGER NOT NULL,
+                    transaction_date TEXT NOT NULL,
+                    description TEXT,
+                    reference TEXT,
+                    amount REAL NOT NULL,
+                    transaction_type TEXT,
+                    balance REAL,
+                    raw_row TEXT,
+                    match_status TEXT DEFAULT 'unmatched',
+                    match_confidence TEXT,
+                    matched_appointment_id INTEGER,
+                    matched_invoice_group TEXT,
+                    applied_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (upload_id) REFERENCES bank_statement_uploads(id) ON DELETE CASCADE
+                  )
+                `));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_bank_transactions_upload ON bank_transactions(user_id, upload_id)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_bank_transactions_status ON bank_transactions(user_id, match_status)'));
+
                 // After adding user_id columns, migrate existing data to a default user
                 // This creates a default user if none exists and assigns all existing data to it
                 Promise.all(migrations)

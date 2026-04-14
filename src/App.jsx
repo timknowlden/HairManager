@@ -18,6 +18,7 @@ import MobileReceiptUpload from './components/MobileReceiptUpload';
 import TaxReport from './components/TaxReport';
 import UsageIndicator from './components/UsageIndicator';
 import MyPlan from './components/MyPlan';
+import BankReconciliation from './components/BankReconciliation';
 import './App.css';
 import { API_BASE } from './config.js';
 
@@ -42,7 +43,8 @@ function App() {
         '/email-logs': 'email-logs',
         '/my-plan': 'my-plan',
         '/expenses': 'expenses',
-        '/tax-report': 'tax-report'
+        '/tax-report': 'tax-report',
+        '/bank-reconciliation': 'bank-reconciliation'
       };
       
       // Get active tab from URL
@@ -578,6 +580,9 @@ function App() {
         )}
         {location.pathname === '/financial' && (hasPaidPlan || isSuperAdmin) && (
           <Financial />
+        )}
+        {location.pathname === '/bank-reconciliation' && (hasPaidPlan || isSuperAdmin) && (
+          <BankReconciliation onBack={() => navigate('/financial')} />
         )}
         {location.pathname === '/email-logs' && (
           <EmailLogs />

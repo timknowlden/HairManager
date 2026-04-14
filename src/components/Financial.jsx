@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaChartLine, FaFileAlt } from 'react-icons/fa';
+import { FaChartLine, FaFileAlt, FaUniversity } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Financial.css';
@@ -248,12 +248,20 @@ function Financial() {
       <div className="financial-header">
         <h2>Financial Summary</h2>
         <p className="financial-subtitle">Earnings breakdown by financial year, calendar year, and month</p>
-        <button
-          onClick={() => navigate('/tax-report')}
-          className="tax-report-btn"
-        >
-          <FaFileAlt /> Tax Report (SA103)
-        </button>
+        <div className="financial-header-actions">
+          <button
+            onClick={() => navigate('/bank-reconciliation')}
+            className="tax-report-btn"
+          >
+            <FaUniversity /> Bank Reconciliation
+          </button>
+          <button
+            onClick={() => navigate('/tax-report')}
+            className="tax-report-btn"
+          >
+            <FaFileAlt /> Tax Report (SA103)
+          </button>
+        </div>
       </div>
 
       <div className="financial-filters">

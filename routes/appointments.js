@@ -390,10 +390,11 @@ router.patch('/:id/pay', (req, res) => {
   const db = req.app.locals.db;
   const { id } = req.params;
   const userId = req.userId;
+  const { payment_date } = req.body || {};
 
   db.run(
-    'UPDATE appointments SET paid = 1, payment_date = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
-    [id, userId],
+    `UPDATE appointments SET paid = 1, payment_date = ${payment_date ? '?' : 'CURRENT_TIMESTAMP'} WHERE id = ? AND user_id = ?`,
+    payment_date ? [payment_date, id, userId] : [id, userId],
     function(err) {
       if (err) {
         console.error('Error updating appointment:', err);

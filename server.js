@@ -19,6 +19,7 @@ import adminUsersRoutes from './routes/admin-users.js';
 import subscriptionsRoutes from './routes/subscriptions.js';
 import expensesRoutes from './routes/expenses.js';
 import paymentsRoutes from './routes/payments.js';
+import bankReconciliationRoutes from './routes/bank-reconciliation.js';
 
 console.log('Profile routes imported:', profileRoutes ? 'YES' : 'NO');
 if (profileRoutes) {
@@ -614,6 +615,9 @@ initDatabase(dbPath)
 
       app.use('/api/payments', paymentsRoutes);
       console.log('✓ Payments routes registered');
+
+      app.use('/api/bank-reconciliation', bankReconciliationRoutes);
+      console.log('✓ Bank reconciliation routes registered');
     } catch (err) {
       console.error('ERROR registering routes:', err);
       console.error(err.stack);

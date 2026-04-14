@@ -28,6 +28,12 @@
   font-size: var(--text-base);
 }
 
+.financial-header-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .tax-report-btn {
   padding: 10px 20px;
   border: none;
@@ -40,7 +46,6 @@
   gap: 8px;
   background: var(--gradient-purple, var(--color-primary));
   color: white;
-  margin-top: 12px;
   transition: all var(--transition-fast);
 }
 
