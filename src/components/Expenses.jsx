@@ -680,20 +680,22 @@ function Expenses() {
                   <div className="import-source">
                     <h4>Amazon</h4>
                     <ol>
-                      <li>Go to <a href="https://www.amazon.co.uk/gp/b2b/reports" target="_blank" rel="noopener noreferrer">Amazon Order History Reports</a></li>
-                      <li>Select date range and click <strong>Request Report</strong></li>
-                      <li>Wait for the report to generate, then click <strong>Download</strong></li>
-                      <li>Upload the CSV file below</li>
+                      <li>Log into <a href="https://www.amazon.co.uk" target="_blank" rel="noopener noreferrer">amazon.co.uk</a></li>
+                      <li>Go to <strong>Account &amp; Lists</strong> &rarr; <strong>Your Account</strong></li>
+                      <li>Under "Ordering and shopping preferences", click <strong>Download order reports</strong></li>
+                      <li>Set your date range, select <strong>Items</strong> as report type</li>
+                      <li>Click <strong>Request Report</strong>, wait, then <strong>Download CSV</strong></li>
                     </ol>
                   </div>
 
                   <div className="import-source">
                     <h4>eBay</h4>
                     <ol>
-                      <li>Go to <a href="https://www.ebay.co.uk/mye/myebay/purchase" target="_blank" rel="noopener noreferrer">eBay Purchase History</a></li>
-                      <li>Click <strong>Order history</strong> and select the date range</li>
-                      <li>Click <strong>Download</strong> to export as CSV</li>
-                      <li>Upload the CSV file below</li>
+                      <li>Log into <a href="https://www.ebay.co.uk" target="_blank" rel="noopener noreferrer">ebay.co.uk</a></li>
+                      <li>Click your name &rarr; <strong>Purchase history</strong></li>
+                      <li>Use the date filter to select the period you want</li>
+                      <li>Look for a <strong>Download</strong> or <strong>Export</strong> option on the page</li>
+                      <li>If no export is available, try <a href="https://www.ebay.co.uk/sh/ord" target="_blank" rel="noopener noreferrer">Seller Hub Orders</a> (for seller transactions)</li>
                     </ol>
                   </div>
                 </div>
