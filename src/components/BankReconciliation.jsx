@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE } from '../config.js';
 import { QRCodeSVG } from 'qrcode.react';
-import { FaUpload, FaSearch, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaUniversity, FaQrcode, FaMobileAlt } from 'react-icons/fa';
+import { FaUpload, FaSearch, FaCheckCircle, FaTimesCircle, FaArrowLeft, FaUniversity, FaQrcode, FaMobileAlt, FaFilePdf } from 'react-icons/fa';
 import './BankReconciliation.css';
 
 function BankReconciliation({ onBack }) {
@@ -107,6 +107,39 @@ function BankReconciliation({ onBack }) {
       setLoading(false);
     }
   };
+
+  // Upload a PDF/image remittance advice and AI-scan it for individual payments
+  const handleRemittanceUpload = useCallback(async (file) => {
+    setError(null);
+    setLoading(true);
+    try {
+      // Read as data URL (base64) — the backend expects "data:<mime>;base64,<data>"
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch(`${API_BASE}/bank-reconciliation/scan-remittance`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileData: dataUrl, filename: file.name })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Remittance scan failed');
+        return;
+      }
+      setUploadResult(data);
+      setUploadId(data.uploadId);
+      await runMatching(data.uploadId);
+    } catch (err) {
+      setError('Error scanning remittance: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAuthHeaders]);
 
   const handleUpload = useCallback(async (file) => {
     setError(null);
@@ -373,7 +406,25 @@ function BankReconciliation({ onBack }) {
             )}
           </div>
 
-          {loading && <div className="bank-recon-loading">Parsing statement...</div>}
+          <div className="mobile-upload-section">
+            <div className="mobile-upload-divider">
+              <span>or scan a payment remittance (PDF / image)</span>
+            </div>
+            <label className="mobile-qr-btn">
+              <FaFilePdf /> Upload Remittance Advice
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={e => e.target.files[0] && handleRemittanceUpload(e.target.files[0])}
+                hidden
+              />
+            </label>
+            <p className="qr-hint" style={{ marginTop: 8 }}>
+              AI extracts the invoice references and amounts from the document.
+            </p>
+          </div>
+
+          {loading && <div className="bank-recon-loading">Processing...</div>}
         </div>
       )}
 

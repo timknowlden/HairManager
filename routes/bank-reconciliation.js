@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import Anthropic from '@anthropic-ai/sdk';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -408,6 +409,183 @@ function dbAll(db, sql, params = []) {
 }
 
 // ── POST /upload — Upload and parse CSV ──
+// ── POST /scan-remittance — AI-scan a payment remittance PDF/image ──
+const REMITTANCE_PROMPT = `You are extracting payments from a remittance advice or payment notification.
+Return ONLY a JSON object in this exact format:
+{
+  "payment_date": "YYYY-MM-DD or empty if not found",
+  "payer": "name of the person/company who paid",
+  "payments": [
+    { "reference": "invoice number or reference text", "amount": numeric_amount }
+  ],
+  "total": numeric_total_amount
+}
+
+Notes:
+- "payments" should list each individual line item being paid. If only a total is shown with no breakdown, include one entry with the total.
+- "reference" should be the invoice number, order number, or text reference next to each amount.
+- "amount" should be the numeric value (no currency symbols).
+- Return ONLY the JSON, no other text.`;
+
+async function scanRemittanceWithAnthropic(apiKey, mediaType, base64Data) {
+  const anthropic = new Anthropic({ apiKey });
+  const isPdf = mediaType === 'application/pdf';
+  const content = isPdf ? [
+    { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
+    { type: 'text', text: REMITTANCE_PROMPT }
+  ] : [
+    { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+    { type: 'text', text: REMITTANCE_PROMPT }
+  ];
+  const response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1500,
+    messages: [{ role: 'user', content }]
+  });
+  return response.content[0]?.text || '';
+}
+
+async function scanRemittanceWithOpenAI(apiKey, mediaType, base64Data) {
+  // OpenAI gpt-4o doesn't accept PDFs directly; only images
+  if (mediaType === 'application/pdf') {
+    throw new Error('OpenAI provider only supports images. Use Anthropic for PDFs.');
+  }
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      max_tokens: 1500,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+          { type: 'text', text: REMITTANCE_PROMPT }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function scanRemittanceWithGemini(apiKey, mediaType, base64Data) {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: base64Data } },
+          { text: REMITTANCE_PROMPT }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+router.post('/scan-remittance', express.json({ limit: '15mb' }), async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const userId = req.userId;
+    const { fileData, filename } = req.body;
+
+    if (!fileData) return res.status(400).json({ error: 'No file data provided' });
+
+    // Get user's AI settings (same as expenses scanning)
+    const settings = await dbGet(db,
+      'SELECT ai_provider, ai_api_key FROM admin_settings WHERE user_id = ?',
+      [userId]
+    );
+    const provider = settings?.ai_provider || process.env.AI_PROVIDER || 'anthropic';
+    const apiKey = settings?.ai_api_key || process.env.AI_API_KEY || process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'AI API key not configured. Set it in Profile Settings.' });
+    }
+
+    const match = fileData.match(/^data:(image\/[^;]+|application\/pdf);base64,(.+)$/);
+    if (!match) return res.status(400).json({ error: 'Invalid file format. Must be PDF or image.' });
+
+    const mediaType = match[1];
+    const base64Data = match[2];
+
+    let text;
+    switch (provider) {
+      case 'openai':
+        text = await scanRemittanceWithOpenAI(apiKey, mediaType, base64Data);
+        break;
+      case 'google':
+        text = await scanRemittanceWithGemini(apiKey, mediaType, base64Data);
+        break;
+      case 'anthropic':
+      default:
+        text = await scanRemittanceWithAnthropic(apiKey, mediaType, base64Data);
+        break;
+    }
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(422).json({ error: 'Could not parse remittance', raw: text });
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      return res.status(422).json({ error: 'Invalid JSON from AI', raw: text });
+    }
+
+    const payments = Array.isArray(parsed.payments) ? parsed.payments : [];
+    const paymentDate = parsed.payment_date || new Date().toISOString().split('T')[0];
+    const payer = parsed.payer || 'Remittance';
+
+    if (payments.length === 0) {
+      return res.status(422).json({ error: 'No payments found in remittance' });
+    }
+
+    // Create an upload record so it flows through the same UI as bank statements
+    const uploadResult = await dbRun(db,
+      'INSERT INTO bank_statement_uploads (user_id, filename, bank_format, status) VALUES (?, ?, ?, ?)',
+      [userId, filename || 'remittance.pdf', 'AI Remittance Scan', 'pending']
+    );
+    const uploadId = uploadResult.lastID;
+
+    let creditCount = 0;
+    let totalCredits = 0;
+    for (const p of payments) {
+      const amount = parseFloat(p.amount);
+      if (isNaN(amount) || amount <= 0) continue;
+      const reference = String(p.reference || '').trim();
+      const description = `${payer} — ${reference || 'payment'}`;
+      await dbRun(db,
+        `INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, raw_row)
+         VALUES (?, ?, ?, ?, ?, ?, 'credit', ?)`,
+        [userId, uploadId, paymentDate, description, reference, amount, JSON.stringify(p)]
+      );
+      creditCount++;
+      totalCredits += amount;
+    }
+
+    await dbRun(db, 'UPDATE bank_statement_uploads SET row_count = ? WHERE id = ?', [creditCount, uploadId]);
+
+    res.json({
+      uploadId,
+      format: 'AI Remittance Scan',
+      totalRows: payments.length,
+      creditTransactions: creditCount,
+      totalCredits: Math.round(totalCredits * 100) / 100,
+      payer,
+      paymentDate,
+    });
+  } catch (err) {
+    console.error('[Bank Reconciliation] Remittance scan error:', err);
+    res.status(500).json({ error: 'Scan failed: ' + (err.message || 'Unknown error') });
+  }
+});
+
 router.post('/upload', async (req, res) => {
   try {
     const db = req.app.locals.db;
