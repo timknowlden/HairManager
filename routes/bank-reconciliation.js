@@ -410,22 +410,24 @@ function dbAll(db, sql, params = []) {
 
 // ── POST /upload — Upload and parse CSV ──
 // ── POST /scan-remittance — AI-scan a payment remittance PDF/image ──
-const REMITTANCE_PROMPT = `You are extracting payments from a remittance advice or payment notification.
+const REMITTANCE_PROMPT = `You are extracting payments from a remittance advice, payment notification, or basic email confirming a payment.
 Return ONLY a JSON object in this exact format:
 {
   "payment_date": "YYYY-MM-DD or empty if not found",
-  "payer": "name of the person/company who paid",
+  "payer": "name of the person/company who paid (or empty if not stated)",
   "payments": [
-    { "reference": "invoice number or reference text", "amount": numeric_amount }
+    { "reference": "invoice number or reference text (or empty if none given)", "amount": numeric_amount }
   ],
   "total": numeric_total_amount
 }
 
-Notes:
-- "payments" should list each individual line item being paid. If only a total is shown with no breakdown, include one entry with the total.
-- "reference" should be the invoice number, order number, or text reference next to each amount.
-- "amount" should be the numeric value (no currency symbols).
-- Return ONLY the JSON, no other text.`;
+Important rules:
+- If the document only shows a single total (no per-invoice breakdown), still return ONE entry in "payments" with the total amount and any reference text you can find (or empty string).
+- If there's a breakdown of multiple invoices, list each one separately in "payments".
+- "reference" should be the invoice number, order number, or any text identifier next to the amount. If none, use an empty string — do NOT make one up.
+- "amount" should be the numeric value only (no currency symbols, no commas).
+- "payer" is who is sending the payment, NOT the recipient.
+- Return ONLY the JSON object, no other text or commentary.`;
 
 async function scanRemittanceWithAnthropic(apiKey, mediaType, base64Data) {
   const anthropic = new Anthropic({ apiKey });
@@ -980,6 +982,101 @@ router.post('/:uploadId/ignore', async (req, res) => {
     }
 
     res.json({ ignored: transactionIds.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /unpaid-invoices — List unpaid invoice groups for manual matching ──
+router.get('/unpaid-invoices', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const apts = await dbAll(db,
+      'SELECT id, client_name, service, date, location, price FROM appointments WHERE user_id = ? AND paid = 0 ORDER BY date DESC',
+      [req.userId]
+    );
+
+    // Group by date+location (the invoice unit)
+    const groups = new Map();
+    for (const apt of apts) {
+      const key = `${apt.date}|${apt.location}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          date: apt.date,
+          location: apt.location,
+          appointments: [],
+          total: 0,
+          clientNames: new Set()
+        });
+      }
+      const g = groups.get(key);
+      g.appointments.push(apt);
+      g.total += apt.price || 0;
+      g.clientNames.add(apt.client_name);
+    }
+
+    const result = Array.from(groups.values()).map(g => ({
+      date: g.date,
+      location: g.location,
+      total: Math.round(g.total * 100) / 100,
+      appointmentCount: g.appointments.length,
+      clientNames: Array.from(g.clientNames),
+      appointmentIds: g.appointments.map(a => a.id),
+      // First appointment ID acts as the invoice number
+      invoiceNumber: g.appointments[0].id,
+    }));
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /transaction/:txnId/manual-match — Link a transaction to specific appointments ──
+router.post('/transaction/:txnId/manual-match', async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { txnId } = req.params;
+    const { appointmentIds } = req.body;
+
+    if (!appointmentIds || !Array.isArray(appointmentIds) || appointmentIds.length === 0) {
+      return res.status(400).json({ error: 'No appointment IDs provided' });
+    }
+
+    // Verify transaction belongs to this user
+    const txn = await dbGet(db,
+      'SELECT * FROM bank_transactions WHERE id = ? AND user_id = ?',
+      [txnId, req.userId]
+    );
+    if (!txn) return res.status(404).json({ error: 'Transaction not found' });
+
+    // Get appointment details to build the invoice group
+    const placeholders = appointmentIds.map(() => '?').join(',');
+    const apts = await dbAll(db,
+      `SELECT id, date, location FROM appointments WHERE user_id = ? AND id IN (${placeholders})`,
+      [req.userId, ...appointmentIds]
+    );
+
+    if (apts.length === 0) return res.status(404).json({ error: 'No matching appointments' });
+
+    const firstApt = apts[0];
+    const groupJson = JSON.stringify({
+      date: firstApt.date,
+      location: firstApt.location,
+      appointmentIds: apts.map(a => a.id),
+      manual: true,
+    });
+
+    await dbRun(db, `
+      UPDATE bank_transactions SET
+        match_status = 'matched',
+        match_confidence = 'manual',
+        matched_appointment_id = ?,
+        matched_invoice_group = ?
+      WHERE id = ?
+    `, [firstApt.id, groupJson, txnId]);
+
+    res.json({ success: true, matched: apts.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

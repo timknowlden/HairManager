@@ -32,6 +32,11 @@ function BankReconciliation({ onBack }) {
   const [selected, setSelected] = useState(new Set());
   const [applyResult, setApplyResult] = useState(null);
 
+  // Manual match state
+  const [manualMatchTxn, setManualMatchTxn] = useState(null); // transaction being manually matched
+  const [unpaidInvoices, setUnpaidInvoices] = useState([]);
+  const [unpaidSearch, setUnpaidSearch] = useState('');
+
   const readFile = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -306,10 +311,56 @@ function BankReconciliation({ onBack }) {
     setSelected(all);
   };
 
+  const openManualMatch = async (txn) => {
+    setManualMatchTxn(txn);
+    setUnpaidSearch('');
+    if (unpaidInvoices.length === 0) {
+      try {
+        const res = await fetch(`${API_BASE}/bank-reconciliation/unpaid-invoices`, {
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (res.ok) setUnpaidInvoices(data);
+      } catch (err) {
+        setError('Failed to load unpaid invoices');
+      }
+    }
+  };
+
+  const applyManualMatch = async (invoice) => {
+    if (!manualMatchTxn) return;
+    try {
+      const res = await fetch(`${API_BASE}/bank-reconciliation/transaction/${manualMatchTxn.id}/manual-match`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentIds: invoice.appointmentIds })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Manual match failed');
+        return;
+      }
+      // Refresh transactions for this upload
+      const txnRes = await fetch(`${API_BASE}/bank-reconciliation/${uploadId}/transactions`, {
+        headers: getAuthHeaders()
+      });
+      if (txnRes.ok) {
+        const txns = await txnRes.json();
+        setTransactions(txns);
+        // Auto-select the newly matched one
+        setSelected(prev => new Set([...prev, manualMatchTxn.id]));
+      }
+      setManualMatchTxn(null);
+    } catch (err) {
+      setError('Error applying match: ' + err.message);
+    }
+  };
+
   const confidenceBadge = (confidence) => {
     if (confidence === 'high') return <span className="confidence-badge high">High</span>;
     if (confidence === 'medium') return <span className="confidence-badge medium">Medium</span>;
     if (confidence === 'low') return <span className="confidence-badge low">Low</span>;
+    if (confidence === 'manual') return <span className="confidence-badge manual">Manual</span>;
     return <span className="confidence-badge none">No match</span>;
   };
 
@@ -559,6 +610,7 @@ function BankReconciliation({ onBack }) {
                     <th>Date</th>
                     <th>Description</th>
                     <th>Amount</th>
+                    <th style={{ width: 120 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -567,6 +619,11 @@ function BankReconciliation({ onBack }) {
                       <td>{new Date(txn.transaction_date).toLocaleDateString('en-GB')}</td>
                       <td className="desc-cell">{txn.description}</td>
                       <td className="amount-cell">{formatCurrency(txn.amount)}</td>
+                      <td>
+                        <button className="btn-select-all" onClick={() => openManualMatch(txn)}>
+                          <FaSearch /> Match
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -587,6 +644,73 @@ function BankReconciliation({ onBack }) {
               Upload Another Statement
             </button>
             <button className="btn-secondary" onClick={onBack}>Back to Financial</button>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Match Modal */}
+      {manualMatchTxn && (
+        <div className="manual-match-overlay" onClick={() => setManualMatchTxn(null)}>
+          <div className="manual-match-modal" onClick={e => e.stopPropagation()}>
+            <div className="manual-match-header">
+              <h3>Match transaction to invoice</h3>
+              <button className="manual-match-close" onClick={() => setManualMatchTxn(null)}>&times;</button>
+            </div>
+            <div className="manual-match-txn-info">
+              <strong>{formatCurrency(manualMatchTxn.amount)}</strong> on {new Date(manualMatchTxn.transaction_date).toLocaleDateString('en-GB')}
+              <div className="manual-match-desc">{manualMatchTxn.description}</div>
+            </div>
+            <input
+              type="text"
+              placeholder="Search by client name, location, date or amount..."
+              value={unpaidSearch}
+              onChange={e => setUnpaidSearch(e.target.value)}
+              className="manual-match-search"
+              autoFocus
+            />
+            <div className="manual-match-list">
+              {(() => {
+                const txnAmount = manualMatchTxn.amount;
+                const search = unpaidSearch.toLowerCase().trim();
+                const filtered = unpaidInvoices.filter(inv => {
+                  if (!search) return true;
+                  const haystack = [
+                    inv.location,
+                    inv.date,
+                    String(inv.total),
+                    String(inv.invoiceNumber),
+                    ...(inv.clientNames || [])
+                  ].join(' ').toLowerCase();
+                  return haystack.includes(search);
+                });
+                // Sort: closest amount match first
+                filtered.sort((a, b) => Math.abs(a.total - txnAmount) - Math.abs(b.total - txnAmount));
+
+                if (filtered.length === 0) {
+                  return <div className="manual-match-empty">No unpaid invoices match.</div>;
+                }
+                return filtered.slice(0, 50).map(inv => {
+                  const exactMatch = Math.abs(inv.total - txnAmount) <= 0.01;
+                  return (
+                    <div key={`${inv.date}|${inv.location}`} className={`manual-match-row ${exactMatch ? 'exact-match' : ''}`}>
+                      <div className="manual-match-row-main">
+                        <div className="manual-match-row-title">
+                          #{inv.invoiceNumber} — {inv.clientNames.slice(0, 3).join(', ')}{inv.clientNames.length > 3 ? '…' : ''}
+                        </div>
+                        <div className="manual-match-row-meta">
+                          {new Date(inv.date).toLocaleDateString('en-GB')} · {inv.location} · {inv.appointmentCount} appt{inv.appointmentCount !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                      <div className="manual-match-row-amount">
+                        {formatCurrency(inv.total)}
+                        {exactMatch && <span className="exact-tag">exact</span>}
+                      </div>
+                      <button className="btn-primary" onClick={() => applyManualMatch(inv)}>Select</button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
         </div>
       )}

@@ -426,6 +426,11 @@
   color: #6b7280;
 }
 
+.confidence-badge.manual {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
 .confidence-badge.none {
   background: #f3f4f6;
   color: #9ca3af;
@@ -500,6 +505,129 @@
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+/* Manual match modal */
+.manual-match-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.manual-match-modal {
+  background: var(--color-bg-primary, white);
+  border-radius: 12px;
+  max-width: 640px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.manual-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.manual-match-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.manual-match-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.manual-match-txn-info {
+  padding: 12px 20px;
+  background: #eff6ff;
+  font-size: 14px;
+}
+
+.manual-match-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.manual-match-search {
+  margin: 12px 20px 8px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.manual-match-list {
+  overflow-y: auto;
+  padding: 0 20px 20px;
+  flex: 1;
+}
+
+.manual-match-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.manual-match-row.exact-match {
+  border-color: #10b981;
+  background: #ecfdf5;
+}
+
+.manual-match-row-main {
+  flex: 1;
+}
+
+.manual-match-row-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.manual-match-row-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.manual-match-row-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.exact-tag {
+  display: inline-block;
+  margin-left: 6px;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+.manual-match-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  font-size: 14px;
 }
 
 /* Responsive */
