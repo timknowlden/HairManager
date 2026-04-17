@@ -575,7 +575,7 @@ function EmailLogs() {
                                 {isLogExpanded ? '▼' : '▶'}
                               </button>
                               #{log.id}
-                              {log.is_followup ? <span className="followup-tag">follow-up</span> : null}
+                              {log.is_followup ? <span className="followup-badge" title="Payment reminder">R</span> : null}
                               {adminMode && (
                                 <button
                                   className="delete-row-btn"

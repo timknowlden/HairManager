@@ -624,14 +624,20 @@
   color: var(--color-text-secondary);
 }
 
-.followup-tag {
-  background: var(--color-warning-light, rgba(245, 158, 11, 0.1));
+.followup-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--color-warning-light, rgba(245, 158, 11, 0.15));
   color: #b45309;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-size: 9px;
-  font-weight: 600;
-  margin-left: 4px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
 }
 
 .email-count-badge {
