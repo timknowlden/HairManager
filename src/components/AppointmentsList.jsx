@@ -1567,23 +1567,20 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
   // Go to specific appointment by ID (scrolls to it, clears other filters to ensure it's visible)
-  // Scroll to and highlight a row that's already in the DOM
+  // Snap to and highlight a row that's already in the DOM (no animated scroll for snappier feel)
   const scrollToAppointmentRow = (id) => {
     setTimeout(() => {
       const rowElement = appointmentRowRefs.current[id];
       if (rowElement && tableContainerRef.current) {
         const container = tableContainerRef.current;
         const rowTop = rowElement.offsetTop;
-        container.scrollTo({
-          top: rowTop - 100,
-          behavior: 'smooth'
-        });
+        container.scrollTop = Math.max(0, rowTop - 100);
         rowElement.classList.add('highlighted-row');
         setTimeout(() => {
           rowElement.classList.remove('highlighted-row');
         }, 10000);
       }
-    }, 150);
+    }, 50);
   };
 
   const goToAppointment = async (appointmentId) => {
