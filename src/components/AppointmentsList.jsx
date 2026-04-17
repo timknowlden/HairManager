@@ -256,16 +256,18 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
 
   // Tracks the tax year we most recently fetched, so we can skip redundant refetches
   const lastFetchedTaxYearRef = useRef(undefined);
+  // When set, the next tax-year refetch will be silent (no loading spinner / no header re-render)
+  const silentRefetchRef = useRef(false);
 
   // Force-refetch using the currently displayed tax year (used after mutations)
   const refetchCurrent = () => fetchAppointments(lastFetchedTaxYearRef.current, true);
 
-  const fetchAppointments = async (taxYearStart = null, force = false) => {
+  const fetchAppointments = async (taxYearStart = null, force = false, silent = false) => {
     // Skip if we already have data for this exact tax year selection (unless forced)
     if (!force && lastFetchedTaxYearRef.current === taxYearStart) return;
     lastFetchedTaxYearRef.current = taxYearStart;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     // Clear new appointment IDs when manually refreshing
     setNewAppointmentIdsSet(new Set());
@@ -290,7 +292,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -964,12 +966,14 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   // - Multiple or none → fetch everything (acceptable; less common case)
   useEffect(() => {
     if (!taxYearInitialized) return; // skip during initial mount
+    const silent = silentRefetchRef.current;
+    silentRefetchRef.current = false;
     if (selectedTaxYears.size === 1) {
       const ty = Array.from(selectedTaxYears)[0]; // "YYYY-YY"
       const startYear = ty.split('-')[0];
-      fetchAppointments(startYear);
+      fetchAppointments(startYear, false, silent);
     } else {
-      fetchAppointments(null);
+      fetchAppointments(null, false, silent);
     }
     // We intentionally only depend on selectedTaxYears (not fetchAppointments)
     // because fetchAppointments is stable across renders.
@@ -1630,8 +1634,13 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     // Switch to the tax year containing this appointment (triggers refetch via effect)
     const taxYear = getTaxYear(appointment.date);
     if (taxYear) {
-      setSelectedTaxYears(new Set([taxYear]));
-      // After the refetch lands, the row will be in the DOM. Schedule scroll.
+      const currentlySelected = selectedTaxYears.size === 1 && selectedTaxYears.has(taxYear);
+      if (!currentlySelected) {
+        // Mark next refetch as silent so the header doesn't flicker
+        silentRefetchRef.current = true;
+        setSelectedTaxYears(new Set([taxYear]));
+      }
+      // After the refetch lands (or immediately if already selected), schedule scroll
       setPendingScrollId(id);
     } else {
       scrollToAppointmentRow(id);
@@ -1653,10 +1662,11 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       return;
     }
     
-    // Very short debounce for typeahead feel (100ms) - searches as you type
+    // Debounce so we only search when the user pauses typing
+    // (prevents partial-ID searches like "14" → "145" → "1455" each triggering work)
     goToTimeoutRef.current = setTimeout(() => {
       goToAppointment(value.trim());
-    }, 100); // Short delay to avoid excessive searches while typing
+    }, 400);
   };
 
   const clearFilters = () => {
