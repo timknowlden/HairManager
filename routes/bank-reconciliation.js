@@ -409,6 +409,66 @@ function dbAll(db, sql, params = []) {
 }
 
 // ── POST /upload — Upload and parse CSV ──
+// Detect media type from base64 data by inspecting magic bytes.
+// Returns null if unknown.
+function detectMediaType(base64Data) {
+  // First few bytes tell us the actual type
+  const header = base64Data.slice(0, 32);
+  const buf = Buffer.from(header, 'base64');
+  // PDF: %PDF
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46) return 'application/pdf';
+  // PNG: 89 50 4E 47
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png';
+  // JPEG: FF D8 FF
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'image/jpeg';
+  // GIF: GIF8
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return 'image/gif';
+  // WEBP: RIFF....WEBP
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+      buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return 'image/webp';
+  // HEIC/HEIF: ftypheic / ftypmif1 / ftypmsf1
+  if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+    return 'image/heic';
+  }
+  return null;
+}
+
+// Friendly-ify common AI provider errors before showing them to the user
+function friendlyAiError(rawMessage) {
+  if (!rawMessage) return 'Unknown error';
+  let msg = String(rawMessage);
+  // Try to extract the inner "message" field from a Stripe/Anthropic-style JSON error
+  try {
+    // Drop any leading "400 " / "500 " status prefix
+    const stripped = msg.replace(/^\d{3}\s+/, '').trim();
+    if (stripped.startsWith('{')) {
+      const parsed = JSON.parse(stripped);
+      const inner = parsed?.error?.message || parsed?.message;
+      if (inner) msg = inner;
+    }
+  } catch {}
+
+  // Common Anthropic / OpenAI error patterns we can rewrite
+  if (/invalid x-api-key|incorrect api key|unauthorized/i.test(msg)) {
+    return 'Your AI API key appears to be invalid. Check it in Profile Settings.';
+  }
+  if (/credit balance is too low|quota|insufficient/i.test(msg)) {
+    return 'Your AI provider account has run out of credit.';
+  }
+  if (/image was specified using.*media type, but the image appears to be/i.test(msg)) {
+    return 'Could not read the image — please try a different format (PDF, JPG, or PNG).';
+  }
+  if (/(unsupported|invalid).*image|cannot process|failed to load image/i.test(msg)) {
+    return 'That file format isn\'t supported. Try a PDF, JPG, or PNG.';
+  }
+  if (/rate limit/i.test(msg)) {
+    return 'AI provider rate limit hit — please try again in a moment.';
+  }
+
+  // Generic — show the inner message but trim it
+  return msg.length > 200 ? msg.slice(0, 200) + '…' : msg;
+}
+
 // ── POST /scan-remittance — AI-scan a payment remittance PDF/image ──
 const REMITTANCE_PROMPT = `You are extracting payments from a remittance advice, payment notification, or basic email confirming a payment.
 Return ONLY a JSON object in this exact format:
@@ -513,8 +573,16 @@ router.post('/scan-remittance', express.json({ limit: '15mb' }), async (req, res
     const match = fileData.match(/^data:(image\/[^;]+|application\/pdf);base64,(.+)$/);
     if (!match) return res.status(400).json({ error: 'Invalid file format. Must be PDF or image.' });
 
-    const mediaType = match[1];
+    let mediaType = match[1];
     const base64Data = match[2];
+
+    // Detect actual media type from file magic bytes — browsers sometimes mislabel
+    // (e.g. iPhone screenshots arriving as image/png but actually image/webp)
+    const detectedType = detectMediaType(base64Data);
+    if (detectedType && detectedType !== mediaType) {
+      console.log(`[Remittance] Browser said ${mediaType}, actual is ${detectedType} — using detected`);
+      mediaType = detectedType;
+    }
 
     let text;
     switch (provider) {
@@ -584,7 +652,7 @@ router.post('/scan-remittance', express.json({ limit: '15mb' }), async (req, res
     });
   } catch (err) {
     console.error('[Bank Reconciliation] Remittance scan error:', err);
-    res.status(500).json({ error: 'Scan failed: ' + (err.message || 'Unknown error') });
+    res.status(500).json({ error: friendlyAiError(err.message) });
   }
 });
 
