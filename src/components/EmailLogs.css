@@ -87,6 +87,28 @@
   transform: translateY(-1px);
 }
 
+.delete-row-btn {
+  margin-left: 8px;
+  padding: 3px 7px;
+  background: transparent;
+  color: #dc2626;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  vertical-align: middle;
+  opacity: 0.7;
+}
+
+.delete-row-btn:hover {
+  background: #fee2e2;
+  opacity: 1;
+}
+
+.child-row.selected {
+  background: #fef3c7;
+}
+
 .email-logs .delete-btn-small {
   padding: 0;
   background: var(--gradient-danger);

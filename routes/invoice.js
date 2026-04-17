@@ -136,10 +136,13 @@ router.post('/send-email', async (req, res) => {
           ]
         };
 
-        // Add BCC with from email if enabled
-        if (ccEnabled && fromEmail && fromEmail.trim()) {
-          emailPayload.bcc = [fromEmail.trim()];
-          console.log('BCC enabled, adding to BCC:', fromEmail.trim());
+        // Add BCC with the user's profile email (not the from address)
+        if (ccEnabled) {
+          const bccEmail = (profile.email || '').trim();
+          if (bccEmail) {
+            emailPayload.bcc = [bccEmail];
+            console.log('BCC enabled, adding to BCC:', bccEmail);
+          }
         }
 
         const { data, error: resendError } = await resend.emails.send(emailPayload);

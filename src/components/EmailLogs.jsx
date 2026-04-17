@@ -559,14 +559,32 @@ function EmailLogs() {
                       const events = webhookEvents[log.id] || [];
                       return (
                         <React.Fragment key={log.id}>
-                          <tr className={`child-row ${isLogExpanded ? 'expanded-row' : ''}`}>
-                            <td></td>
+                          <tr className={`child-row ${isLogExpanded ? 'expanded-row' : ''} ${selectedLogs.has(log.id) ? 'selected' : ''}`}>
+                            <td>
+                              {adminMode && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedLogs.has(log.id)}
+                                  onChange={() => handleSelectLog(log.id)}
+                                  title="Select for bulk delete"
+                                />
+                              )}
+                            </td>
                             <td className="child-id">
                               <button onClick={() => toggleExpand(log.id)} className="expand-btn" title="View webhook events">
                                 {isLogExpanded ? '▼' : '▶'}
                               </button>
                               #{log.id}
                               {log.is_followup ? <span className="followup-tag">follow-up</span> : null}
+                              {adminMode && (
+                                <button
+                                  className="delete-row-btn"
+                                  title="Delete this log"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteLog(log.id); }}
+                                >
+                                  <FaTrash />
+                                </button>
+                              )}
                             </td>
                             <td className="recipient-cell">{log.recipient_email}</td>
                             <td className="subject-cell">{log.subject || '-'}</td>
