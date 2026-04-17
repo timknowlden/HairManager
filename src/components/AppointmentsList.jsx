@@ -118,6 +118,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
 
   // Check for ?id= query param to jump to an appointment
   const [pendingGoToId, setPendingGoToId] = useState(null);
+  const [pendingScrollId, setPendingScrollId] = useState(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const idParam = params.get('id');
@@ -128,20 +129,26 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, []);
 
-  // Trigger go-to after appointments load — set date filter to ensure it's visible
+  // Trigger go-to once initial appointments fetch completes
+  // (uses goToAppointment which handles cross-tax-year lookups)
   useEffect(() => {
-    if (pendingGoToId && appointments.length > 0) {
-      const apt = appointments.find(a => String(a.id) === String(pendingGoToId));
-      if (apt?.date) {
-        // Set date filter to that appointment's date so it's in view
-        setFilters(prev => ({ ...prev, date: apt.date }));
-        setDateFilterMode('day');
-        setDateFilterDay(apt.date);
-      }
-      setTimeout(() => goToAppointment(pendingGoToId), 300);
+    if (pendingGoToId && taxYearInitialized) {
+      goToAppointment(pendingGoToId);
       setPendingGoToId(null);
     }
-  }, [appointments, pendingGoToId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingGoToId, taxYearInitialized]);
+
+  // Scroll to a pending row once it appears in the loaded appointments (after a tax-year refetch)
+  useEffect(() => {
+    if (pendingScrollId != null) {
+      const found = appointments.some(a => a.id === pendingScrollId);
+      if (found) {
+        scrollToAppointmentRow(pendingScrollId);
+        setPendingScrollId(null);
+      }
+    }
+  }, [pendingScrollId, appointments]);
 
   useEffect(() => {
     // On initial mount / external refresh, fetch the current tax year's appointments
@@ -1556,9 +1563,27 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   };
 
   // Go to specific appointment by ID (scrolls to it, clears other filters to ensure it's visible)
-  const goToAppointment = (appointmentId) => {
+  // Scroll to and highlight a row that's already in the DOM
+  const scrollToAppointmentRow = (id) => {
+    setTimeout(() => {
+      const rowElement = appointmentRowRefs.current[id];
+      if (rowElement && tableContainerRef.current) {
+        const container = tableContainerRef.current;
+        const rowTop = rowElement.offsetTop;
+        container.scrollTo({
+          top: rowTop - 100,
+          behavior: 'smooth'
+        });
+        rowElement.classList.add('highlighted-row');
+        setTimeout(() => {
+          rowElement.classList.remove('highlighted-row');
+        }, 10000);
+      }
+    }, 150);
+  };
+
+  const goToAppointment = async (appointmentId) => {
     if (!appointmentId || appointmentId.trim() === '') {
-      // If empty, restore previous filters (if we had any)
       return;
     }
 
@@ -1567,14 +1592,25 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       return; // Invalid number, don't show error while typing
     }
 
-    // Find the appointment in the full list (not filtered)
-    const appointment = appointments.find(apt => apt.id === id);
+    // Try local first (fast path)
+    let appointment = appointments.find(apt => apt.id === id);
+
+    // Not in current year? Fetch it server-side to find its date.
     if (!appointment) {
-      return; // Not found, don't show error while typing
+      try {
+        const res = await fetch(`${API_BASE}/appointments/${id}`, {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) return; // Not found / invalid
+        appointment = await res.json();
+      } catch {
+        return;
+      }
     }
 
-    // Clear all other filters to ensure the appointment is visible
-    // This makes ID search supersede all other filters including tax year
+    if (!appointment) return;
+
+    // Clear all other filters so the appointment is visible
     setFilters({
       date: '',
       client_name: '',
@@ -1590,29 +1626,16 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     setDateFilterDay('');
     setDateFilterMonth('');
     setDateFilterYear('');
-    setSelectedTaxYears(new Set()); // Clear tax year filter as well
 
-    // Wait for filters to clear and DOM to update, then scroll
-    setTimeout(() => {
-      const rowElement = appointmentRowRefs.current[id];
-      if (rowElement && tableContainerRef.current) {
-        // Calculate position relative to scroll container
-        const container = tableContainerRef.current;
-        const rowTop = rowElement.offsetTop;
-        
-        // Scroll to the row with some offset from top
-        container.scrollTo({
-          top: rowTop - 100, // 100px offset from top
-          behavior: 'smooth'
-        });
-
-        // Highlight the row briefly
-        rowElement.classList.add('highlighted-row');
-        setTimeout(() => {
-          rowElement.classList.remove('highlighted-row');
-        }, 10000);
-      }
-    }, 150);
+    // Switch to the tax year containing this appointment (triggers refetch via effect)
+    const taxYear = getTaxYear(appointment.date);
+    if (taxYear) {
+      setSelectedTaxYears(new Set([taxYear]));
+      // After the refetch lands, the row will be in the DOM. Schedule scroll.
+      setPendingScrollId(id);
+    } else {
+      scrollToAppointmentRow(id);
+    }
   };
 
   // Handle ID input change - automatically go to appointment as user types (typeahead)
