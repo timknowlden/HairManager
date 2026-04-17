@@ -154,7 +154,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       const day = d.getDate();
       return (month > 4 || (month === 4 && day >= 6)) ? year : year - 1;
     })();
-    fetchAppointments(todayTaxYearStart);
+    fetchAppointments(todayTaxYearStart, true);
     fetchDateRange();
     fetchProfileSettings();
     // Clear new appointment IDs on refresh/fetch
@@ -247,7 +247,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [showDatePicker]);
 
-  const fetchAppointments = async (taxYearStart = null) => {
+  // Tracks the tax year we most recently fetched, so we can skip redundant refetches
+  const lastFetchedTaxYearRef = useRef(undefined);
+
+  // Force-refetch using the currently displayed tax year (used after mutations)
+  const refetchCurrent = () => fetchAppointments(lastFetchedTaxYearRef.current, true);
+
+  const fetchAppointments = async (taxYearStart = null, force = false) => {
+    // Skip if we already have data for this exact tax year selection (unless forced)
+    if (!force && lastFetchedTaxYearRef.current === taxYearStart) return;
+    lastFetchedTaxYearRef.current = taxYearStart;
+
     setLoading(true);
     setError(null);
     // Clear new appointment IDs when manually refreshing
@@ -327,7 +337,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     } catch (err) {
       setError(err.message);
       // If update fails, refetch to ensure consistency
-      fetchAppointments();
+      refetchCurrent();
     }
   };
 
@@ -507,7 +517,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         throw new Error('Failed to delete appointment');
       }
 
-      fetchAppointments();
+      refetchCurrent();
     } catch (err) {
       setError(err.message);
     }
@@ -1452,7 +1462,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         setError(`Failed to mark ${failedCount} appointment${failedCount !== 1 ? 's' : ''} as paid`);
         // If some failed, refetch to ensure consistency
         if (successful.length > 0) {
-          fetchAppointments();
+          refetchCurrent();
         }
       } else {
         // Update local state instead of refetching to prevent page movement
@@ -1513,7 +1523,7 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
         setError(`Failed to mark ${failedCount} appointment${failedCount !== 1 ? 's' : ''} as unpaid`);
         // If some failed, refetch to ensure consistency
         if (successful.length > 0) {
-          fetchAppointments();
+          refetchCurrent();
         }
       } else {
         // Update local state instead of refetching to prevent page movement
