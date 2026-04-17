@@ -634,6 +634,11 @@ function migrateDatabase(customDbPath = null) {
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_stripe_event_id ON payment_events(stripe_event_id)'));
                 migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_payment_events_user_id ON payment_events(user_id)'));
 
+                // Performance indexes for appointments queries
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_user_paid ON appointments(user_id, paid)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_user_loc_date ON appointments(user_id, location, date)'));
+                migrations.push(runAsync(db, 'CREATE INDEX IF NOT EXISTS idx_appointments_user_client ON appointments(user_id, client_name)'));
+
                 // Create bank reconciliation tables
                 migrations.push(runAsync(db, `
                   CREATE TABLE IF NOT EXISTS bank_statement_uploads (

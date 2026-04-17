@@ -361,6 +361,7 @@ router.get('/', (req, res) => {
 
 // GET /api/email-logs/invoice-status - Get paid status for all invoices
 // IMPORTANT: Must be before /:id routes to avoid being caught by param matching
+// Optimised from N+1 to 2 queries total (was ~2N+1).
 router.get('/invoice-status', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
@@ -373,54 +374,93 @@ router.get('/invoice-status', (req, res) => {
       if (invoices.length === 0) return res.json({});
 
       const results = {};
-      let pending = invoices.length;
-
-      invoices.forEach(({ invoice_number }) => {
-        // Skip payment lookup for pricelist emails (PL- prefix)
+      // Pricelist invoice numbers have no payment status
+      const numericInvoiceIds = [];
+      for (const { invoice_number } of invoices) {
         if (invoice_number.startsWith('PL-')) {
           results[invoice_number] = null;
-          if (--pending === 0) res.json(results);
-          return;
+        } else {
+          const id = parseInt(invoice_number);
+          if (!isNaN(id)) numericInvoiceIds.push(id);
         }
+      }
 
-        db.get(
-          'SELECT date, location FROM appointments WHERE id = ? AND user_id = ?',
-          [parseInt(invoice_number), userId],
-          (err2, apt) => {
-            if (err2 || !apt) {
-              results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
-              if (--pending === 0) res.json(results);
-              return;
-            }
+      if (numericInvoiceIds.length === 0) return res.json(results);
 
-            db.all(
-              'SELECT id, client_name, service, price, paid FROM appointments WHERE date = ? AND location = ? AND user_id = ?',
-              [apt.date, apt.location, userId],
-              (err3, allApts) => {
-                if (err3 || !allApts) {
-                  results[invoice_number] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
-                } else {
-                  const total = allApts.length;
-                  const paidCount = allApts.filter(a => a.paid === 1).length;
-                  const unpaidCount = total - paidCount;
-                  const unpaidApts = allApts.filter(a => a.paid !== 1);
-                  const unpaidTotal = unpaidApts.reduce((sum, a) => sum + (a.price || 0), 0);
-                  results[invoice_number] = {
-                    paid: unpaidCount === 0,
-                    total,
-                    paidCount,
-                    unpaidCount,
-                    unpaidTotal,
-                    date: apt.date,
-                    location: apt.location
-                  };
-                }
-                if (--pending === 0) res.json(results);
-              }
-            );
+      // Q1: Fetch all anchor appointments in one query
+      const placeholders = numericInvoiceIds.map(() => '?').join(',');
+      db.all(
+        `SELECT id, date, location FROM appointments WHERE user_id = ? AND id IN (${placeholders})`,
+        [userId, ...numericInvoiceIds],
+        (err2, anchors) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+
+          // Map of invoice_id -> {date, location}
+          const anchorById = new Map();
+          // Unique date+location pairs (deduped)
+          const pairKey = (d, l) => `${d}|${l}`;
+          const pairs = new Map(); // key -> {date, location}
+          for (const a of anchors) {
+            anchorById.set(a.id, { date: a.date, location: a.location });
+            pairs.set(pairKey(a.date, a.location), { date: a.date, location: a.location });
           }
-        );
-      });
+
+          // Mark missing anchors as not-found
+          for (const id of numericInvoiceIds) {
+            if (!anchorById.has(id)) {
+              results[String(id)] = { paid: false, total: 0, paidCount: 0, unpaidCount: 0 };
+            }
+          }
+
+          if (pairs.size === 0) return res.json(results);
+
+          // Q2: Fetch all appointments matching any of the (date, location) pairs in one query
+          const pairList = Array.from(pairs.values());
+          const orClauses = pairList.map(() => '(date = ? AND location = ?)').join(' OR ');
+          const params = [userId];
+          for (const p of pairList) { params.push(p.date, p.location); }
+
+          db.all(
+            `SELECT id, date, location, paid, price FROM appointments WHERE user_id = ? AND (${orClauses})`,
+            params,
+            (err3, allApts) => {
+              if (err3) return res.status(500).json({ error: err3.message });
+
+              // Group appointments by date|location
+              const grouped = new Map();
+              for (const a of allApts) {
+                const key = pairKey(a.date, a.location);
+                if (!grouped.has(key)) grouped.set(key, []);
+                grouped.get(key).push(a);
+              }
+
+              // Build results for each numeric invoice
+              for (const id of numericInvoiceIds) {
+                const anchor = anchorById.get(id);
+                if (!anchor) continue; // already marked above
+                const group = grouped.get(pairKey(anchor.date, anchor.location)) || [];
+                const total = group.length;
+                const paidCount = group.filter(a => a.paid === 1).length;
+                const unpaidCount = total - paidCount;
+                const unpaidTotal = group
+                  .filter(a => a.paid !== 1)
+                  .reduce((sum, a) => sum + (a.price || 0), 0);
+                results[String(id)] = {
+                  paid: unpaidCount === 0,
+                  total,
+                  paidCount,
+                  unpaidCount,
+                  unpaidTotal,
+                  date: anchor.date,
+                  location: anchor.location,
+                };
+              }
+
+              res.json(results);
+            }
+          );
+        }
+      );
     }
   );
 });

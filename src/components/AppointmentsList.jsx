@@ -144,11 +144,22 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
   }, [appointments, pendingGoToId]);
 
   useEffect(() => {
-    fetchAppointments();
+    // On initial mount / external refresh, fetch the current tax year's appointments
+    // (much smaller payload than fetching everything). Also fetch the date range
+    // so the tax year selector knows what other years are available.
+    const todayTaxYearStart = (() => {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      return (month > 4 || (month === 4 && day >= 6)) ? year : year - 1;
+    })();
+    fetchAppointments(todayTaxYearStart);
+    fetchDateRange();
     fetchProfileSettings();
     // Clear new appointment IDs on refresh/fetch
     setNewAppointmentIdsSet(new Set());
-    
+
     // Cleanup timeout on unmount
     return () => {
       if (goToTimeoutRef.current) {
@@ -236,14 +247,17 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   }, [showDatePicker]);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (taxYearStart = null) => {
     setLoading(true);
     setError(null);
     // Clear new appointment IDs when manually refreshing
     setNewAppointmentIdsSet(new Set());
     try {
       const startTime = performance.now();
-      const response = await fetch(`${API_BASE}/appointments`, {
+      const url = taxYearStart
+        ? `${API_BASE}/appointments?tax_year=${taxYearStart}`
+        : `${API_BASE}/appointments`;
+      const response = await fetch(url, {
         headers: getAuthHeaders()
       });
       if (!response.ok) {
@@ -251,8 +265,8 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       }
       const data = await response.json();
       const fetchTime = performance.now() - startTime;
-      console.log(`[Frontend] Fetched ${data.length || 0} appointments in ${fetchTime.toFixed(2)}ms`);
-      
+      console.log(`[Frontend] Fetched ${data.length || 0} appointments${taxYearStart ? ` for tax year ${taxYearStart}` : ''} in ${fetchTime.toFixed(2)}ms`);
+
       // Handle both old format (array) and new format (object with appointments array)
       const appointmentsData = Array.isArray(data) ? data : (data.appointments || data);
       setAppointments(appointmentsData);
@@ -260,6 +274,22 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch min/max appointment dates so we know which tax years to offer in the selector
+  const [dateRange, setDateRange] = useState({ minDate: null, maxDate: null });
+  const fetchDateRange = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/appointments/date-range`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDateRange(data);
+      }
+    } catch (err) {
+      console.error('Error fetching date range:', err);
     }
   };
 
@@ -873,15 +903,35 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
     }
   };
 
-  // Get available tax years from appointments
+  // Get available tax years from the user's overall date range
+  // (so the selector shows all years even when filtered to one)
   const availableTaxYears = useMemo(() => {
     const taxYears = new Set();
+    if (dateRange.minDate) {
+      const ty = getTaxYear(dateRange.minDate);
+      if (ty) taxYears.add(ty);
+    }
+    if (dateRange.maxDate) {
+      const ty = getTaxYear(dateRange.maxDate);
+      if (ty) taxYears.add(ty);
+    }
+    // Fill in any years between min and max
+    if (dateRange.minDate && dateRange.maxDate) {
+      const minStart = parseInt(getTaxYear(dateRange.minDate)?.split('-')[0], 10);
+      const maxStart = parseInt(getTaxYear(dateRange.maxDate)?.split('-')[0], 10);
+      if (!isNaN(minStart) && !isNaN(maxStart)) {
+        for (let y = minStart; y <= maxStart; y++) {
+          taxYears.add(`${y}-${(y + 1).toString().slice(-2)}`);
+        }
+      }
+    }
+    // Also include any tax years present in currently-loaded appointments (defensive)
     appointments.forEach(apt => {
-      const taxYear = getTaxYear(apt.date);
-      if (taxYear) taxYears.add(taxYear);
+      const ty = getTaxYear(apt.date);
+      if (ty) taxYears.add(ty);
     });
-    return Array.from(taxYears).sort().reverse(); // Most recent first
-  }, [appointments]);
+    return Array.from(taxYears).sort().reverse();
+  }, [dateRange, appointments]);
 
   // Initialize selected tax years with the most recent one when appointments are loaded
   useEffect(() => {
@@ -891,6 +941,23 @@ function AppointmentsList({ refreshTrigger, newAppointmentIds, onCreateInvoice }
       setTaxYearInitialized(true);
     }
   }, [availableTaxYears, appointments.length, taxYearInitialized]);
+
+  // Re-fetch appointments when the user changes the tax year selection.
+  // - Single year selected → server-side filter (small payload)
+  // - Multiple or none → fetch everything (acceptable; less common case)
+  useEffect(() => {
+    if (!taxYearInitialized) return; // skip during initial mount
+    if (selectedTaxYears.size === 1) {
+      const ty = Array.from(selectedTaxYears)[0]; // "YYYY-YY"
+      const startYear = ty.split('-')[0];
+      fetchAppointments(startYear);
+    } else {
+      fetchAppointments(null);
+    }
+    // We intentionally only depend on selectedTaxYears (not fetchAppointments)
+    // because fetchAppointments is stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaxYears, taxYearInitialized]);
 
   // Get current tax year
   const currentTaxYear = useMemo(() => {

@@ -76,6 +76,20 @@ router.get('/', (req, res) => {
   });
 });
 
+// Get min/max appointment dates for the user (used to compute available tax years cheaply)
+router.get('/date-range', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+  db.get(
+    'SELECT MIN(date) as minDate, MAX(date) as maxDate FROM appointments WHERE user_id = ?',
+    [userId],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ minDate: row?.minDate || null, maxDate: row?.maxDate || null });
+    }
+  );
+});
+
 // Test route to verify PUT is working
 router.put('/test', (req, res) => {
   res.json({ message: 'PUT route is working' });

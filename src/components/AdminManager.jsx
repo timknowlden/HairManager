@@ -1635,7 +1635,7 @@ function AdminManager({ onSettingsSaved }) {
               <div className="form-row">
                 <div className="form-group full-width">
                   <label htmlFor="email_relay_bcc_enabled" style={{ display: 'block', marginBottom: '8px' }}>
-                    Include sender email in BCC/CC for all invoice emails
+                    Send a BCC copy of every invoice to my account email
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                     <input
@@ -1649,7 +1649,7 @@ function AdminManager({ onSettingsSaved }) {
                     <span style={{ fontSize: '14px', color: '#333' }}>Enable this option</span>
                   </div>
                   <p className="field-help">
-                    When enabled, a copy of every invoice email will be sent to your "From Email Address" above
+                    When enabled, a copy of every invoice email will be sent to your account email address (set in your profile)
                   </p>
                 </div>
               </div>
