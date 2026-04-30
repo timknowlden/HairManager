@@ -1025,6 +1025,7 @@
 }
 
 .btn-keep-both,
+.btn-keep-existing,
 .btn-replace,
 .btn-cancel-dup {
   padding: 10px 18px;
@@ -1040,6 +1041,11 @@
 
 .btn-keep-both {
   background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.btn-keep-existing {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: white;
 }
 

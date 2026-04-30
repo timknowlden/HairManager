@@ -152,7 +152,11 @@ function Expenses() {
       if (response.status === 409) {
         // Duplicate detected — show prompt
         const data = await response.json();
-        setDuplicatePrompt({ existing: data.existing, message: data.message });
+        const amount = data.duplicateAmount ?? parseFloat(formData.amount) ?? 0;
+        setDuplicatePrompt({
+          existing: data.existing,
+          message: `An expense for ${formatCurrency(amount)} already exists on this date`,
+        });
         return;
       }
 
@@ -346,6 +350,20 @@ function Expenses() {
       else { setShowForm(false); setQueueTotal(0); resetForm(); }
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  // Discard the new expense, keep the existing one. Advance the queue if any.
+  const handleDuplicateKeepExisting = () => {
+    setDuplicatePrompt(null);
+    setSuccess('Existing expense kept');
+    setTimeout(() => setSuccess(null), 3000);
+    if (uploadQueue.length > 0) {
+      advanceQueue();
+    } else {
+      setShowForm(false);
+      setQueueTotal(0);
+      resetForm();
     }
   };
 
@@ -923,7 +941,7 @@ function Expenses() {
                   {formData.vendor && <div><strong>Vendor:</strong> {formData.vendor}</div>}
                 </div>
                 {formData.receipt_path && (
-                  <div className="duplicate-receipt-thumb">
+                  <div className="duplicate-receipt-thumb" onClick={() => setViewReceipt(formData.receipt_path)}>
                     {formData.receipt_path.startsWith('data:image') ? (
                       <img src={formData.receipt_path} alt="New receipt" />
                     ) : (
@@ -936,6 +954,9 @@ function Expenses() {
             <div className="duplicate-actions">
               <button className="btn-keep-both" onClick={handleDuplicateKeepBoth}>
                 Keep both
+              </button>
+              <button className="btn-keep-existing" onClick={handleDuplicateKeepExisting}>
+                Keep existing only
               </button>
               <button className="btn-replace" onClick={handleDuplicateReplace}>
                 <FaTrash /> Delete existing & save new

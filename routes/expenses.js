@@ -442,7 +442,8 @@ router.post('/', (req, res) => {
         return res.status(409).json({
           error: 'duplicate',
           existing,
-          message: `An expense for ${parsedAmount.toFixed(2)} already exists on this date`,
+          // Frontend will format the amount with the user's currency symbol
+          duplicateAmount: parsedAmount,
         });
       }
       insertExpense();
