@@ -15,6 +15,9 @@ function MobileReceiptUpload() {
   const [stream, setStream] = useState(null);
   const videoRef = useRef(null);
   const [ghostOpacity, setGhostOpacity] = useState(0.4);
+  // Pre-rendered ghost: bottom 25% of the previous photo, cropped to match
+  // the camera viewport's 3:4 aspect so it represents the actual overlap region
+  const [ghostImageUrl, setGhostImageUrl] = useState(null);
 
   // PDF (bypass photo flow)
   const [isPdf, setIsPdf] = useState(false);
@@ -503,10 +506,61 @@ function MobileReceiptUpload() {
     }
   };
 
+  // Pre-render the ghost overlay: bottom 25% of the previous photo, cropped to
+  // a 3:4 aspect ratio so it matches the camera viewport. The visible region
+  // in the camera = the area the new photo's top 25% will overlap.
+  const buildGhostOverlay = (lastPhoto) => new Promise((resolve, reject) => {
+    if (!lastPhoto) return resolve(null);
+    const img = new Image();
+    img.onload = () => {
+      const overlapH = Math.round(img.naturalHeight * 0.25); // bottom 25%
+      const sourceY = img.naturalHeight - overlapH;
+      const visibleAspect = 3 / 4; // matches camera viewport
+      // The ghost should occupy the top 25% of the camera (3:4 viewport).
+      // Camera viewport: aspect 3:4. Top 25% region: aspect 3 / (4 * 0.25) = 3/1 = 3:1
+      const ghostBoxAspect = 3 / 1; // width / height for the visible overlay area
+      // Source crop: from the bottom 25% of the previous photo, we need a
+      // strip of aspect 3:1 (matching where it'll appear in the camera).
+      const sourceAspect = img.naturalWidth / overlapH;
+      let cropX, cropY, cropW, cropH;
+      if (sourceAspect > ghostBoxAspect) {
+        // Source is wider than target box — crop sides
+        cropH = overlapH;
+        cropW = Math.round(overlapH * ghostBoxAspect);
+        cropX = Math.round((img.naturalWidth - cropW) / 2);
+        cropY = sourceY;
+      } else {
+        // Source is narrower — crop top of the source slice
+        cropW = img.naturalWidth;
+        cropH = Math.round(img.naturalWidth / ghostBoxAspect);
+        cropX = 0;
+        cropY = sourceY + (overlapH - cropH); // align to bottom
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = cropW;
+      canvas.height = cropH;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+      canvas.toBlob((blob) => {
+        if (!blob) return reject(new Error('Ghost build failed'));
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(blob);
+      }, 'image/jpeg', 0.9);
+    };
+    img.onerror = reject;
+    img.src = lastPhoto.dataUrl;
+  });
+
   // Start the ghost camera with rear camera. Cleans up any existing stream first.
   const startGhostCamera = async () => {
     setErrorMsg('');
     try {
+      // Pre-render the ghost from the previous photo
+      const lastPhoto = photos[photos.length - 1];
+      const ghostUrl = await buildGhostOverlay(lastPhoto);
+      setGhostImageUrl(ghostUrl);
+
       // Stop any existing stream
       if (stream) stream.getTracks().forEach(t => t.stop());
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -544,18 +598,41 @@ function MobileReceiptUpload() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Capture a frame from the video stream and add it as a new photo
+  // Capture a frame from the video stream, cropping to match what the user sees
+  // (the container has aspect-ratio 3/4 and the video uses object-fit:cover, so
+  // parts of the camera frame are hidden — capture must reflect that).
   const captureGhostPhoto = async () => {
     const video = videoRef.current;
     if (!video || video.readyState < 2) return;
     try {
-      const w = video.videoWidth;
-      const h = video.videoHeight;
+      const fullW = video.videoWidth;
+      const fullH = video.videoHeight;
+
+      // Visible aspect = 3/4 (matches CSS .ghost-camera aspect-ratio: 3/4)
+      const visibleAspect = 3 / 4; // width / height
+      const cameraAspect = fullW / fullH;
+
+      // object-fit: cover centres the video and crops the overflow
+      let sx, sy, sw, sh;
+      if (cameraAspect > visibleAspect) {
+        // Camera is wider than viewport: crop sides
+        sh = fullH;
+        sw = Math.round(fullH * visibleAspect);
+        sx = Math.round((fullW - sw) / 2);
+        sy = 0;
+      } else {
+        // Camera is taller than viewport: crop top/bottom
+        sw = fullW;
+        sh = Math.round(fullW / visibleAspect);
+        sx = 0;
+        sy = Math.round((fullH - sh) / 2);
+      }
+
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = sw;
+      canvas.height = sh;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, w, h);
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
       const dataUrl = await new Promise((resolve, reject) => {
         canvas.toBlob((blob) => {
           if (!blob) return reject(new Error('Capture failed'));
@@ -564,10 +641,12 @@ function MobileReceiptUpload() {
           r.readAsDataURL(blob);
         }, 'image/jpeg', 0.9);
       });
-      // Add to photos with default overlap (~25%)
+      // Add to photos with default overlap = 25% of new photo's height,
+      // matching the ghost overlay's clip region. If the user aligned the
+      // overlay correctly, the stitch is already accurate with no dragging.
       setPhotos(prev => {
-        const defaultOverlap = prev.length === 0 ? 0 : Math.round(h * 0.25);
-        return [...prev, { dataUrl, w, h, overlap: defaultOverlap, rotation: 0 }];
+        const defaultOverlap = prev.length === 0 ? 0 : Math.round(sh * 0.25);
+        return [...prev, { dataUrl, w: sw, h: sh, overlap: defaultOverlap, rotation: 0 }];
       });
       stopCamera();
       setStage('preview');
@@ -586,6 +665,7 @@ function MobileReceiptUpload() {
     setImageDataUrl(null);
     setCrop(null);
     setSplits([]);
+    setGhostImageUrl(null);
     setErrorMsg('');
     setUploadedCount(0);
     setTotalToUpload(0);
@@ -885,33 +965,19 @@ function MobileReceiptUpload() {
           </>
         )}
 
-        {token && stage === 'ghostCamera' && (() => {
-          // Show the bottom ~25% of the most recent photo as a ghost overlay
-          // at the top of the camera view — line up the new shot to overlap.
-          const lastPhoto = photos[photos.length - 1];
-          return (
-            <>
-              <p className="preview-hint">
-                Line up the top of your new photo with the ghost overlay so they overlap.
-              </p>
-              <div className="ghost-camera">
-                <video ref={videoRef} className="ghost-video" playsInline muted />
-                {lastPhoto && (
-                  <div className="ghost-overlay-wrap" style={{ opacity: ghostOpacity }}>
-                    <img
-                      src={lastPhoto.dataUrl}
-                      alt="Previous"
-                      className="ghost-overlay-img"
-                      style={{
-                        // Show only the bottom portion of the previous photo (the area that
-                        // should overlap the top of the new one). 25% of the photo's height.
-                        clipPath: 'inset(75% 0 0 0)',
-                        transform: 'translateY(-75%)',
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
+        {token && stage === 'ghostCamera' && (
+          <>
+            <p className="preview-hint">
+              Line up your shot so the ghost area at the top matches the previous photo. When aligned, the photos will stitch together automatically.
+            </p>
+            <div className="ghost-camera">
+              <video ref={videoRef} className="ghost-video" playsInline muted />
+              {ghostImageUrl && (
+                <div className="ghost-overlay-wrap" style={{ opacity: ghostOpacity }}>
+                  <img src={ghostImageUrl} alt="Previous bottom" className="ghost-overlay-img" />
+                </div>
+              )}
+            </div>
               <div className="ghost-camera-controls">
                 <label className="ghost-opacity-control">
                   Ghost opacity
@@ -933,10 +999,9 @@ function MobileReceiptUpload() {
                   Cancel
                 </button>
               </div>
-              {errorMsg && <div className="mobile-error">{errorMsg}</div>}
-            </>
-          );
-        })()}
+            {errorMsg && <div className="mobile-error">{errorMsg}</div>}
+          </>
+        )}
 
         {token && stage === 'uploading' && (
           <div className="mobile-uploading">

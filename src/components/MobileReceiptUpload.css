@@ -479,18 +479,20 @@
 
 .ghost-overlay-wrap {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 25%;
   pointer-events: none;
   overflow: hidden;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.7);
 }
 
 .ghost-overlay-img {
   width: 100%;
+  height: 100%;
   object-fit: cover;
-  filter: drop-shadow(0 0 1px white);
+  display: block;
 }
 
 .ghost-camera-controls {
