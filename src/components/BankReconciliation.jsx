@@ -398,81 +398,82 @@ function BankReconciliation({ onBack }) {
       {/* Step 1: Upload */}
       {step === 'upload' && (
         <div className="bank-recon-upload">
-          <div
-            className={`drop-zone ${dragging ? 'dragging' : ''}`}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-          >
-            <FaUpload className="drop-icon" />
-            <p>Drag and drop a bank statement CSV here</p>
-            <p className="drop-hint">or</p>
-            <label className="file-select-btn">
-              Choose File
-              <input
-                type="file"
-                accept=".csv"
-                onChange={e => e.target.files[0] && handleUpload(e.target.files[0])}
-                hidden
-              />
-            </label>
-            <p className="drop-formats">Supports: Barclays, Lloyds, NatWest, HSBC, Monzo, Starling, Mettle</p>
-          </div>
+          <p className="upload-intro">Choose how you want to import payment information.</p>
 
-          <div className="mobile-upload-section">
-            <div className="mobile-upload-divider">
-              <span>or upload from your phone</span>
+          <div className="upload-cards">
+            {/* CSV upload card */}
+            <div
+              className={`upload-card ${dragging ? 'dragging' : ''}`}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
+              <div className="upload-card-icon"><FaUpload /></div>
+              <h3>Bank statement CSV</h3>
+              <p>Export from your online banking and drop it here.</p>
+              <label className="file-select-btn">
+                Choose CSV
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={e => e.target.files[0] && handleUpload(e.target.files[0])}
+                  hidden
+                />
+              </label>
+              <p className="drop-formats">Barclays · Lloyds · NatWest · HSBC · Monzo · Starling · Mettle</p>
             </div>
-            {showQR && mobileToken ? (
-              <div className="mobile-qr-section">
-                <QRCodeSVG value={`${window.location.origin}/upload-bank-statement?token=${mobileToken}`} size={160} />
-                <p className="qr-hint">Scan with your phone to upload a CSV from your banking app</p>
-                <div className="qr-link-actions">
-                  <button className="qr-action-btn" onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/upload-bank-statement?token=${mobileToken}`);
-                  }}>Copy link</button>
-                  <button className="qr-action-btn" onClick={() => {
-                    const url = `${window.location.origin}/upload-bank-statement?token=${mobileToken}`;
-                    window.location.href = `mailto:?subject=Upload Bank Statement&body=Use this link to upload your bank statement:%0A%0A${encodeURIComponent(url)}`;
-                  }}>Email link</button>
-                </div>
-                {pendingMobile.length > 0 && (
-                  <div className="pending-mobile-uploads">
-                    <h4><FaCheckCircle className="icon-matched" /> Statement received from phone</h4>
-                    {pendingMobile.map(upload => (
-                      <div key={upload.id} className="pending-upload-row">
-                        <span>{upload.filename}</span>
-                        <button className="btn-primary" onClick={() => processMobileUpload(upload)}>
-                          Process
-                        </button>
-                      </div>
-                    ))}
+
+            {/* Mobile QR card */}
+            <div className="upload-card">
+              <div className="upload-card-icon"><FaMobileAlt /></div>
+              <h3>Upload from phone</h3>
+              <p>Scan a QR code to upload from your mobile banking app.</p>
+              {showQR && mobileToken ? (
+                <div className="mobile-qr-section">
+                  <QRCodeSVG value={`${window.location.origin}/upload-bank-statement?token=${mobileToken}`} size={140} />
+                  <div className="qr-link-actions">
+                    <button className="qr-action-btn" onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/upload-bank-statement?token=${mobileToken}`);
+                    }}>Copy link</button>
+                    <button className="qr-action-btn" onClick={() => {
+                      const url = `${window.location.origin}/upload-bank-statement?token=${mobileToken}`;
+                      window.location.href = `mailto:?subject=Upload Bank Statement&body=${encodeURIComponent(url)}`;
+                    }}>Email link</button>
                   </div>
-                )}
-              </div>
-            ) : (
-              <button className="mobile-qr-btn" onClick={generateMobileToken}>
-                <FaMobileAlt /> Generate QR Code for Mobile Upload
-              </button>
-            )}
-          </div>
-
-          <div className="mobile-upload-section">
-            <div className="mobile-upload-divider">
-              <span>or scan a payment remittance (PDF / image)</span>
+                  {pendingMobile.length > 0 && (
+                    <div className="pending-mobile-uploads">
+                      <h4><FaCheckCircle className="icon-matched" /> Received from phone</h4>
+                      {pendingMobile.map(upload => (
+                        <div key={upload.id} className="pending-upload-row">
+                          <span>{upload.filename}</span>
+                          <button className="btn-primary" onClick={() => processMobileUpload(upload)}>Process</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button className="file-select-btn" onClick={generateMobileToken}>
+                  Generate QR
+                </button>
+              )}
             </div>
-            <label className="mobile-qr-btn">
-              <FaFilePdf /> Upload Remittance Advice
-              <input
-                type="file"
-                accept=".pdf,image/*"
-                onChange={e => e.target.files[0] && handleRemittanceUpload(e.target.files[0])}
-                hidden
-              />
-            </label>
-            <p className="qr-hint" style={{ marginTop: 8 }}>
-              AI extracts the invoice references and amounts from the document.
-            </p>
+
+            {/* Remittance scan card */}
+            <div className="upload-card">
+              <div className="upload-card-icon"><FaFilePdf /></div>
+              <h3>Remittance advice</h3>
+              <p>Upload a PDF or image of a payment remittance — AI extracts the references and amounts.</p>
+              <label className="file-select-btn">
+                Upload PDF or image
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  onChange={e => e.target.files[0] && handleRemittanceUpload(e.target.files[0])}
+                  hidden
+                />
+              </label>
+            </div>
           </div>
 
           {loading && <div className="bank-recon-loading">Processing...</div>}
@@ -582,17 +583,28 @@ function BankReconciliation({ onBack }) {
                       <td className="amount-cell">{formatCurrency(txn.amount)}</td>
                       <td>{confidenceBadge(txn.match_confidence)}</td>
                       <td className="match-cell">
-                        {txn.matched_appointments ? (
-                          txn.matched_appointments.map(a => (
-                            <div key={a.id} className="match-detail">
-                              #{a.id} {a.client_name} — {a.service} ({formatCurrency(a.price)})
+                        {(() => {
+                          const apts = txn.matched_appointments || (txn.matched_appointment ? [txn.matched_appointment] : []);
+                          if (apts.length === 0) return '-';
+                          const total = apts.reduce((sum, a) => sum + (a.price || 0), 0);
+                          const totalMatches = Math.abs(total - txn.amount) < 0.01;
+                          return (
+                            <div className="match-list">
+                              <div className={`match-summary ${totalMatches ? 'amount-ok' : 'amount-mismatch'}`}>
+                                {apts.length} appointment{apts.length !== 1 ? 's' : ''} · {new Date(apts[0].date).toLocaleDateString('en-GB')} · {formatCurrency(total)}
+                                {totalMatches && <FaCheckCircle className="match-amount-icon" title="Amount matches" />}
+                              </div>
+                              {apts.map(a => (
+                                <div key={a.id} className="match-detail-row">
+                                  <span className="match-detail-id">#{a.id}</span>
+                                  <span className="match-detail-name">{a.client_name}</span>
+                                  <span className="match-detail-service">{a.service}</span>
+                                  <span className="match-detail-price">{formatCurrency(a.price)}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))
-                        ) : txn.matched_appointment ? (
-                          <div className="match-detail">
-                            #{txn.matched_appointment.id} {txn.matched_appointment.client_name} — {txn.matched_appointment.service} ({formatCurrency(txn.matched_appointment.price)})
-                          </div>
-                        ) : '-'}
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

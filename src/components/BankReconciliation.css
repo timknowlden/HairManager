@@ -58,6 +58,76 @@
 }
 
 /* Upload */
+.upload-intro {
+  margin: 0 0 16px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.upload-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.upload-card {
+  background: white;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.upload-card.dragging {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.upload-card-icon {
+  font-size: 32px;
+  color: #6366f1;
+  background: #eef2ff;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.upload-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.upload-card p {
+  margin: 0 0 14px 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.upload-card .file-select-btn,
+.upload-card .mobile-qr-btn {
+  margin-top: auto;
+  width: 100%;
+  max-width: 200px;
+}
+
+.upload-card .drop-formats {
+  margin-top: 10px !important;
+  font-size: 11px !important;
+  color: #9ca3af !important;
+  line-height: 1.5;
+}
+
 .drop-zone {
   border: 2px dashed #d1d5db;
   border-radius: 12px;
@@ -395,11 +465,81 @@
 
 .match-cell {
   font-size: 12px;
+  min-width: 280px;
 }
 
 .match-detail {
   padding: 2px 0;
   color: #374151;
+}
+
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.match-summary.amount-ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.match-summary.amount-mismatch {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.match-amount-icon {
+  font-size: 11px;
+}
+
+.match-detail-row {
+  display: grid;
+  grid-template-columns: 50px 1fr auto auto;
+  gap: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #4b5563;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.match-detail-row:last-child {
+  border-bottom: none;
+}
+
+.match-detail-id {
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.match-detail-name {
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-detail-service {
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-detail-price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 /* Confidence badges */
