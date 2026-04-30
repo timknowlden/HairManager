@@ -31,6 +31,10 @@ function Expenses() {
   const [pendingReceipts, setPendingReceipts] = useState([]);
   const [viewReceipt, setViewReceipt] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [longReceiptHint, setLongReceiptHint] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState([]); // [{ name, dataUrl }] — pending after current
+  const [queueTotal, setQueueTotal] = useState(0); // for display: "Receipt 1 of N"
+  const [duplicatePrompt, setDuplicatePrompt] = useState(null); // { existing, message }
   const [showImport, setShowImport] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -115,31 +119,41 @@ function Expenses() {
     }
   };
 
+  const submitExpense = async (force = false) => {
+    const payload = {
+      ...formData,
+      amount: parseFloat(formData.amount) || 0,
+      category_id: formData.category_id || null,
+      ...(force ? { force: true } : {})
+    };
+
+    if (editingId) {
+      return fetch(`${API_BASE}/expenses/${editingId}`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+    return fetch(`${API_BASE}/expenses`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
     try {
-      const payload = {
-        ...formData,
-        amount: parseFloat(formData.amount) || 0,
-        category_id: formData.category_id || null
-      };
+      const response = await submitExpense();
 
-      let response;
-      if (editingId) {
-        response = await fetch(`${API_BASE}/expenses/${editingId}`, {
-          method: 'PUT',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } else {
-        response = await fetch(`${API_BASE}/expenses`, {
-          method: 'POST',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+      if (response.status === 409) {
+        // Duplicate detected — show prompt
+        const data = await response.json();
+        setDuplicatePrompt({ existing: data.existing, message: data.message });
+        return;
       }
 
       if (!response.ok) {
@@ -148,11 +162,18 @@ function Expenses() {
       }
 
       setSuccess(editingId ? 'Expense updated' : 'Expense added');
-      setShowForm(false);
-      setEditingId(null);
-      resetForm();
       fetchExpenses();
       setTimeout(() => setSuccess(null), 3000);
+
+      // If there are more queued files, advance to the next one
+      if (!editingId && uploadQueue.length > 0) {
+        advanceQueue();
+      } else {
+        setShowForm(false);
+        setEditingId(null);
+        setQueueTotal(0);
+        resetForm();
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -196,6 +217,7 @@ function Expenses() {
       notes: '',
       receipt_path: ''
     });
+    setLongReceiptHint(false);
   };
 
   const scanReceipt = async (imageData) => {
@@ -240,10 +262,121 @@ function Expenses() {
     reader.readAsDataURL(file);
   };
 
+  // Handle multiple files dropped/selected — queue them and load the first
+  const handleMultipleFiles = async (files) => {
+    if (!files || files.length === 0) return;
+    if (files.length === 1) {
+      handleReceiptFile(files[0]);
+      return;
+    }
+    // Read all files as data URLs (skip oversized ones with a warning)
+    const fileArr = Array.from(files);
+    const oversized = fileArr.filter(f => f.size > 5 * 1024 * 1024);
+    if (oversized.length > 0) {
+      setError(`${oversized.length} file${oversized.length !== 1 ? 's' : ''} skipped — must be under 5MB each`);
+    }
+    const valid = fileArr.filter(f => f.size <= 5 * 1024 * 1024);
+    if (valid.length === 0) return;
+
+    const items = await Promise.all(valid.map(f => new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: f.name, dataUrl: reader.result });
+      reader.readAsDataURL(f);
+    })));
+
+    // Load first into form, queue the rest
+    setFormData(prev => ({ ...prev, receipt_path: items[0].dataUrl }));
+    setUploadQueue(items.slice(1));
+    setQueueTotal(items.length);
+  };
+
+  // Advance to next item in queue after a save
+  const advanceQueue = () => {
+    if (uploadQueue.length === 0) return false;
+    const next = uploadQueue[0];
+    const remaining = uploadQueue.slice(1);
+    setUploadQueue(remaining);
+    // Reset form fields but pre-load the next receipt
+    setFormData({
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      category_id: '',
+      amount: '',
+      vendor: '',
+      notes: '',
+      receipt_path: next.dataUrl,
+    });
+    setLongReceiptHint(false);
+    return true;
+  };
+
+  // Skip the current file and move to the next without saving
+  const skipQueueItem = () => {
+    if (advanceQueue()) {
+      setError(null);
+    } else {
+      // No more items
+      setQueueTotal(0);
+      setShowForm(false);
+      resetForm();
+    }
+  };
+
   const cancelForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setUploadQueue([]);
+    setQueueTotal(0);
     resetForm();
+  };
+
+  // Save the new expense even though a duplicate exists (keeps both)
+  const handleDuplicateKeepBoth = async () => {
+    setDuplicatePrompt(null);
+    try {
+      const response = await submitExpense(true);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save expense');
+      }
+      setSuccess('Expense added (duplicate kept)');
+      fetchExpenses();
+      setTimeout(() => setSuccess(null), 3000);
+      if (uploadQueue.length > 0) advanceQueue();
+      else { setShowForm(false); setQueueTotal(0); resetForm(); }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // Delete the existing duplicate then save the new one
+  const handleDuplicateReplace = async () => {
+    if (!duplicatePrompt?.existing) return;
+    try {
+      const delRes = await fetch(`${API_BASE}/expenses/${duplicatePrompt.existing.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!delRes.ok) {
+        const data = await delRes.json();
+        throw new Error(data.error || 'Failed to delete existing expense');
+      }
+      // Now save the new one (force=true in case there's another duplicate)
+      const response = await submitExpense(true);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save expense');
+      }
+      setDuplicatePrompt(null);
+      setSuccess('Existing expense replaced');
+      fetchExpenses();
+      setTimeout(() => setSuccess(null), 3000);
+      if (uploadQueue.length > 0) advanceQueue();
+      else { setShowForm(false); setQueueTotal(0); resetForm(); }
+    } catch (err) {
+      setError(err.message);
+      setDuplicatePrompt(null);
+    }
   };
 
   const handleExportCSV = async () => {
@@ -417,9 +550,20 @@ function Expenses() {
 
       {showForm && (
         <div className="expense-form-container" ref={formRef}>
-          <h3>{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
-          <form onSubmit={handleSubmit} className="expense-form">
-            <div className="form-group receipt-upload-group-full">
+          <div className="expense-form-header">
+            <h3>{editingId ? 'Edit Expense' : 'Add Expense'}</h3>
+            {queueTotal > 1 && !editingId && (
+              <div className="queue-indicator">
+                <span>Receipt {queueTotal - uploadQueue.length} of {queueTotal}</span>
+                <span className="queue-remaining">{uploadQueue.length} remaining</span>
+                <button type="button" className="queue-skip-btn" onClick={skipQueueItem} title="Skip this receipt">
+                  Skip
+                </button>
+              </div>
+            )}
+          </div>
+          <form onSubmit={handleSubmit} className="expense-form expense-form-2col">
+            <div className="form-group receipt-upload-group-full expense-form-left">
               <label>Receipt</label>
               <div
                 className={`receipt-drop-zone receipt-drop-zone-full ${dragging ? 'dragging' : ''} ${formData.receipt_path ? 'has-file' : ''}`}
@@ -428,15 +572,22 @@ function Expenses() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragging(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleReceiptFile(file);
+                  if (e.dataTransfer.files.length > 0) handleMultipleFiles(e.dataTransfer.files);
                 }}
               >
                 {formData.receipt_path ? (
                   <div className="receipt-preview-full">
                     <div className="receipt-preview-content" onClick={() => setViewReceipt(formData.receipt_path)} title="Click to enlarge">
                       {formData.receipt_path.startsWith('data:image') ? (
-                        <img src={formData.receipt_path} alt="Receipt" className="receipt-thumb-full" />
+                        <img
+                          src={formData.receipt_path}
+                          alt="Receipt"
+                          className="receipt-thumb-full"
+                          onLoad={(e) => {
+                            const ratio = e.target.naturalHeight / e.target.naturalWidth;
+                            setLongReceiptHint(ratio > 2.2);
+                          }}
+                        />
                       ) : formData.receipt_path.startsWith('data:application/pdf') ? (
                         <iframe src={formData.receipt_path} className="receipt-pdf-preview" title="Receipt PDF" />
                       ) : (
@@ -444,6 +595,12 @@ function Expenses() {
                       )}
                       <span className="receipt-click-hint">Click to enlarge</span>
                     </div>
+                    {longReceiptHint && (
+                      <div className="receipt-long-hint">
+                        <span>📏</span>
+                        This receipt looks long — for better AI scanning, try cropping it or splitting into sections on the mobile upload.
+                      </div>
+                    )}
                     <div className="receipt-actions">
                       <button type="button" className="receipt-scan-btn" disabled={scanning} onClick={() => scanReceipt(formData.receipt_path)}>
                         {scanning ? 'Scanning...' : 'Scan with AI'}
@@ -457,12 +614,13 @@ function Expenses() {
                   <div className="receipt-empty-state">
                     <div className="receipt-desktop-upload">
                       <FaCamera className="receipt-drop-icon" />
-                      <span className="receipt-drop-text">Drop receipt image or PDF here, or click to browse</span>
+                      <span className="receipt-drop-text">Drop receipts here (multiple OK), or click to browse</span>
                       <input
                         type="file"
                         accept="image/*,application/pdf"
                         capture="environment"
-                        onChange={(e) => { if (e.target.files[0]) handleReceiptFile(e.target.files[0]); }}
+                        multiple
+                        onChange={(e) => { if (e.target.files.length > 0) handleMultipleFiles(e.target.files); }}
                         className="receipt-file-input"
                       />
                     </div>
@@ -501,42 +659,42 @@ function Expenses() {
                 )}
               </div>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Date *</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                  required
-                />
+            <div className="expense-form-right">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date *</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Amount (£) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    required
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    value={formData.category_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
+                  >
+                    <option value="">Select category...</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Amount (£) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  required
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-group">
-                <label>Category</label>
-                <select
-                  value={formData.category_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
-                >
-                  <option value="">Select category...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="form-row">
               <div className="form-group">
                 <label>Description *</label>
                 <input
@@ -556,23 +714,23 @@ function Expenses() {
                   placeholder="Shop or supplier name"
                 />
               </div>
-            </div>
-            <div className="form-group">
-              <label>Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                rows="2"
-                placeholder="Optional notes"
-              />
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="expense-submit-btn">
-                {editingId ? 'Update' : 'Add'} Expense
-              </button>
-              <button type="button" onClick={cancelForm} className="expense-cancel-btn">
-                Cancel
-              </button>
+              <div className="form-group">
+                <label>Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows="2"
+                  placeholder="Optional notes"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="expense-submit-btn">
+                  {editingId ? 'Update' : 'Add'} Expense
+                </button>
+                <button type="button" onClick={cancelForm} className="expense-cancel-btn">
+                  Cancel
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -583,6 +741,7 @@ function Expenses() {
           <colgroup>
             <col className="col-date" />
             <col className="col-desc" />
+            <col className="col-receipt" />
             <col className="col-cat" />
             <col className="col-vendor" />
             <col className="col-amount" />
@@ -596,6 +755,7 @@ function Expenses() {
               <th className="sortable" onClick={() => handleSort('description')}>
                 Description {sortConfig.column === 'description' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
+              <th className="receipt-header" title="Receipt"><FaImage /></th>
               <th className="sortable" onClick={() => handleSort('category_name')}>
                 Category {sortConfig.column === 'category_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
               </th>
@@ -611,7 +771,7 @@ function Expenses() {
           <tbody>
             {sortedExpenses.length === 0 ? (
               <tr>
-                <td colSpan="6" className="no-data">
+                <td colSpan="7" className="no-data">
                   {expenses.length === 0 ? 'No expenses recorded yet' : 'No expenses match the current filters'}
                 </td>
               </tr>
@@ -619,10 +779,21 @@ function Expenses() {
               sortedExpenses.map((expense) => (
                 <tr key={expense.id}>
                   <td>{new Date(expense.date).toLocaleDateString('en-GB')}</td>
-                  <td>
+                  <td className="desc-cell">
                     {expense.description}
                     {expense.notes && <span className="expense-notes" title={expense.notes}> *</span>}
-                    {expense.receipt_path && <button type="button" className="receipt-indicator-btn" title="View receipt" onClick={() => setViewReceipt(expense.receipt_path)}><FaImage /></button>}
+                  </td>
+                  <td className="receipt-cell">
+                    {expense.receipt_path && (
+                      <button
+                        type="button"
+                        className="receipt-indicator-btn"
+                        title="View receipt"
+                        onClick={() => setViewReceipt(expense.receipt_path)}
+                      >
+                        <FaImage />
+                      </button>
+                    )}
                   </td>
                   <td><span className="category-badge">{expense.category_name || '-'}</span></td>
                   <td>{expense.vendor || '-'}</td>
@@ -713,6 +884,66 @@ function Expenses() {
                 <p className="import-hint">Duplicates are automatically skipped. Expenses are categorised as "Supplies & Materials" by default.</p>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate detection modal */}
+      {duplicatePrompt && (
+        <div className="duplicate-modal-overlay" onClick={() => setDuplicatePrompt(null)}>
+          <div className="duplicate-modal" onClick={e => e.stopPropagation()}>
+            <h3>Possible duplicate</h3>
+            <p className="duplicate-message">{duplicatePrompt.message}</p>
+            <div className="duplicate-cards">
+              <div className="duplicate-card existing">
+                <div className="duplicate-card-label">Existing</div>
+                <div className="duplicate-amount">{formatCurrency(duplicatePrompt.existing.amount)}</div>
+                <div className="duplicate-meta">
+                  <div><strong>Date:</strong> {new Date(duplicatePrompt.existing.date).toLocaleDateString('en-GB')}</div>
+                  <div><strong>Description:</strong> {duplicatePrompt.existing.description}</div>
+                  {duplicatePrompt.existing.vendor && <div><strong>Vendor:</strong> {duplicatePrompt.existing.vendor}</div>}
+                  {duplicatePrompt.existing.category_name && <div><strong>Category:</strong> {duplicatePrompt.existing.category_name}</div>}
+                </div>
+                {duplicatePrompt.existing.receipt_path && (
+                  <div className="duplicate-receipt-thumb" onClick={() => setViewReceipt(duplicatePrompt.existing.receipt_path)}>
+                    {duplicatePrompt.existing.receipt_path.startsWith('data:image') ? (
+                      <img src={duplicatePrompt.existing.receipt_path} alt="Existing receipt" />
+                    ) : (
+                      <FaFileAlt />
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="duplicate-card new">
+                <div className="duplicate-card-label">New</div>
+                <div className="duplicate-amount">{formatCurrency(parseFloat(formData.amount) || 0)}</div>
+                <div className="duplicate-meta">
+                  <div><strong>Date:</strong> {new Date(formData.date).toLocaleDateString('en-GB')}</div>
+                  <div><strong>Description:</strong> {formData.description}</div>
+                  {formData.vendor && <div><strong>Vendor:</strong> {formData.vendor}</div>}
+                </div>
+                {formData.receipt_path && (
+                  <div className="duplicate-receipt-thumb">
+                    {formData.receipt_path.startsWith('data:image') ? (
+                      <img src={formData.receipt_path} alt="New receipt" />
+                    ) : (
+                      <FaFileAlt />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="duplicate-actions">
+              <button className="btn-keep-both" onClick={handleDuplicateKeepBoth}>
+                Keep both
+              </button>
+              <button className="btn-replace" onClick={handleDuplicateReplace}>
+                <FaTrash /> Delete existing & save new
+              </button>
+              <button className="btn-cancel-dup" onClick={() => setDuplicatePrompt(null)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -405,19 +405,47 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
-  const { date, description, category_id, amount, vendor, notes, receipt_path } = req.body;
+  const { date, description, category_id, amount, vendor, notes, receipt_path, force } = req.body;
 
   if (!date || !description || amount == null) {
     return res.status(400).json({ error: 'Date, description, and amount are required' });
   }
 
-  db.run(
-    `INSERT INTO expenses (user_id, date, description, category_id, amount, vendor, notes, receipt_path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, date, description, category_id || null, parseFloat(amount), vendor || '', notes || '', receipt_path || null],
-    function(err) {
+  const parsedAmount = parseFloat(amount);
+
+  const insertExpense = () => {
+    db.run(
+      `INSERT INTO expenses (user_id, date, description, category_id, amount, vendor, notes, receipt_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, date, description, category_id || null, parsedAmount, vendor || '', notes || '', receipt_path || null],
+      function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.status(201).json({ id: this.lastID, date, description, category_id, amount, vendor, notes });
+      }
+    );
+  };
+
+  if (force) {
+    return insertExpense();
+  }
+
+  // Check for an existing expense on the same date with the same amount
+  db.get(
+    `SELECT e.*, ec.name as category_name FROM expenses e
+     LEFT JOIN expense_categories ec ON e.category_id = ec.id
+     WHERE e.user_id = ? AND e.date = ? AND ABS(e.amount - ?) < 0.005
+     LIMIT 1`,
+    [userId, date, parsedAmount],
+    (err, existing) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ id: this.lastID, date, description, category_id, amount, vendor, notes });
+      if (existing) {
+        return res.status(409).json({
+          error: 'duplicate',
+          existing,
+          message: `An expense for ${parsedAmount.toFixed(2)} already exists on this date`,
+        });
+      }
+      insertExpense();
     }
   );
 });
