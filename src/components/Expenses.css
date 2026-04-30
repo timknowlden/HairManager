@@ -547,9 +547,21 @@
 }
 
 .receipt-drop-zone-full {
-  min-height: 100px;
-  flex-direction: row;
+  min-height: 320px;
+  flex-direction: column;
   gap: 12px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.expense-form-2col .receipt-drop-zone-full {
+  min-height: 480px;
+}
+
+.expense-form-2col .receipt-drop-zone-full.has-file {
+  min-height: auto;
+  padding: 12px;
 }
 
 .receipt-drop-zone.has-file {
@@ -573,8 +585,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   width: 100%;
-  gap: 0;
+  flex: 1;
+  gap: 16px;
 }
 
 .receipt-desktop-upload {
@@ -690,16 +704,24 @@
 .receipt-preview-full {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  align-items: stretch;
+  gap: 12px;
   width: 100%;
 }
 
+.receipt-preview-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .receipt-thumb-full {
-  max-height: 420px;
-  max-width: 100%;
+  width: 100%;
+  max-height: 540px;
   object-fit: contain;
   border-radius: var(--radius-sm);
+  background: white;
 }
 
 /* 2-column form layout */
@@ -750,8 +772,10 @@
 
 .receipt-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .receipt-scan-btn {
@@ -804,8 +828,7 @@
 
 .receipt-pdf-preview {
   width: 100%;
-  max-width: 460px;
-  height: 420px;
+  height: 540px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   pointer-events: none;
@@ -813,7 +836,7 @@
 
 @media (max-width: 900px) {
   .receipt-pdf-preview {
-    height: 240px;
+    height: 320px;
   }
 }
 
