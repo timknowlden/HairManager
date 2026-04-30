@@ -8,8 +8,13 @@ import { API_BASE } from '../config.js';
 
 function MobileReceiptUpload() {
   const [token, setToken] = useState(null);
-  const [stage, setStage] = useState('capture'); // capture | preview | edit | uploading | done
+  const [stage, setStage] = useState('capture'); // capture | preview | edit | ghostCamera | uploading | done
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Ghost camera state — when continuing a multi-photo capture
+  const [stream, setStream] = useState(null);
+  const videoRef = useRef(null);
+  const [ghostOpacity, setGhostOpacity] = useState(0.4);
 
   // PDF (bypass photo flow)
   const [isPdf, setIsPdf] = useState(false);
@@ -89,7 +94,12 @@ function MobileReceiptUpload() {
 
     try {
       const photo = await readImageFile(file);
-      setPhotos(prev => [...prev, { ...photo, overlap: 0, rotation: 0 }]);
+      // Default the new photo's overlap to ~25% of its height so the seam
+      // starts in a useful position to drag (rather than touching the top edge).
+      setPhotos(prev => {
+        const defaultOverlap = prev.length === 0 ? 0 : Math.round(photo.h * 0.25);
+        return [...prev, { ...photo, overlap: defaultOverlap, rotation: 0 }];
+      });
       setIsPdf(false);
       setPdfDataUrl(null);
       setStage('preview');
@@ -493,7 +503,81 @@ function MobileReceiptUpload() {
     }
   };
 
+  // Start the ghost camera with rear camera. Cleans up any existing stream first.
+  const startGhostCamera = async () => {
+    setErrorMsg('');
+    try {
+      // Stop any existing stream
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 } },
+        audio: false,
+      });
+      setStream(newStream);
+      setStage('ghostCamera');
+    } catch (err) {
+      setErrorMsg('Could not access camera: ' + err.message);
+    }
+  };
+
+  // Bind the stream to the video element when both are ready
+  useEffect(() => {
+    if (stage === 'ghostCamera' && videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [stage, stream]);
+
+  // Stop camera when leaving ghost stage or unmounting
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      setStream(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Capture a frame from the video stream and add it as a new photo
+  const captureGhostPhoto = async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) return;
+    try {
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      const dataUrl = await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('Capture failed'));
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.readAsDataURL(blob);
+        }, 'image/jpeg', 0.9);
+      });
+      // Add to photos with default overlap (~25%)
+      setPhotos(prev => {
+        const defaultOverlap = prev.length === 0 ? 0 : Math.round(h * 0.25);
+        return [...prev, { dataUrl, w, h, overlap: defaultOverlap, rotation: 0 }];
+      });
+      stopCamera();
+      setStage('preview');
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
+  };
+
   const reset = () => {
+    stopCamera();
     setStage('capture');
     setPhotos([]);
     setIsPdf(false);
@@ -681,12 +765,15 @@ function MobileReceiptUpload() {
                 )}
 
                 <div className="mobile-capture-area" style={{ marginTop: 16 }}>
+                  <button type="button" className="mobile-capture-btn" onClick={startGhostCamera}>
+                    <FaCamera />
+                    <span>Add another (with ghost overlay)</span>
+                  </button>
                   <label className="mobile-browse-btn">
-                    <FaPlus style={{ marginRight: 6 }} /> Add another photo
+                    <FaPlus style={{ marginRight: 6 }} /> Or pick from gallery
                     <input
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={(e) => addPhoto(e.target.files[0])}
                     />
                   </label>
@@ -797,6 +884,59 @@ function MobileReceiptUpload() {
             {errorMsg && <div className="mobile-error">{errorMsg}</div>}
           </>
         )}
+
+        {token && stage === 'ghostCamera' && (() => {
+          // Show the bottom ~25% of the most recent photo as a ghost overlay
+          // at the top of the camera view — line up the new shot to overlap.
+          const lastPhoto = photos[photos.length - 1];
+          return (
+            <>
+              <p className="preview-hint">
+                Line up the top of your new photo with the ghost overlay so they overlap.
+              </p>
+              <div className="ghost-camera">
+                <video ref={videoRef} className="ghost-video" playsInline muted />
+                {lastPhoto && (
+                  <div className="ghost-overlay-wrap" style={{ opacity: ghostOpacity }}>
+                    <img
+                      src={lastPhoto.dataUrl}
+                      alt="Previous"
+                      className="ghost-overlay-img"
+                      style={{
+                        // Show only the bottom portion of the previous photo (the area that
+                        // should overlap the top of the new one). 25% of the photo's height.
+                        clipPath: 'inset(75% 0 0 0)',
+                        transform: 'translateY(-75%)',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="ghost-camera-controls">
+                <label className="ghost-opacity-control">
+                  Ghost opacity
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="0.8"
+                    step="0.05"
+                    value={ghostOpacity}
+                    onChange={(e) => setGhostOpacity(parseFloat(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div className="mobile-preview-actions">
+                <button onClick={captureGhostPhoto} className="mobile-upload-btn">
+                  <FaCamera /> Capture
+                </button>
+                <button onClick={() => { stopCamera(); setStage('preview'); }} className="mobile-retake-btn">
+                  Cancel
+                </button>
+              </div>
+              {errorMsg && <div className="mobile-error">{errorMsg}</div>}
+            </>
+          );
+        })()}
 
         {token && stage === 'uploading' && (
           <div className="mobile-uploading">
