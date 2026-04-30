@@ -19,9 +19,11 @@ function MobileReceiptUpload() {
   // shows them stacked. From here they can add more, edit each, or upload.
   // overlap: how many image-space pixels this photo overlaps the previous one
   // (0 for the first photo; default 0 for newly added). Negative is not allowed.
-  const [photos, setPhotos] = useState([]); // [{ dataUrl, w, h, overlap }]
-  // Live preview of stitched result (data URL) and dims
+  // rotation: fractional degrees (-5 to +5) for skew fine-tuning.
+  const [photos, setPhotos] = useState([]); // [{ dataUrl, w, h, overlap, rotation }]
+  // Live preview of stitched result (data URL) and stitched canvas dims
   const [stitchedPreview, setStitchedPreview] = useState(null);
+  const [stitchedDims, setStitchedDims] = useState({ w: 0, h: 0, slices: [] });
 
   // Index of the photo currently being edited (rotate/crop/split). null when not editing.
   const [editingIndex, setEditingIndex] = useState(null);
@@ -87,7 +89,7 @@ function MobileReceiptUpload() {
 
     try {
       const photo = await readImageFile(file);
-      setPhotos(prev => [...prev, { ...photo, overlap: 0 }]);
+      setPhotos(prev => [...prev, { ...photo, overlap: 0, rotation: 0 }]);
       setIsPdf(false);
       setPdfDataUrl(null);
       setStage('preview');
@@ -103,6 +105,15 @@ function MobileReceiptUpload() {
       // Clamp to 0..(photo height - 20)
       const clamped = Math.max(0, Math.min(p.h - 20, Math.round(overlap)));
       return { ...p, overlap: clamped };
+    }));
+  };
+
+  // Adjust the fine rotation (degrees) for a photo
+  const setPhotoRotation = (index, rotation) => {
+    setPhotos(prev => prev.map((p, i) => {
+      if (i !== index) return p;
+      const clamped = Math.max(-5, Math.min(5, rotation));
+      return { ...p, rotation: clamped };
     }));
   };
 
@@ -248,11 +259,13 @@ function MobileReceiptUpload() {
     img.src = sourceUrl;
   });
 
-  // Stitch multiple photos vertically into one, honouring per-photo overlap.
-  // The overlap on photo[i] (i > 0) trims that many image-space pixels from the
-  // top of the photo before pasting — letting you align overlapping content.
+  // Stitch multiple photos vertically into one, honouring per-photo overlap
+  // and fine rotation. Returns { dataUrl, w, h, slices } — slices contains
+  // each photo's starting Y position in the canvas (used for drag-to-align).
   const stitchPhotos = async (photoList) => {
-    if (photoList.length === 1) return photoList[0].dataUrl;
+    if (photoList.length === 1) {
+      return { dataUrl: photoList[0].dataUrl, w: photoList[0].w, h: photoList[0].h, slices: [{ y: 0, h: photoList[0].h }] };
+    }
     const imgs = await Promise.all(photoList.map(p => new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
@@ -268,9 +281,10 @@ function MobileReceiptUpload() {
       const sourceHeight = Math.max(20, img.naturalHeight - overlap);
       return {
         img,
+        rotation: photoList[i].rotation || 0,
         scaledW: canvasW,
         scaledH: Math.round(sourceHeight * scale),
-        sourceY: overlap, // skip this many pixels from top
+        sourceY: overlap,
         sourceHeight,
       };
     });
@@ -284,16 +298,34 @@ function MobileReceiptUpload() {
     ctx.fillRect(0, 0, canvasW, canvasH);
 
     let y = 0;
+    const slicePositions = [];
     for (const s of slices) {
-      ctx.drawImage(
-        s.img,
-        0, s.sourceY, s.img.naturalWidth, s.sourceHeight, // source rect
-        0, y, canvasW, s.scaledH                          // dest rect
-      );
+      slicePositions.push({ y, h: s.scaledH });
+      if (Math.abs(s.rotation) > 0.01) {
+        // Rotate around the slice's centre
+        ctx.save();
+        const cx = canvasW / 2;
+        const cy = y + s.scaledH / 2;
+        ctx.translate(cx, cy);
+        ctx.rotate((s.rotation * Math.PI) / 180);
+        ctx.translate(-cx, -cy);
+        ctx.drawImage(
+          s.img,
+          0, s.sourceY, s.img.naturalWidth, s.sourceHeight,
+          0, y, canvasW, s.scaledH
+        );
+        ctx.restore();
+      } else {
+        ctx.drawImage(
+          s.img,
+          0, s.sourceY, s.img.naturalWidth, s.sourceHeight,
+          0, y, canvasW, s.scaledH
+        );
+      }
       y += s.scaledH;
     }
 
-    return await new Promise((resolve, reject) => {
+    const dataUrl = await new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) return reject(new Error('Stitch failed'));
         const r = new FileReader();
@@ -301,23 +333,28 @@ function MobileReceiptUpload() {
         r.readAsDataURL(blob);
       }, 'image/jpeg', 0.85);
     });
+    return { dataUrl, w: canvasW, h: canvasH, slices: slicePositions };
   };
 
-  // Live stitched preview — recompute when photos / overlaps change
+  // Live stitched preview — recompute when photos / overlaps / rotations change
   useEffect(() => {
     if (stage !== 'preview' || isPdf || photos.length < 2) {
       setStitchedPreview(null);
+      setStitchedDims({ w: 0, h: 0, slices: [] });
       return;
     }
     let cancelled = false;
     const id = setTimeout(async () => {
       try {
-        const url = await stitchPhotos(photos);
-        if (!cancelled) setStitchedPreview(url);
+        const result = await stitchPhotos(photos);
+        if (!cancelled) {
+          setStitchedPreview(result.dataUrl);
+          setStitchedDims({ w: result.w, h: result.h, slices: result.slices });
+        }
       } catch (err) {
         if (!cancelled) setStitchedPreview(null);
       }
-    }, 200);
+    }, 150);
     return () => {
       cancelled = true;
       clearTimeout(id);
@@ -435,7 +472,8 @@ function MobileReceiptUpload() {
       }
 
       // Multi-photo: stitch into a single receipt image
-      const finalDataUrl = await stitchPhotos(photos);
+      const stitched = await stitchPhotos(photos);
+      const finalDataUrl = stitched.dataUrl;
       setTotalToUpload(1);
       setUploadedCount(0);
       const res = await fetch(`${API_BASE}/expenses/mobile-upload`, {
@@ -598,35 +636,47 @@ function MobileReceiptUpload() {
                           </button>
                         </div>
                       </div>
-                      {/* Overlap slider — controls how much of this photo's top
-                          is hidden when stitched against the previous photo. */}
-                      {i > 0 && (
-                        <div className="photo-overlap-row">
-                          <label>Overlap with previous:</label>
-                          <input
-                            type="range"
-                            min="0"
-                            max={Math.max(0, photo.h - 20)}
-                            step="1"
-                            value={photo.overlap || 0}
-                            onChange={(e) => setPhotoOverlap(i, parseInt(e.target.value, 10))}
-                          />
-                          <span className="photo-overlap-value">
-                            {Math.round(((photo.overlap || 0) / photo.h) * 100)}%
-                          </span>
-                        </div>
-                      )}
+                      {/* Fine rotation slider — for skew correction */}
+                      <div className="photo-rotation-row">
+                        <label>Skew:</label>
+                        <input
+                          type="range"
+                          min="-5"
+                          max="5"
+                          step="0.1"
+                          value={photo.rotation || 0}
+                          onChange={(e) => setPhotoRotation(i, parseFloat(e.target.value))}
+                        />
+                        <span className="photo-rotation-value">
+                          {(photo.rotation || 0).toFixed(1)}°
+                        </span>
+                        {Math.abs(photo.rotation || 0) > 0.05 && (
+                          <button
+                            type="button"
+                            className="photo-icon-btn small"
+                            onClick={() => setPhotoRotation(i, 0)}
+                            title="Reset skew"
+                          >
+                            <FaUndo />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Live stitched preview shows how the final result will look */}
+                {/* Interactive stitched preview — drag photo seams to align */}
                 {photos.length > 1 && stitchedPreview && (
                   <div className="stitched-preview-section">
                     <div className="stitched-preview-header">
-                      Stitched preview — adjust overlap on each photo to align
+                      Stitched preview — drag the seam handles to align overlapping content
                     </div>
-                    <img src={stitchedPreview} alt="Stitched preview" className="stitched-preview-img" />
+                    <StitchedPreview
+                      previewUrl={stitchedPreview}
+                      photos={photos}
+                      stitchedDims={stitchedDims}
+                      onOverlapChange={setPhotoOverlap}
+                    />
                   </div>
                 )}
 
@@ -755,6 +805,99 @@ function MobileReceiptUpload() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Interactive stitched preview — drag seam handles between photos to set
+// the overlap on each photo. The seam's position in the canvas tells us
+// where photo i+1 starts; dragging it changes photo[i+1].overlap.
+function StitchedPreview({ previewUrl, photos, stitchedDims, onOverlapChange }) {
+  const containerRef = useRef(null);
+  const imgRef = useRef(null);
+  const [drag, setDrag] = useState(null); // { photoIndex, startClientY, startOverlap }
+
+  // Compute the on-screen Y of each seam (between photo i-1 and i, for i>=1)
+  const seams = [];
+  if (stitchedDims.slices && stitchedDims.slices.length > 1) {
+    for (let i = 1; i < stitchedDims.slices.length; i++) {
+      seams.push({ photoIndex: i, canvasY: stitchedDims.slices[i].y });
+    }
+  }
+
+  const startDrag = (photoIndex) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setDrag({
+      photoIndex,
+      startClientY: clientY,
+      startOverlap: photos[photoIndex].overlap || 0,
+    });
+  };
+
+  useEffect(() => {
+    if (!drag) return;
+    const move = (e) => {
+      e.preventDefault();
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const deltaScreen = clientY - drag.startClientY;
+      // Convert screen delta to image-space delta for that photo
+      const img = imgRef.current;
+      const canvasH = stitchedDims.h;
+      if (!img || !canvasH) return;
+      const screenH = img.getBoundingClientRect().height;
+      const photoH = photos[drag.photoIndex].h;
+      const photoScale = photos[drag.photoIndex].w
+        ? stitchedDims.w / photos[drag.photoIndex].w
+        : 1;
+      // Screen delta → canvas delta → photo image-space delta
+      const canvasDelta = (deltaScreen / screenH) * canvasH;
+      const imgDelta = canvasDelta / photoScale;
+      // Dragging UP (negative deltaScreen) increases overlap (photo moves up)
+      const newOverlap = drag.startOverlap - imgDelta;
+      onOverlapChange(drag.photoIndex, newOverlap);
+    };
+    const end = () => setDrag(null);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('touchend', end);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+    };
+  }, [drag, stitchedDims, photos, onOverlapChange]);
+
+  // Convert canvas Y to display-rect Y
+  const displayRect = imgRef.current?.getBoundingClientRect();
+  const yScale = stitchedDims.h && displayRect ? displayRect.height / stitchedDims.h : 0;
+
+  return (
+    <div className="stitch-canvas" ref={containerRef}>
+      <img
+        ref={imgRef}
+        src={previewUrl}
+        alt="Stitched preview"
+        className="stitched-preview-img"
+        draggable={false}
+      />
+      {seams.map((s) => (
+        <div
+          key={s.photoIndex}
+          className="seam-handle"
+          style={{ top: `${s.canvasY * yScale}px` }}
+          onMouseDown={startDrag(s.photoIndex)}
+          onTouchStart={startDrag(s.photoIndex)}
+        >
+          <div className="seam-handle-line" />
+          <div className="seam-handle-grip">
+            <FaArrowUp /><FaArrowDown />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

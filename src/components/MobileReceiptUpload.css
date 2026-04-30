@@ -369,8 +369,8 @@
   background: #f3f4f6;
 }
 
-/* Overlap slider — under each photo (except first) */
-.photo-overlap-row {
+/* Skew slider — fine rotation per photo (-5° to +5°) */
+.photo-rotation-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -382,23 +382,81 @@
   font-size: 12px;
 }
 
-.photo-overlap-row label {
+.photo-rotation-row label {
   color: #6b7280;
   font-weight: 500;
   white-space: nowrap;
 }
 
-.photo-overlap-row input[type="range"] {
+.photo-rotation-row input[type="range"] {
   flex: 1;
   min-width: 0;
 }
 
-.photo-overlap-value {
+.photo-rotation-value {
   color: #4f46e5;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  min-width: 36px;
+  min-width: 40px;
   text-align: right;
+}
+
+.photo-icon-btn.small {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+/* Stitch canvas — interactive preview with draggable seams */
+.stitch-canvas {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background: white;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+
+.seam-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 32px;
+  margin-top: -16px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.seam-handle-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: rgba(79, 70, 229, 0.7);
+  border-top: 1px dashed white;
+  border-bottom: 1px dashed white;
+}
+
+.seam-handle-grip {
+  position: relative;
+  z-index: 2;
+  background: #4f46e5;
+  color: white;
+  width: 56px;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 /* Live stitched preview */
