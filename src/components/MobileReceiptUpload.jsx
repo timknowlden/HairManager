@@ -17,7 +17,11 @@ function MobileReceiptUpload() {
 
   // Photo collection — every photo the user has captured. The preview view
   // shows them stacked. From here they can add more, edit each, or upload.
-  const [photos, setPhotos] = useState([]); // [{ dataUrl, w, h }]
+  // overlap: how many image-space pixels this photo overlaps the previous one
+  // (0 for the first photo; default 0 for newly added). Negative is not allowed.
+  const [photos, setPhotos] = useState([]); // [{ dataUrl, w, h, overlap }]
+  // Live preview of stitched result (data URL) and dims
+  const [stitchedPreview, setStitchedPreview] = useState(null);
 
   // Index of the photo currently being edited (rotate/crop/split). null when not editing.
   const [editingIndex, setEditingIndex] = useState(null);
@@ -83,13 +87,23 @@ function MobileReceiptUpload() {
 
     try {
       const photo = await readImageFile(file);
-      setPhotos(prev => [...prev, photo]);
+      setPhotos(prev => [...prev, { ...photo, overlap: 0 }]);
       setIsPdf(false);
       setPdfDataUrl(null);
       setStage('preview');
     } catch (err) {
       setErrorMsg(err.message);
     }
+  };
+
+  // Adjust the overlap (in image-space pixels) for a photo
+  const setPhotoOverlap = (index, overlap) => {
+    setPhotos(prev => prev.map((p, i) => {
+      if (i !== index) return p;
+      // Clamp to 0..(photo height - 20)
+      const clamped = Math.max(0, Math.min(p.h - 20, Math.round(overlap)));
+      return { ...p, overlap: clamped };
+    }));
   };
 
   // Remove / reorder
@@ -234,7 +248,9 @@ function MobileReceiptUpload() {
     img.src = sourceUrl;
   });
 
-  // Stitch multiple photos vertically into one
+  // Stitch multiple photos vertically into one, honouring per-photo overlap.
+  // The overlap on photo[i] (i > 0) trims that many image-space pixels from the
+  // top of the photo before pasting — letting you align overlapping content.
   const stitchPhotos = async (photoList) => {
     if (photoList.length === 1) return photoList[0].dataUrl;
     const imgs = await Promise.all(photoList.map(p => new Promise((resolve, reject) => {
@@ -244,19 +260,39 @@ function MobileReceiptUpload() {
       img.src = p.dataUrl;
     })));
     const canvasW = Math.max(...imgs.map(i => i.naturalWidth));
-    const scaledHeights = imgs.map(i => Math.round(i.naturalHeight * (canvasW / i.naturalWidth)));
-    const canvasH = scaledHeights.reduce((s, h) => s + h, 0);
+
+    // Compute scaled height contribution for each photo, accounting for overlap
+    const slices = imgs.map((img, i) => {
+      const scale = canvasW / img.naturalWidth;
+      const overlap = i === 0 ? 0 : (photoList[i].overlap || 0);
+      const sourceHeight = Math.max(20, img.naturalHeight - overlap);
+      return {
+        img,
+        scaledW: canvasW,
+        scaledH: Math.round(sourceHeight * scale),
+        sourceY: overlap, // skip this many pixels from top
+        sourceHeight,
+      };
+    });
+    const canvasH = slices.reduce((s, x) => s + x.scaledH, 0);
+
     const canvas = document.createElement('canvas');
     canvas.width = canvasW;
     canvas.height = canvasH;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvasW, canvasH);
+
     let y = 0;
-    for (let i = 0; i < imgs.length; i++) {
-      ctx.drawImage(imgs[i], 0, y, canvasW, scaledHeights[i]);
-      y += scaledHeights[i];
+    for (const s of slices) {
+      ctx.drawImage(
+        s.img,
+        0, s.sourceY, s.img.naturalWidth, s.sourceHeight, // source rect
+        0, y, canvasW, s.scaledH                          // dest rect
+      );
+      y += s.scaledH;
     }
+
     return await new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) return reject(new Error('Stitch failed'));
@@ -266,6 +302,28 @@ function MobileReceiptUpload() {
       }, 'image/jpeg', 0.85);
     });
   };
+
+  // Live stitched preview — recompute when photos / overlaps change
+  useEffect(() => {
+    if (stage !== 'preview' || isPdf || photos.length < 2) {
+      setStitchedPreview(null);
+      return;
+    }
+    let cancelled = false;
+    const id = setTimeout(async () => {
+      try {
+        const url = await stitchPhotos(photos);
+        if (!cancelled) setStitchedPreview(url);
+      } catch (err) {
+        if (!cancelled) setStitchedPreview(null);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos, stage, isPdf]);
 
   // ── Editor: crop drag handlers ──
   const eventToImageY = (e) => {
@@ -540,9 +598,37 @@ function MobileReceiptUpload() {
                           </button>
                         </div>
                       </div>
+                      {/* Overlap slider — controls how much of this photo's top
+                          is hidden when stitched against the previous photo. */}
+                      {i > 0 && (
+                        <div className="photo-overlap-row">
+                          <label>Overlap with previous:</label>
+                          <input
+                            type="range"
+                            min="0"
+                            max={Math.max(0, photo.h - 20)}
+                            step="1"
+                            value={photo.overlap || 0}
+                            onChange={(e) => setPhotoOverlap(i, parseInt(e.target.value, 10))}
+                          />
+                          <span className="photo-overlap-value">
+                            {Math.round(((photo.overlap || 0) / photo.h) * 100)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {/* Live stitched preview shows how the final result will look */}
+                {photos.length > 1 && stitchedPreview && (
+                  <div className="stitched-preview-section">
+                    <div className="stitched-preview-header">
+                      Stitched preview — adjust overlap on each photo to align
+                    </div>
+                    <img src={stitchedPreview} alt="Stitched preview" className="stitched-preview-img" />
+                  </div>
+                )}
 
                 <div className="mobile-capture-area" style={{ marginTop: 16 }}>
                   <label className="mobile-browse-btn">

@@ -369,6 +369,64 @@
   background: #f3f4f6;
 }
 
+/* Overlap slider — under each photo (except first) */
+.photo-overlap-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.photo-overlap-row label {
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.photo-overlap-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-overlap-value {
+  color: #4f46e5;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Live stitched preview */
+.stitched-preview-section {
+  margin-top: 16px;
+  padding: 12px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+}
+
+.stitched-preview-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4338ca;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.stitched-preview-img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 6px;
+  background: white;
+  display: block;
+}
+
 .mobile-uploading-spinner {
   width: 40px;
   height: 40px;
