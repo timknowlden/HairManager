@@ -279,6 +279,81 @@
   padding: 40px 20px;
 }
 
+/* Stitch (multi-photo) view */
+.stitch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.stitch-item {
+  display: flex;
+  gap: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px;
+  align-items: center;
+}
+
+.stitch-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: white;
+}
+
+.stitch-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.stitch-item-num {
+  width: 24px;
+  height: 24px;
+  background: #4f46e5;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: auto;
+  margin-left: 4px;
+}
+
+.stitch-icon-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.stitch-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stitch-icon-btn.danger {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
 .mobile-uploading-spinner {
   width: 40px;
   height: 40px;

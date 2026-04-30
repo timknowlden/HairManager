@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
-import { FaCamera, FaCheck, FaCrop, FaCut, FaUpload, FaUndo } from 'react-icons/fa';
+import { FaCamera, FaCheck, FaCrop, FaCut, FaUpload, FaUndo, FaPlus, FaTrash, FaArrowUp, FaArrowDown, FaLayerGroup } from 'react-icons/fa';
 import './MobileReceiptUpload.css';
 import { API_BASE } from '../config.js';
 
 function MobileReceiptUpload() {
   const [token, setToken] = useState(null);
-  const [stage, setStage] = useState('capture'); // capture | edit | uploading | done
+  const [stage, setStage] = useState('capture'); // capture | stitch | edit | uploading | done
   const [errorMsg, setErrorMsg] = useState('');
   const [imageDataUrl, setImageDataUrl] = useState(null);
   const [imageDims, setImageDims] = useState({ w: 0, h: 0 });
   const [isPdf, setIsPdf] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState(null);
+  // Stitch mode: collected photos before stitching into one image
+  const [stitchPhotos, setStitchPhotos] = useState([]); // [{ dataUrl, w, h }]
   // Edit mode: 'crop' or 'split'
   const [mode, setMode] = useState('crop');
   // Crop box in image coordinates (pixels of natural image)
@@ -33,46 +35,137 @@ function MobileReceiptUpload() {
     }
   }, []);
 
-  const handleFile = (file) => {
-    if (!file) return;
+  // Read a file as data URL + dimensions
+  const readImageFile = (file) => new Promise((resolve, reject) => {
     if (file.size > 8 * 1024 * 1024) {
-      setErrorMsg('File must be under 8MB');
+      reject(new Error('File must be under 8MB'));
       return;
     }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = reader.result;
+      const img = new Image();
+      img.onload = () => resolve({ dataUrl: url, w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => reject(new Error('Could not read image'));
+      img.src = url;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+
+  // Load an image into the crop/split editor
+  const loadImageIntoEditor = (dataUrl, w, h) => {
+    setImageDims({ w, h });
+    setImageDataUrl(dataUrl);
+    setIsPdf(false);
+    setCrop({ x: 0, y: 0, w, h });
+    setSplits([]);
+    const ratio = h / w;
+    setMode(ratio > 2.2 ? 'split' : 'crop');
+    setStage('edit');
+  };
+
+  const handleFile = async (file) => {
+    if (!file) return;
     setErrorMsg('');
 
     if (file.type === 'application/pdf') {
+      if (file.size > 8 * 1024 * 1024) {
+        setErrorMsg('File must be under 8MB');
+        return;
+      }
       // PDF: skip the editor, upload directly
       const reader = new FileReader();
       reader.onload = () => {
         setIsPdf(true);
         setPdfDataUrl(reader.result);
-        setStage('edit'); // Show preview + Upload button
+        setStage('edit');
       };
       reader.readAsDataURL(file);
       return;
     }
 
     // Image: load into editor
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = reader.result;
-      const img = new Image();
-      img.onload = () => {
-        setImageDims({ w: img.naturalWidth, h: img.naturalHeight });
-        setImageDataUrl(url);
-        setIsPdf(false);
-        // Default crop to full image
-        setCrop({ x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight });
-        setSplits([]);
-        // Auto-suggest split mode for very tall images
-        const ratio = img.naturalHeight / img.naturalWidth;
-        setMode(ratio > 2.2 ? 'split' : 'crop');
-        setStage('edit');
-      };
-      img.src = url;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl, w, h } = await readImageFile(file);
+      loadImageIntoEditor(dataUrl, w, h);
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  // Add a photo to the stitch collection
+  const addStitchPhoto = async (file) => {
+    if (!file) return;
+    setErrorMsg('');
+    try {
+      const { dataUrl, w, h } = await readImageFile(file);
+      setStitchPhotos(prev => [...prev, { dataUrl, w, h }]);
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const removeStitchPhoto = (index) => {
+    setStitchPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const moveStitchPhoto = (index, direction) => {
+    setStitchPhotos(prev => {
+      const next = [...prev];
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
+      if (newIndex < 0 || newIndex >= next.length) return prev;
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
+  };
+
+  // Stitch all photos vertically into a single image, then move to the editor
+  const stitchAndContinue = async () => {
+    if (stitchPhotos.length === 0) return;
+    setErrorMsg('');
+    try {
+      // Load all images first
+      const imgs = await Promise.all(stitchPhotos.map(p => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = p.dataUrl;
+      })));
+
+      // Use widest image as canvas width; scale others to match
+      const canvasW = Math.max(...imgs.map(i => i.naturalWidth));
+      const scaledHeights = imgs.map(i => Math.round(i.naturalHeight * (canvasW / i.naturalWidth)));
+      const canvasH = scaledHeights.reduce((s, h) => s + h, 0);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      let y = 0;
+      for (let i = 0; i < imgs.length; i++) {
+        ctx.drawImage(imgs[i], 0, y, canvasW, scaledHeights[i]);
+        y += scaledHeights[i];
+      }
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('Stitch failed'));
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.readAsDataURL(blob);
+        }, 'image/jpeg', 0.85);
+      });
+
+      // Clear stitch state and move into editor
+      setStitchPhotos([]);
+      loadImageIntoEditor(dataUrl, canvasW, canvasH);
+    } catch (err) {
+      setErrorMsg('Failed to stitch images: ' + err.message);
+    }
   };
 
   // Convert touch/pointer event to image coordinates
@@ -254,6 +347,7 @@ function MobileReceiptUpload() {
     setIsPdf(false);
     setCrop(null);
     setSplits([]);
+    setStitchPhotos([]);
     setErrorMsg('');
     setUploadedCount(0);
     setTotalToUpload(0);
@@ -312,7 +406,93 @@ function MobileReceiptUpload() {
                   onChange={(e) => handleFile(e.target.files[0])}
                 />
               </label>
+              <button
+                type="button"
+                className="mobile-browse-btn"
+                onClick={() => { setStage('stitch'); setStitchPhotos([]); }}
+              >
+                <FaLayerGroup style={{ marginRight: 6 }} /> Multi-photo (stitch together)
+              </button>
             </div>
+            {errorMsg && <div className="mobile-error">{errorMsg}</div>}
+          </>
+        )}
+
+        {token && stage === 'stitch' && (
+          <>
+            <p>Add multiple photos of a long receipt — they'll be stitched together top-to-bottom.</p>
+
+            {stitchPhotos.length > 0 && (
+              <div className="stitch-list">
+                {stitchPhotos.map((photo, i) => (
+                  <div key={i} className="stitch-item">
+                    <img src={photo.dataUrl} alt={`Photo ${i + 1}`} className="stitch-thumb" />
+                    <div className="stitch-item-controls">
+                      <span className="stitch-item-num">{i + 1}</span>
+                      <button
+                        type="button"
+                        className="stitch-icon-btn"
+                        disabled={i === 0}
+                        onClick={() => moveStitchPhoto(i, 'up')}
+                        title="Move up"
+                      >
+                        <FaArrowUp />
+                      </button>
+                      <button
+                        type="button"
+                        className="stitch-icon-btn"
+                        disabled={i === stitchPhotos.length - 1}
+                        onClick={() => moveStitchPhoto(i, 'down')}
+                        title="Move down"
+                      >
+                        <FaArrowDown />
+                      </button>
+                      <button
+                        type="button"
+                        className="stitch-icon-btn danger"
+                        onClick={() => removeStitchPhoto(i)}
+                        title="Remove"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mobile-capture-area">
+              <label className="mobile-capture-btn">
+                <FaPlus />
+                <span>Add photo {stitchPhotos.length + 1}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => addStitchPhoto(e.target.files[0])}
+                />
+              </label>
+              <label className="mobile-browse-btn">
+                Add from gallery
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => addStitchPhoto(e.target.files[0])}
+                />
+              </label>
+            </div>
+
+            <div className="mobile-preview-actions" style={{ marginTop: 16 }}>
+              <button
+                onClick={stitchAndContinue}
+                className="mobile-upload-btn"
+                disabled={stitchPhotos.length < 2}
+              >
+                <FaLayerGroup /> Stitch {stitchPhotos.length} photos & continue
+              </button>
+              <button onClick={reset} className="mobile-retake-btn">Cancel</button>
+            </div>
+
             {errorMsg && <div className="mobile-error">{errorMsg}</div>}
           </>
         )}
