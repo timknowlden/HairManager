@@ -452,10 +452,11 @@
 }
 
 .desc-cell {
-  max-width: 300px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12px;
 }
 
 .amount-cell {
@@ -465,7 +466,7 @@
 
 .match-cell {
   font-size: 12px;
-  min-width: 280px;
+  min-width: 360px;
 }
 
 .match-detail {
@@ -481,12 +482,24 @@
 
 .match-summary {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.match-summary-line {
+  display: flex;
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
+}
+
+.match-summary-location {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .match-summary.amount-ok {

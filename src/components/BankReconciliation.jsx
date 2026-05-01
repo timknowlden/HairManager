@@ -590,10 +590,10 @@ function BankReconciliation({ onBack }) {
                 <thead>
                   <tr>
                     <th style={{ width: 40 }}></th>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Confidence</th>
+                    <th style={{ width: 90 }}>Date</th>
+                    <th style={{ width: 200 }}>Description</th>
+                    <th style={{ width: 90 }}>Amount</th>
+                    <th style={{ width: 90 }}>Confidence</th>
                     <th>Matched To</th>
                   </tr>
                 </thead>
@@ -617,11 +617,24 @@ function BankReconciliation({ onBack }) {
                           if (apts.length === 0) return '-';
                           const total = apts.reduce((sum, a) => sum + (a.price || 0), 0);
                           const totalMatches = Math.abs(total - txn.amount) < 0.01;
+                          // Get unique locations (usually 1, but show them all if more)
+                          const locations = [...new Set(apts.map(a => a.location).filter(Boolean))];
                           return (
                             <div className="match-list">
                               <div className={`match-summary ${totalMatches ? 'amount-ok' : 'amount-mismatch'}`}>
-                                {apts.length} appointment{apts.length !== 1 ? 's' : ''} · {new Date(apts[0].date).toLocaleDateString('en-GB')} · {formatCurrency(total)}
-                                {totalMatches && <FaCheckCircle className="match-amount-icon" title="Amount matches" />}
+                                <div className="match-summary-line">
+                                  <strong>{apts.length} appointment{apts.length !== 1 ? 's' : ''}</strong>
+                                  <span>·</span>
+                                  <span>{new Date(apts[0].date).toLocaleDateString('en-GB')}</span>
+                                  <span>·</span>
+                                  <span>{formatCurrency(total)}</span>
+                                  {totalMatches && <FaCheckCircle className="match-amount-icon" title="Amount matches" />}
+                                </div>
+                                {locations.length > 0 && (
+                                  <div className="match-summary-location">
+                                    📍 {locations.join(' / ')}
+                                  </div>
+                                )}
                               </div>
                               {apts.map(a => (
                                 <div key={a.id} className="match-detail-row">
