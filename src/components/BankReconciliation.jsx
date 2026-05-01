@@ -636,14 +636,26 @@ function BankReconciliation({ onBack }) {
                                   </div>
                                 )}
                               </div>
-                              {apts.map(a => (
-                                <div key={a.id} className="match-detail-row">
-                                  <span className="match-detail-id">#{a.id}</span>
-                                  <span className="match-detail-name">{a.client_name}</span>
-                                  <span className="match-detail-service">{a.service}</span>
-                                  <span className="match-detail-price">{formatCurrency(a.price)}</span>
-                                </div>
-                              ))}
+                              <table className="matched-apts-table">
+                                <thead>
+                                  <tr>
+                                    <th className="matched-th-id">ID</th>
+                                    <th>Client</th>
+                                    <th>Service</th>
+                                    <th className="matched-th-price">Price</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {apts.map(a => (
+                                    <tr key={a.id}>
+                                      <td className="matched-td-id">#{a.id}</td>
+                                      <td className="matched-td-name">{a.client_name}</td>
+                                      <td className="matched-td-service">{a.service}</td>
+                                      <td className="matched-td-price">{formatCurrency(a.price)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           );
                         })()}

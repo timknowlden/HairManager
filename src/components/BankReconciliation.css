@@ -516,43 +516,88 @@
   font-size: 11px;
 }
 
-.match-detail-row {
-  display: grid;
-  grid-template-columns: 50px 1fr auto auto;
-  gap: 8px;
-  padding: 3px 8px;
-  font-size: 11px;
-  color: #4b5563;
+/* Sub-table inside the Matched To cell — mirrors the main table styling */
+.matched-apts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  background: var(--color-bg-primary, white);
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.matched-apts-table thead {
+  background: #f9fafb;
+}
+
+.matched-apts-table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.matched-apts-table th.matched-th-id {
+  width: 50px;
+}
+
+.matched-apts-table th.matched-th-price {
+  text-align: right;
+  width: 70px;
+}
+
+.matched-apts-table td {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #374151;
   border-bottom: 1px solid #f3f4f6;
 }
 
-.match-detail-row:last-child {
+.matched-apts-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.match-detail-id {
-  color: #9ca3af;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+.matched-apts-table tbody tr:nth-child(even) {
+  background: #fafbfc;
 }
 
-.match-detail-name {
-  font-weight: 500;
+.matched-apts-table tbody tr:hover {
+  background: #eff6ff;
+}
+
+.matched-td-id {
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+}
+
+.matched-td-name {
+  font-weight: 600;
   color: #111827;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 140px;
 }
 
-.match-detail-service {
+.matched-td-service {
   color: #6b7280;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 160px;
 }
 
-.match-detail-price {
+.matched-td-price {
+  text-align: right;
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
+  font-weight: 600;
+  color: #111827;
 }
 
 /* Confidence badges */
