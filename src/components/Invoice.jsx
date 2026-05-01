@@ -1181,11 +1181,13 @@ function Invoice({ appointments: propsAppointments, onBack }) {
             <div className="payment-instructions">
               <div>Make all checks payable to {businessName}</div>
               <div>Payment is due within 30 days.</div>
-              <div className="bacs-details">
-                BACS: {profileSettings.bank_account_name || 'HairManager'} – 
-                account number: {profileSettings.account_number || ''} – 
-                sort code: {formatSortCode(profileSettings.sort_code || '')}
-              </div>
+              {(profileSettings.bank_account_name || profileSettings.account_number || profileSettings.sort_code) ? (
+                <div className="bacs-details">
+                  BACS: {profileSettings.bank_account_name || businessName}
+                  {profileSettings.account_number && ` – account number: ${profileSettings.account_number}`}
+                  {profileSettings.sort_code && ` – sort code: ${formatSortCode(profileSettings.sort_code)}`}
+                </div>
+              ) : null}
               <div>Please use Invoice Number or Client Name as Reference</div>
               <div className="contact-info">
                 If you have any questions concerning this invoice, contact<br />

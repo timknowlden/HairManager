@@ -623,8 +623,21 @@ function Expenses() {
                       <button type="button" className="receipt-scan-btn" disabled={scanning} onClick={() => scanReceipt(formData.receipt_path)}>
                         {scanning ? 'Scanning...' : 'Scan with AI'}
                       </button>
-                      <button type="button" className="receipt-remove" onClick={() => setFormData(prev => ({ ...prev, receipt_path: '' }))}>
-                        <FaTrash /> Remove
+                      <button
+                        type="button"
+                        className="receipt-remove"
+                        onClick={() => {
+                          // If we're in a multi-file queue, removing means
+                          // "skip this one" — advance to the next file.
+                          if (uploadQueue.length > 0) {
+                            advanceQueue();
+                          } else {
+                            setFormData(prev => ({ ...prev, receipt_path: '' }));
+                            setLongReceiptHint(false);
+                          }
+                        }}
+                      >
+                        <FaTrash /> {uploadQueue.length > 0 ? 'Skip this receipt' : 'Remove'}
                       </button>
                     </div>
                   </div>

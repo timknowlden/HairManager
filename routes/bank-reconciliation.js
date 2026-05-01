@@ -861,31 +861,34 @@ router.post('/:uploadId/match', async (req, res) => {
       if (matched) continue;
 
       // 3. Amount-only matching — LOW confidence
-      // Check against invoice group totals
-      for (const group of Object.values(invoiceGroups)) {
-        if (Math.abs(txnAmount - group.total) <= 0.01) {
-          const firstApt = group.appointments[0];
-          await dbRun(db, `
-            UPDATE bank_transactions SET match_status = 'matched', match_confidence = 'low',
-            matched_appointment_id = ?, matched_invoice_group = ? WHERE id = ?
-          `, [firstApt.id, JSON.stringify({ date: group.date, location: group.location, appointmentIds: group.appointments.map(a => a.id) }), txn.id]);
-          matched = true;
-          matchedCount++;
-          break;
-        }
-      }
+      // Only auto-match if there's a UNIQUE candidate at this amount.
+      // Multiple candidates = ambiguous — leave for manual matching to avoid
+      // false positives (especially common with round numbers like £20).
+      const groupCandidates = Object.values(invoiceGroups).filter(g =>
+        Math.abs(txnAmount - g.total) <= 0.01
+      );
+      const aptCandidates = unpaidApts.filter(a =>
+        Math.abs(txnAmount - a.price) <= 0.01
+      );
 
-      if (matched) continue;
-
-      // Check against individual appointment prices (only if unique price match)
-      const priceMatches = unpaidApts.filter(a => Math.abs(txnAmount - a.price) <= 0.01);
-      if (priceMatches.length === 1) {
+      if (groupCandidates.length === 1 && aptCandidates.length <= 1) {
+        // Single invoice-group match is unambiguous
+        const group = groupCandidates[0];
+        const firstApt = group.appointments[0];
+        await dbRun(db, `
+          UPDATE bank_transactions SET match_status = 'matched', match_confidence = 'low',
+          matched_appointment_id = ?, matched_invoice_group = ? WHERE id = ?
+        `, [firstApt.id, JSON.stringify({ date: group.date, location: group.location, appointmentIds: group.appointments.map(a => a.id) }), txn.id]);
+        matchedCount++;
+      } else if (groupCandidates.length === 0 && aptCandidates.length === 1) {
+        // Single appointment match (and no group match) is unambiguous
         await dbRun(db, `
           UPDATE bank_transactions SET match_status = 'matched', match_confidence = 'low',
           matched_appointment_id = ? WHERE id = ?
-        `, [priceMatches[0].id, txn.id]);
+        `, [aptCandidates[0].id, txn.id]);
         matchedCount++;
       }
+      // Otherwise: ambiguous — leave unmatched for the user to manually pick
     }
 
     // Update upload stats

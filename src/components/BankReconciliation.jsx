@@ -118,7 +118,36 @@ function BankReconciliation({ onBack }) {
     setError(null);
     setLoading(true);
     try {
-      // Read as data URL (base64) — the backend expects "data:<mime>;base64,<data>"
+      // CSV remittances skip AI scanning — just upload as a regular CSV
+      // (the matching engine looks at reference + amount the same way).
+      const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
+      if (isCsv) {
+        const text = await file.text();
+        const res = await fetch(`${API_BASE}/bank-reconciliation/upload`, {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ csvData: text, filename: file.name })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.needsMapping) {
+            setHeaders(data.headers || []);
+            setSupportedFormats(data.supportedFormats || []);
+            setCsvData(text);
+            setFilename(file.name);
+            setStep('mapping');
+          } else {
+            setError(data.error || 'CSV upload failed');
+          }
+          return;
+        }
+        setUploadResult(data);
+        setUploadId(data.uploadId);
+        await runMatching(data.uploadId);
+        return;
+      }
+
+      // PDF / image: use AI scan
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);
@@ -463,12 +492,12 @@ function BankReconciliation({ onBack }) {
             <div className="upload-card">
               <div className="upload-card-icon"><FaFilePdf /></div>
               <h3>Remittance advice</h3>
-              <p>Upload a PDF or image of a payment remittance — AI extracts the references and amounts.</p>
+              <p>Upload a PDF, image, or CSV of a payment remittance. PDFs/images are AI-scanned; CSVs are parsed directly.</p>
               <label className="file-select-btn">
-                Upload PDF or image
+                Upload PDF / image / CSV
                 <input
                   type="file"
-                  accept=".pdf,image/*"
+                  accept=".pdf,.csv,image/*"
                   onChange={e => e.target.files[0] && handleRemittanceUpload(e.target.files[0])}
                   hidden
                 />
