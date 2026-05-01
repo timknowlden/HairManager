@@ -130,16 +130,18 @@ router.post('/process-mobile/:uploadId', async (req, res) => {
     let totalCredits = 0;
 
     for (const row of dataRows) {
-      const txn = extractTransaction(row, format);
-      if (!txn || txn.transaction_type !== 'credit') continue;
-
-      await dbRun(db, `
-        INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, balance, raw_row)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [req.userId, uploadId, txn.transaction_date, txn.description, txn.reference, txn.amount, txn.transaction_type, txn.balance, txn.raw_row]);
-
-      creditCount++;
-      totalCredits += txn.amount;
+      const result = extractTransaction(row, format);
+      if (!result) continue;
+      const txns = Array.isArray(result) ? result : [result];
+      for (const txn of txns) {
+        if (txn.transaction_type !== 'credit') continue;
+        await dbRun(db, `
+          INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, balance, raw_row)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [req.userId, uploadId, txn.transaction_date, txn.description, txn.reference, txn.amount, txn.transaction_type, txn.balance, txn.raw_row]);
+        creditCount++;
+        totalCredits += txn.amount;
+      }
     }
 
     await dbRun(db, "UPDATE bank_statement_uploads SET row_count = ?, bank_format = ?, status = 'pending' WHERE id = ?",
@@ -271,6 +273,21 @@ const BANK_FORMATS = {
     balanceCol: 4,
     dateFormat: 'DD/MM/YYYY',
   },
+  // Remittance advice CSV (Sage / Xero / accounting software exports)
+  // Headers like: Reference Number, Date, Amount, Currency, Bank Account Number,
+  // Document Reference, Document Date, Amount Due, Amount Paid, Discount Taken
+  remittance_csv: {
+    name: 'Remittance CSV',
+    // Unique identifying combo: Document Reference + Amount Paid
+    headerPatterns: ['Document Reference', 'Amount Paid'],
+    detectByExact: ['document reference', 'amount paid'],
+    dateCol: 1,             // Date column
+    descriptionCol: 5,      // Document Reference
+    referenceCol: 0,        // Reference Number
+    amountCol: 8,           // Amount Paid (treat all rows as credits)
+    forceCredit: true,      // No debit/credit columns; everything is incoming
+    dateFormat: 'DD/MM/YYYY',
+  },
   generic: {
     name: 'Generic',
     dateCol: 0,
@@ -283,12 +300,24 @@ const BANK_FORMATS = {
 function detectBankFormat(headerRow) {
   const headerLower = headerRow.map(h => h.toLowerCase().trim());
 
+  // First pass: formats that specify exact-match patterns get priority.
+  // (Avoids false positives on generic words like "Number" or "Account".)
   for (const [key, fmt] of Object.entries(BANK_FORMATS)) {
-    if (key === 'generic') continue;
+    if (key === 'generic' || !fmt.detectByExact) continue;
+    const allMatch = fmt.detectByExact.every(p =>
+      headerLower.some(h => h === p.toLowerCase())
+    );
+    if (allMatch) return key;
+  }
+
+  // Second pass: fuzzy match using headerPatterns. Tightened to require 75%
+  // (was 60%) to reduce false positives like Barclays matching a generic
+  // header that happens to contain Number/Date/Account/Amount.
+  for (const [key, fmt] of Object.entries(BANK_FORMATS)) {
+    if (key === 'generic' || fmt.detectByExact) continue;
     const patterns = fmt.headerPatterns.map(p => p.toLowerCase());
-    // Check if most pattern words appear in the header
     const matchCount = patterns.filter(p => headerLower.some(h => h.includes(p))).length;
-    if (matchCount >= Math.ceil(patterns.length * 0.6)) {
+    if (matchCount >= Math.ceil(patterns.length * 0.75)) {
       return key;
     }
   }
@@ -328,12 +357,21 @@ function parseDate(dateStr, format) {
 }
 
 function parseAmount(value) {
-  if (!value || typeof value !== 'string') return NaN;
-  // Remove currency symbols, commas, spaces
-  const cleaned = value.replace(/[£$€,\s]/g, '');
+  if (value == null) return NaN;
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return NaN;
+  // Remove currency symbols and thousands separators (commas + spaces)
+  let cleaned = value.replace(/[£$€,\s]/g, '');
+  // Negative in parentheses: "(123.45)" → "-123.45"
+  if (/^\(.*\)$/.test(cleaned)) {
+    cleaned = '-' + cleaned.slice(1, -1);
+  }
   return parseFloat(cleaned);
 }
 
+// Returns either a single transaction object or an array (when one CSV row
+// represents multiple payments — e.g. remittance CSVs with space-separated
+// amounts and references in a single cell).
 function extractTransaction(row, format) {
   const fmt = BANK_FORMATS[format] || BANK_FORMATS.generic;
 
@@ -343,6 +381,35 @@ function extractTransaction(row, format) {
 
   const description = row[fmt.descriptionCol] || '';
   const reference = fmt.referenceCol != null ? (row[fmt.referenceCol] || '') : '';
+
+  // Remittance CSV: a single cell may contain multiple amounts/references
+  // separated by spaces. e.g. "Amount Paid: 243 201" → two payments.
+  if (fmt.forceCredit) {
+    const amountCell = String(row[fmt.amountCol] || '').trim();
+    const descCell = String(description).trim();
+    const tokens = amountCell.split(/\s+/).filter(t => t !== '');
+    const descTokens = descCell.split(/\s+/).filter(t => t !== '');
+    // If multiple amounts, produce one transaction per amount
+    if (tokens.length > 1) {
+      const out = [];
+      for (let i = 0; i < tokens.length; i++) {
+        const v = parseAmount(tokens[i]);
+        if (isNaN(v) || Math.abs(v) <= 0) continue;
+        const docRef = descTokens[i] || descTokens[descTokens.length - 1] || '';
+        out.push({
+          transaction_date: date,
+          description: docRef ? `${reference} — ${docRef}` : reference,
+          reference: docRef || reference,
+          amount: Math.abs(v),
+          transaction_type: 'credit',
+          balance: null,
+          raw_row: row.join(','),
+        });
+      }
+      return out.length > 0 ? out : null;
+    }
+    // Single value — fall through
+  }
 
   let amount, transactionType;
 
@@ -364,7 +431,8 @@ function extractTransaction(row, format) {
     const val = parseAmount(row[fmt.amountCol]);
     if (isNaN(val)) return null;
     amount = Math.abs(val);
-    transactionType = val > 0 ? 'credit' : 'debit';
+    // Remittance formats: every row is a payment (credit) regardless of sign
+    transactionType = fmt.forceCredit ? 'credit' : (val > 0 ? 'credit' : 'debit');
   }
 
   const balance = fmt.balanceCol != null ? parseAmount(row[fmt.balanceCol]) : null;
@@ -710,19 +778,24 @@ router.post('/upload', async (req, res) => {
     let totalCredits = 0;
 
     for (const row of dataRows) {
-      const txn = extractTransaction(row, format);
-      if (!txn) continue;
+      const result = extractTransaction(row, format);
+      if (!result) continue;
+      // Some formats (remittance CSV) may return an array of transactions
+      // when one CSV row represents multiple payments
+      const txns = Array.isArray(result) ? result : [result];
 
-      // Only store credit/incoming transactions
-      if (txn.transaction_type !== 'credit') continue;
+      for (const txn of txns) {
+        // Only store credit/incoming transactions
+        if (txn.transaction_type !== 'credit') continue;
 
-      await dbRun(db, `
-        INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, balance, raw_row)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [req.userId, uploadId, txn.transaction_date, txn.description, txn.reference, txn.amount, txn.transaction_type, txn.balance, txn.raw_row]);
+        await dbRun(db, `
+          INSERT INTO bank_transactions (user_id, upload_id, transaction_date, description, reference, amount, transaction_type, balance, raw_row)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [req.userId, uploadId, txn.transaction_date, txn.description, txn.reference, txn.amount, txn.transaction_type, txn.balance, txn.raw_row]);
 
-      creditCount++;
-      totalCredits += txn.amount;
+        creditCount++;
+        totalCredits += txn.amount;
+      }
     }
 
     await dbRun(db, 'UPDATE bank_statement_uploads SET row_count = ? WHERE id = ?', [creditCount, uploadId]);
